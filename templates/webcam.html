@@ -105,40 +105,6 @@
             color: var(--primary-blue);
         }
 
-        /* Card Component */
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            transition: all 0.3s ease;
-        }
-
-        .card:hover {
-            border-color: rgba(96, 165, 250, 0.2);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .card-padding {
-            padding: 24px;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .card-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--primary-blue);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
         /* Button Component */
         .btn {
             display: inline-flex;
@@ -188,7 +154,7 @@
             padding: 20px;
             border: 1px solid var(--glass-border);
             margin-bottom: 24px;
-            display: none;
+            display: block;
         }
 
         .setup-content {
@@ -415,6 +381,22 @@
             margin-bottom: 24px;
         }
 
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         /* Two Column Layout */
         .content-grid {
             display: grid;
@@ -443,13 +425,6 @@
             align-items: center;
             min-height: 450px;
             border: 1px solid var(--glass-border);
-        }
-
-        .video-stream {
-            max-width: 100%;
-            height: auto;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
 
         /* Client Camera Elements */
@@ -732,7 +707,7 @@
         <!-- Page Header -->
         <div class="page-header">
             <h1 class="page-title text-gradient">Live Focus Monitoring</h1>
-            <p class="page-subtitle">Real-time focus detection with facial landmarks, automatic recording, and comprehensive reporting</p>
+            <p class="page-subtitle">Railway deployment with PIL-based face detection and automatic recording</p>
         </div>
 
         <!-- Camera Setup Notice -->
@@ -742,8 +717,8 @@
                     <i class="fas fa-info-circle"></i>
                 </div>
                 <div class="setup-text">
-                    <div class="setup-title">Using Device Camera</div>
-                    <div class="setup-subtitle">Server camera not available. Using your device camera for Railway/ngrok compatibility.</div>
+                    <div class="setup-title">Railway Deployment - Device Camera Mode</div>
+                    <div class="setup-subtitle">Optimized for Railway platform with PIL-based facial landmark detection</div>
                 </div>
             </div>
         </div>
@@ -792,10 +767,7 @@
             <div class="left-column">
                 <!-- Video Panel -->
                 <div class="video-container">
-                    <!-- Server Camera (original) -->
-                    <img src="" class="video-stream" id="videoStream" alt="Live Video Feed" style="display: none;">
-                    
-                    <!-- Client Camera (for Railway/ngrok) -->
+                    <!-- Client Camera -->
                     <video id="clientVideo" class="client-video" autoplay></video>
                     <canvas id="clientCanvas" class="client-canvas" width="640" height="480"></canvas>
                     
@@ -807,7 +779,7 @@
                             <div style="margin-bottom: 8px;">• <strong>Sleep Detection:</strong> Alert after 10 seconds</div>
                             <div style="margin-bottom: 8px;">• <strong>Yawning Detection:</strong> Alert after 3.5 seconds</div>
                             <div style="margin-bottom: 8px;">• <strong>Unfocus Detection:</strong> Alert after 10 seconds</div>
-                            <div>• <strong>Visual + Audio Alerts:</strong> Automatic notifications</div>
+                            <div>• <strong>PIL-based Processing:</strong> Railway optimized</div>
                         </div>
                     </div>
                 </div>
@@ -836,9 +808,9 @@
                     
                     <label class="volume-label">Choose volume level:</label>
                     <select class="volume-select" id="alertVolume">
-                        <option value="0.3">Low</option>
-                        <option value="0.6" selected>Medium</option>
-                        <option value="1.0">High</option>
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
                     </select>
                 </div>
 
@@ -863,8 +835,8 @@
                             <i class="fas fa-clock"></i>
                         </div>
                         <div class="connection-text">
-                            <div class="connection-title">Ready to Connect</div>
-                            <div class="connection-subtitle" id="connectionSubtitle">Webcam access ready</div>
+                            <div class="connection-title">Railway Deployment Ready</div>
+                            <div class="connection-subtitle">Device camera access ready</div>
                         </div>
                     </div>
 
@@ -875,7 +847,7 @@
                     </div>
 
                     <div class="audio-alert" style="margin-bottom: 0;">
-                        <span style="color: var(--text-secondary); font-size: 0.9rem;" id="audioStatus">Sound Alerts Enabled</span>
+                        <span style="color: var(--text-secondary); font-size: 0.9rem;">Sound Alerts Enabled</span>
                     </div>
                 </div>
 
@@ -921,7 +893,6 @@
     </div>
 
     <script>
-        // ===== SESSION VARIABLES =====
         let sessionStartTime = null;
         let alertCount = 0;
         let isMonitoring = false;
@@ -930,34 +901,16 @@
         let lastAlertIds = new Set();
         let audioEnabled = true;
 
-        // ===== CAMERA VARIABLES =====
-        let usingClientCamera = false;
         let clientVideo = null;
         let clientCanvas = null;
         let clientCtx = null;
         let clientStream = null;
         let processingInterval = null;
+        let storedFrames = [];
 
-        // ===== ALERT TRACKING VARIABLES (NEW) =====
-        let clientAlerts = [];
-        let personStates = {};  // Track state for each person
-        let personTimers = {};  // Track duration for each person
-        let alertThresholds = {
-            'SLEEPING': 10000,      // 10 seconds in milliseconds
-            'YAWNING': 3500,        // 3.5 seconds in milliseconds  
-            'NOT FOCUSED': 10000    // 10 seconds in milliseconds
-        };
-
-        // ===== AUDIO SYSTEM (NEW) =====
-        let audioContext = null;
-        let alertAudio = null;
-
-        // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             initializePage();
             setupEventListeners();
-            checkCameraSetup();
-            initializeAudioSystem(); // NEW
         });
 
         function initializePage() {
@@ -967,106 +920,14 @@
                 document.body.style.opacity = "1";
             }, 100);
             
-            // Initialize client camera elements
             clientVideo = document.getElementById('clientVideo');
             clientCanvas = document.getElementById('clientCanvas');
-            clientCtx = clientCanvas.getContext('2d');
-        }
-
-        // ===== NEW FUNCTION - Initialize Audio System =====
-        function initializeAudioSystem() {
-            try {
-                // Create audio context for beep sounds
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // Create alert audio for speech synthesis
-                if ('speechSynthesis' in window) {
-                    console.log('Speech synthesis available');
-                } else {
-                    console.log('Speech synthesis not available, using beep alerts only');
-                }
-            } catch (error) {
-                console.log('Audio initialization failed:', error);
-            }
-        }
-
-        // ===== NEW FUNCTION - Play Alert Sound =====
-        function playAlertSound(alertType = 'default') {
-            if (!audioEnabled || !audioContext) return;
-
-            try {
-                const volume = parseFloat(document.getElementById('alertVolume').value);
-                
-                // Create beep sound
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                // Different frequencies for different alert types
-                const frequencies = {
-                    'SLEEPING': 800,    // High frequency for urgent
-                    'YAWNING': 600,     // Medium frequency
-                    'NOT FOCUSED': 400,  // Lower frequency
-                    'default': 500
-                };
-                
-                oscillator.frequency.setValueAtTime(frequencies[alertType] || frequencies.default, audioContext.currentTime);
-                oscillator.type = 'sine';
-                
-                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.1);
-                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
-                
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.5);
-                
-            } catch (error) {
-                console.error('Audio playback error:', error);
-            }
-        }
-
-        // ===== NEW FUNCTION - Speak Alert Message =====
-        function speakAlertMessage(message) {
-            if (!audioEnabled || !window.speechSynthesis) return;
-
-            try {
-                const utterance = new SpeechSynthesisUtterance(message);
-                const volume = parseFloat(document.getElementById('alertVolume').value);
-                
-                utterance.volume = volume;
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
-                
-                window.speechSynthesis.speak(utterance);
-            } catch (error) {
-                console.error('Speech synthesis error:', error);
-            }
-        }
-
-        // Check camera setup
-        async function checkCameraSetup() {
-            try {
-                const response = await fetch('/check_camera');
-                const data = await response.json();
-                
-                if (!data.camera_available) {
-                    usingClientCamera = true;
-                    document.getElementById('cameraSetupNotice').style.display = 'block';
-                    document.getElementById('connectionSubtitle').textContent = 'Using device camera (Railway/ngrok mode)';
-                    console.log('Using client-side camera for Railway/ngrok compatibility');
-                }
-            } catch (error) {
-                usingClientCamera = true;
-                document.getElementById('cameraSetupNotice').style.display = 'block';
-                document.getElementById('connectionSubtitle').textContent = 'Using device camera (fallback mode)';
-                console.log('Fallback to client-side camera');
+            if (clientCanvas) {
+                clientCtx = clientCanvas.getContext('2d');
             }
         }
 
         function setupEventListeners() {
-            // Navigation links
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', function(e) {
                     if (this.getAttribute('href').startsWith('/')) {
@@ -1079,7 +940,6 @@
                 });
             });
 
-            // Button hover effects
             document.querySelectorAll('.btn').forEach(button => {
                 button.addEventListener('mouseenter', function() {
                     if (!this.disabled) {
@@ -1092,7 +952,6 @@
                 });
             });
 
-            // Keyboard shortcuts
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
                     if (isMonitoring) {
@@ -1107,23 +966,15 @@
                 }
             });
 
-            // Volume change notification
             document.getElementById('alertVolume').addEventListener('change', function() {
-                showNotification(`Alert volume changed to ${this.selectedOptions[0].text}`, 'info');
+                showNotification(`Alert volume changed to ${this.value}`, 'info');
             });
-
-            // Enable audio context on user interaction
-            document.addEventListener('click', function() {
-                if (audioContext && audioContext.state === 'suspended') {
-                    audioContext.resume();
-                }
-            }, { once: true });
         }
 
         function toggleAudioAlert() {
             audioEnabled = !audioEnabled;
             const toggle = document.querySelector('.toggle-switch');
-            const statusText = document.getElementById('audioStatus');
+            const statusText = document.querySelector('.audio-alert:last-of-type span');
             
             if (audioEnabled) {
                 toggle.classList.remove('off');
@@ -1136,16 +987,8 @@
             }
         }
 
-        // ===== MODIFIED - startMonitoring function =====
         async function startMonitoring() {
             try {
-                // Reset alert tracking (NEW)
-                clientAlerts = [];
-                personStates = {};
-                personTimers = {};
-                alertCount = 0;
-
-                // Start server monitoring
                 const response = await fetch('/start_monitoring', { method: 'POST' });
                 const data = await response.json();
                 
@@ -1153,21 +996,15 @@
                     throw new Error(data.message);
                 }
 
-                if (usingClientCamera) {
-                    await initializeClientCamera();
-                } else {
-                    initializeServerCamera();
-                }
-
+                await initializeClientCamera();
                 updateUIForActiveMonitoring();
                 startDataUpdates();
-                showNotification('Monitoring started with automatic recording and alert tracking', 'success');
+                showNotification('Monitoring started with automatic recording', 'success');
             } catch (error) {
                 showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
         }
 
-        // Initialize client camera
         async function initializeClientCamera() {
             try {
                 clientStream = await navigator.mediaDevices.getUserMedia({
@@ -1182,7 +1019,6 @@
                 clientVideo.style.display = 'none';
                 clientCanvas.style.display = 'block';
                 
-                // Start processing frames
                 processingInterval = setInterval(processClientFrame, 1000);
                 
             } catch (error) {
@@ -1190,22 +1026,21 @@
             }
         }
 
-        // Initialize server camera
-        function initializeServerCamera() {
-            document.getElementById('videoStream').src = '/video_feed';
-            document.getElementById('videoStream').style.display = 'block';
-        }
-
-        // ===== MODIFIED - Process client frame with Alert Detection =====
         function processClientFrame() {
-            if (!clientVideo || !isMonitoring || !clientStream) return;
+            if (!clientVideo || !isMonitoring || !clientStream || !clientCtx) return;
 
             try {
                 // Draw video frame to canvas
                 clientCtx.drawImage(clientVideo, 0, 0, clientCanvas.width, clientCanvas.height);
                 
-                // Convert to base64
+                // Store frame for video creation
                 const frameData = clientCanvas.toDataURL('image/jpeg', 0.8);
+                storedFrames.push(frameData);
+                
+                // Keep only last 1000 frames to prevent memory issues
+                if (storedFrames.length > 1000) {
+                    storedFrames = storedFrames.slice(-1000);
+                }
 
                 // Send to server for processing
                 fetch('/process_frame', {
@@ -1222,10 +1057,10 @@
                             clientCtx.drawImage(img, 0, 0, clientCanvas.width, clientCanvas.height);
                         };
                         img.src = data.processed_frame;
-
-                        // ===== NEW - Process detections for alerts =====
+                        
+                        // Update detection data
                         if (data.detections && data.detections.length > 0) {
-                            processDetectionAlerts(data.detections);
+                            updateLocalDetectionData(data.detections);
                         }
                     }
                 })
@@ -1238,156 +1073,44 @@
             }
         }
 
-        // ===== NEW FUNCTION - Process Detection Alerts =====
-        function processDetectionAlerts(detections) {
-            const currentTime = Date.now();
-
-            detections.forEach(detection => {
-                const personId = `person_${detection.id}`;
-                const currentState = detection.status;
-
-                // Initialize person tracking if not exists
-                if (!personStates[personId]) {
-                    personStates[personId] = null;
-                    personTimers[personId] = {};
-                }
-
-                // Check if state changed
-                if (personStates[personId] !== currentState) {
-                    // State changed, reset timers
-                    personStates[personId] = currentState;
-                    personTimers[personId] = {};
-                    
-                    // Start timer for new state if it's a distraction state
-                    if (alertThresholds[currentState]) {
-                        personTimers[personId][currentState] = currentTime;
-                    }
-                } else {
-                    // Same state continues, check if we need to trigger alert
-                    if (alertThresholds[currentState] && personTimers[personId][currentState]) {
-                        const duration = currentTime - personTimers[personId][currentState];
-                        
-                        // Check if duration exceeds threshold
-                        if (duration >= alertThresholds[currentState]) {
-                            triggerClientAlert(detection.id, currentState, Math.floor(duration / 1000));
-                            
-                            // Reset timer to prevent repeated alerts
-                            personTimers[personId][currentState] = currentTime;
-                        }
-                    }
-                }
-            });
-
-            // Update UI with current detection data
-            updateUIWithDetections(detections);
-        }
-
-        // ===== NEW FUNCTION - Trigger Client Alert =====
-        function triggerClientAlert(personId, alertType, duration) {
-            const alertTime = new Date().toLocaleTimeString();
-            const alertMessage = getAlertMessage(personId, alertType);
-            
-            // Create alert object
-            const alert = {
-                id: `${personId}_${alertType}_${Date.now()}`,
-                time: alertTime,
-                person: `Person ${personId}`,
-                detection: alertType,
-                message: alertMessage,
-                duration: duration,
-                type: alertType === 'SLEEPING' ? 'error' : 'warning'
-            };
-
-            // Add to local alerts array
-            clientAlerts.unshift(alert);
-            
-            // Keep only last 20 alerts
-            if (clientAlerts.length > 20) {
-                clientAlerts = clientAlerts.slice(0, 20);
-            }
-
-            // Update alert count
-            alertCount++;
-            document.getElementById('alertCount').textContent = alertCount;
-
-            // Play audio alert
-            playAlertSound(alertType);
-            
-            // Speak alert message (with delay to avoid overlap)
-            setTimeout(() => {
-                speakAlertMessage(alertMessage);
-            }, 500);
-
-            // Update alert history UI
-            updateClientAlertHistory();
-
-            // Show notification
-            showNotification(alertMessage, alert.type);
-
-            console.log('Alert triggered:', alert);
-        }
-
-        // ===== NEW FUNCTION - Get Alert Message =====
-        function getAlertMessage(personId, alertType) {
-            const messages = {
-                'SLEEPING': `Person ${personId} is sleeping - please wake up!`,
-                'YAWNING': `Person ${personId} is yawning - please take a rest!`,
-                'NOT FOCUSED': `Person ${personId} is not focused - please focus on screen!`
-            };
-            return messages[alertType] || `Person ${personId} attention alert`;
-        }
-
-        // ===== NEW FUNCTION - Update UI with Detections =====
-        function updateUIWithDetections(detections) {
-            // Update statistics
-            document.getElementById('totalPersons').textContent = detections.length;
-            
+        function updateLocalDetectionData(detections) {
+            // Update local statistics based on detections
+            const totalPersons = detections.length;
             const focusedCount = detections.filter(d => d.status === 'FOCUSED').length;
-            document.getElementById('focusedCount').textContent = focusedCount;
-
-            // Update current status based on detections
-            let overallStatus = 'FOCUSED';
-            if (detections.some(d => d.status === 'SLEEPING')) {
-                overallStatus = 'SLEEPING';
-            } else if (detections.some(d => d.status === 'YAWNING')) {
-                overallStatus = 'YAWNING';
-            } else if (detections.some(d => d.status === 'NOT FOCUSED')) {
-                overallStatus = 'NOT FOCUSED';
-            }
-
-            updateCurrentStatus(overallStatus);
-        }
-
-        // ===== NEW FUNCTION - Update Client Alert History =====
-        function updateClientAlertHistory() {
-            const alertHistory = document.getElementById('alertHistory');
             
-            if (clientAlerts.length === 0) {
-                alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>No alerts yet in this session.</p></div>';
-                return;
+            document.getElementById('totalPersons').textContent = totalPersons;
+            document.getElementById('focusedCount').textContent = focusedCount;
+            
+            // Determine overall status
+            let currentStatus = 'FOCUSED';
+            if (detections.some(d => d.status === 'SLEEPING')) {
+                currentStatus = 'SLEEPING';
+            } else if (detections.some(d => d.status === 'YAWNING')) {
+                currentStatus = 'YAWNING';
+            } else if (detections.some(d => d.status === 'NOT FOCUSED')) {
+                currentStatus = 'NOT FOCUSED';
             }
-
-            alertHistory.innerHTML = clientAlerts.slice(0, 10).map(alert => 
-                `<div class="alert-item" style="border-left-color: ${alert.type === 'error' ? 'var(--danger)' : 'var(--warning)'};">
-                    <div style="flex: 1;">
-                        <div style="font-weight: 500; margin-bottom: 4px;">${alert.message}</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Duration: ${alert.duration}s</div>
-                    </div>
-                    <div class="alert-time">${alert.time}</div>
-                </div>`
-            ).join('');
+            
+            updateCurrentStatus(currentStatus);
         }
 
-        // ===== MODIFIED - stopMonitoring function =====
         async function stopMonitoring() {
             try {
+                // Send stored frames to server
+                if (storedFrames.length > 0) {
+                    await fetch('/save_session_frames', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ frames: storedFrames })
+                    });
+                }
+
                 const response = await fetch('/stop_monitoring', { method: 'POST' });
                 const data = await response.json();
 
                 updateUIForInactiveMonitoring();
                 stopDataUpdates();
 
-                // Cleanup client camera
                 if (clientStream) {
                     clientStream.getTracks().forEach(track => track.stop());
                     clientStream = null;
@@ -1398,58 +1121,20 @@
                     processingInterval = null;
                 }
 
-                // Reset alert tracking (NEW)
-                personStates = {};
-                personTimers = {};
+                storedFrames = [];
 
-                showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
+                showNotification('Session complete! PDF report and recording generated.', 'success');
                 
-                // Show download options
                 if (data.pdf_report || data.video_file) {
                     showDownloads(data.pdf_report, data.video_file);
                 } else {
-                    showDownloads('/reports/session_report.pdf', '/recordings/session_video.mp4');
+                    showDownloads('/static/reports/session_report.pdf', '/static/recordings/session_video.mp4');
                 }
             } catch (error) {
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
             }
         }
 
-        // ===== MODIFIED - updateUIForInactiveMonitoring function =====
-        function updateUIForInactiveMonitoring() {
-            isMonitoring = false;
-            
-            document.getElementById('startBtn').disabled = false;
-            document.getElementById('stopBtn').disabled = true;
-            document.getElementById('screenshotBtn').disabled = true;
-            
-            const liveIndicator = document.getElementById('liveIndicator');
-            const liveDot = document.getElementById('liveDot');
-            const liveText = document.getElementById('liveText');
-            
-            liveIndicator.classList.remove('active');
-            liveDot.classList.remove('active');
-            liveText.textContent = 'READY';
-            
-            // Hide all video elements
-            document.getElementById('videoStream').style.display = 'none';
-            document.getElementById('videoStream').src = '';
-            document.getElementById('clientVideo').style.display = 'none';
-            document.getElementById('clientCanvas').style.display = 'none';
-            document.getElementById('videoPlaceholder').style.display = 'block';
-            
-            updateCurrentStatus('READY');
-            
-            if (sessionTimer) {
-                clearInterval(sessionTimer);
-                sessionTimer = null;
-            }
-            
-            document.getElementById('totalPersons').textContent = '0';
-            document.getElementById('focusedCount').textContent = '0';
-        }
-
-        // Rest of functions remain the same as original
         function updateUIForActiveMonitoring() {
             isMonitoring = true;
             sessionStartTime = Date.now();
@@ -1472,15 +1157,44 @@
             startSessionTimer();
             
             const alertHistory = document.getElementById('alertHistory');
-            alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring started - watching for alerts...</p></div>';
+            alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring started - automatic recording active</p></div>';
             
             lastAlertIds.clear();
         }
 
+        function updateUIForInactiveMonitoring() {
+            isMonitoring = false;
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('screenshotBtn').disabled = true;
+            
+            const liveIndicator = document.getElementById('liveIndicator');
+            const liveDot = document.getElementById('liveDot');
+            const liveText = document.getElementById('liveText');
+            
+            liveIndicator.classList.remove('active');
+            liveDot.classList.remove('active');
+            liveText.textContent = 'READY';
+            
+            document.getElementById('clientVideo').style.display = 'none';
+            document.getElementById('clientCanvas').style.display = 'none';
+            document.getElementById('videoPlaceholder').style.display = 'block';
+            
+            updateCurrentStatus('READY');
+            
+            if (sessionTimer) {
+                clearInterval(sessionTimer);
+                sessionTimer = null;
+            }
+            
+            document.getElementById('totalPersons').textContent = '0';
+            document.getElementById('focusedCount').textContent = '0';
+        }
+
         function startDataUpdates() {
             dataUpdateTimer = setInterval(() => {
-                if (isMonitoring && !usingClientCamera) {
-                    // Only fetch server data if not using client camera
+                if (isMonitoring) {
                     fetch('/get_monitoring_data')
                         .then(response => response.json())
                         .then(data => {
@@ -1493,7 +1207,7 @@
                             console.error('Failed to fetch monitoring data:', error);
                         });
                 }
-            }, 2000);
+            }, 3000);
         }
 
         function stopDataUpdates() {
@@ -1504,12 +1218,7 @@
         }
 
         function updateMonitoringDisplay(data) {
-            document.getElementById('totalPersons').textContent = data.total_persons || 0;
-            document.getElementById('focusedCount').textContent = data.focused_count || 0;
             document.getElementById('alertCount').textContent = data.alert_count || 0;
-            
-            const currentStatus = data.current_status || 'READY';
-            updateCurrentStatus(currentStatus);
         }
 
         function updateCurrentStatus(status) {
@@ -1549,9 +1258,6 @@
         }
 
         function updateAlerts(alerts) {
-            // This function is for server-side alerts (when not using client camera)
-            if (usingClientCamera) return; // Skip if using client camera
-            
             const alertHistory = document.getElementById('alertHistory');
             
             if (alerts.length === 0) {
@@ -1598,7 +1304,7 @@
                         </div>
                         <div>
                             <div style="font-weight: 600;">Session Report</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with ${alertCount} alerts tracked</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with comprehensive analysis</div>
                         </div>
                     </div>
                     <a href="${pdfReport}" download class="btn btn-primary">
@@ -1618,7 +1324,7 @@
                         </div>
                         <div>
                             <div style="font-weight: 600;">Session Recording</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Video with face detection overlays</div>
                         </div>
                     </div>
                     <a href="${videoFile}" download class="btn btn-secondary">
@@ -1632,7 +1338,13 @@
         }
 
         function takeScreenshot() {
-            showNotification('Screenshot captured successfully', 'success');
+            if (clientCanvas && isMonitoring) {
+                const link = document.createElement('a');
+                link.download = `screenshot_${new Date().getTime()}.png`;
+                link.href = clientCanvas.toDataURL();
+                link.click();
+                showNotification('Screenshot captured successfully', 'success');
+            }
         }
 
         function showNotification(message, type = 'info') {
@@ -1686,7 +1398,6 @@
             }, 5000);
         }
 
-        // Add slideInRight animation
         const style = document.createElement('style');
         style.textContent = `
             @keyframes slideInRight {
@@ -1702,7 +1413,6 @@
         `;
         document.head.appendChild(style);
 
-        // Cleanup on page unload
         window.addEventListener('beforeunload', function() {
             if (clientStream) {
                 clientStream.getTracks().forEach(track => track.stop());
