@@ -21,6 +21,37 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from io import BytesIO
 import base64
+from pathlib import Path
+import sys
+
+# ===== ENVIRONMENT DETECTION & CONFIGURATION =====
+IS_RAILWAY = os.environ.get('RAILWAY_ENVIRONMENT') == 'production' or 'railway' in os.environ.get('PYTHONPATH', '').lower()
+IS_LOCAL = not IS_RAILWAY
+
+print(f"Environment detected: {'Railway' if IS_RAILWAY else 'Local'}")
+
+# Configure environment-specific settings
+if IS_RAILWAY:
+    print("Configuring for Railway deployment...")
+    # Disable GUI-related warnings for headless environment
+    os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+    os.environ['DISPLAY'] = ''
+    os.environ['MEDIAPIPE_DISABLE_GPU'] = '1'
+    os.environ['OPENCV_LOG_LEVEL'] = 'ERROR'
+    # Disable matplotlib GUI backend
+    import matplotlib
+    matplotlib.use('Agg')
+else:
+    print("Running in Local Environment")
+
+# Environment-specific configurations
+DETECTION_CONFIG = {
+    'show_landmarks': True,  # Always show landmarks for consistency
+    'enable_speech': IS_LOCAL,   # Only enable TTS locally
+    'debug_mode': IS_LOCAL,      # Debug output only locally
+    'use_detailed_overlay': True,  # Always use detailed overlay
+    'force_timer_display': True   # Always show timer like local
+}
 
 application = Flask(__name__)
 application.config['UPLOAD_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'uploads')
@@ -34,6 +65,11 @@ for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED
                application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
     if not os.path.exists(folder):
         os.makedirs(folder)
+
+# Create persistent data directory for session history
+DATA_DIR = Path(os.path.realpath('.')) / 'data'
+DATA_DIR.mkdir(exist_ok=True)
+HISTORY_FILE = DATA_DIR / 'session_history.json'
 
 # Global variables for live monitoring
 live_monitoring_active = False
@@ -56,13 +92,66 @@ session_data = {
 video_writer = None
 recording_active = False
 
+# ===== UTILITY FUNCTIONS =====
+def save_session_data(session_data):
+    """Save session data to persistent storage"""
+    try:
+        # Load existing history
+        history = load_session_history()
+        
+        # Add current session
+        session_record = {
+            'session_id': str(uuid.uuid4()),
+            'timestamp': datetime.now().isoformat(),
+            'start_time': session_data['start_time'].isoformat() if session_data['start_time'] else None,
+            'end_time': session_data['end_time'].isoformat() if session_data['end_time'] else None,
+            'total_detections': session_data['focus_statistics']['total_detections'],
+            'total_alerts': len(session_data['alerts']),
+            'total_persons': session_data['focus_statistics']['total_persons'],
+            'focus_stats': session_data['focus_statistics']
+        }
+        
+        history.append(session_record)
+        
+        # Keep only last 50 sessions
+        if len(history) > 50:
+            history = history[-50:]
+        
+        # Save to file
+        with open(HISTORY_FILE, 'w') as f:
+            json.dump(history, f, indent=2)
+            
+        if DETECTION_CONFIG['debug_mode']:
+            print(f"Session data saved to {HISTORY_FILE}")
+        
+    except Exception as e:
+        print(f"Error saving session data: {e}")
+
+def load_session_history():
+    """Load session history from persistent storage"""
+    try:
+        if HISTORY_FILE.exists():
+            with open(HISTORY_FILE, 'r') as f:
+                return json.load(f)
+        return []
+    except Exception as e:
+        print(f"Error loading session history: {e}")
+        return []
+
 def draw_landmarks(image, landmarks, land_mark, color):
     """Draw landmarks on the image for a single face"""
+    if not DETECTION_CONFIG['show_landmarks']:
+        return
+        
     height, width = image.shape[:2]
     for face in land_mark:
-        point = landmarks.landmark[face]
-        point_scale = ((int)(point.x * width), (int)(point.y * height))     
-        cv.circle(image, point_scale, 2, color, 1)
+        try:
+            point = landmarks.landmark[face]
+            point_scale = ((int)(point.x * width), (int)(point.y * height))     
+            cv.circle(image, point_scale, 2, color, 1)
+        except Exception as e:
+            if DETECTION_CONFIG['debug_mode']:
+                print(f"Landmark drawing error: {e}")
 
 def euclidean_distance(image, top, bottom):
     """Calculate euclidean distance between two points"""
@@ -259,41 +348,43 @@ def detect_persons_with_attention(image, mode="image"):
             
             status_text = attention_status.get("state", "FOCUSED")
             
-            # Draw status info
-            info_y_start = y + h + 10
-            box_padding = 10
-            line_height = 20
-            box_height = 4 * line_height
-            
-            overlay = image.copy()
-            cv.rectangle(overlay, 
-                        (x - box_padding, info_y_start - box_padding), 
-                        (x + w + box_padding, info_y_start + box_height), 
-                        (0, 0, 0), -1)
-            cv.addWeighted(overlay, 0.6, image, 0.4, 0, image)
-            
-            font = cv.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.5
-            font_color = (255, 255, 255)
-            thickness = 1
-            
-            cv.putText(image, f"Person {i+1}", (x, info_y_start), 
-                    font, font_scale, (50, 205, 50), thickness+1)
-            cv.putText(image, f"Confidence: {confidence_score*100:.2f}%", 
-                    (x, info_y_start + line_height), font, font_scale, font_color, thickness)
-            cv.putText(image, f"Position: x:{x}, y:{y} Size: w:{w}, h:{h}", 
-                    (x, info_y_start + 2*line_height), font, font_scale, font_color, thickness)
-            
-            status_color = {
-                "FOCUSED": (0, 255, 0),
-                "NOT FOCUSED": (255, 165, 0),
-                "YAWNING": (255, 255, 0),
-                "SLEEPING": (0, 0, 255)
-            }
-            color = status_color.get(status_text, (0, 255, 0))
-            
-            cv.putText(image, f"Status: {status_text}", 
-                    (x, info_y_start + 3*line_height), font, font_scale, color, thickness)
+            # ===== FORCE CONSISTENT DISPLAY FORMAT =====
+            # Show detailed info like local version, not just coordinates
+            if DETECTION_CONFIG['use_detailed_overlay']:
+                info_y_start = y + h + 10
+                box_padding = 10
+                line_height = 20
+                box_height = 4 * line_height
+                
+                overlay = image.copy()
+                cv.rectangle(overlay, 
+                            (x - box_padding, info_y_start - box_padding), 
+                            (x + w + box_padding, info_y_start + box_height), 
+                            (0, 0, 0), -1)
+                cv.addWeighted(overlay, 0.6, image, 0.4, 0, image)
+                
+                font = cv.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.5
+                font_color = (255, 255, 255)
+                thickness = 1
+                
+                cv.putText(image, f"Person {i+1}", (x, info_y_start), 
+                        font, font_scale, (50, 205, 50), thickness+1)
+                cv.putText(image, f"Confidence: {confidence_score*100:.2f}%", 
+                        (x, info_y_start + line_height), font, font_scale, font_color, thickness)
+                cv.putText(image, f"Position: x:{x}, y:{y} Size: w:{w}, h:{h}", 
+                        (x, info_y_start + 2*line_height), font, font_scale, font_color, thickness)
+                
+                status_color = {
+                    "FOCUSED": (0, 255, 0),
+                    "NOT FOCUSED": (255, 165, 0),
+                    "YAWNING": (255, 255, 0),
+                    "SLEEPING": (0, 0, 255)
+                }
+                color = status_color.get(status_text, (0, 255, 0))
+                
+                cv.putText(image, f"Status: {status_text}", 
+                        (x, info_y_start + 3*line_height), font, font_scale, color, thickness)
             
             # Extract face region
             face_img = image[y:y+h, x:x+w]
@@ -852,7 +943,7 @@ def process_video_file(video_path):
     return output_path, all_detections
 
 def gen_frames():  
-    """Generate frames for webcam streaming with person detection and state analysis"""
+    """Generate frames for webcam streaming with person detection and state analysis - FIXED VERSION"""
     global live_monitoring_active, session_data, video_writer, recording_active
     
     # Face mesh parameters
@@ -898,12 +989,18 @@ def gen_frames():
         min_detection_confidence=0.5
     )
     
-    # Initialize text-to-speech
-    try:
-        speech = pyttsx3.init()
-        speech.setProperty('rate', 150)
-    except:
-        speech = None
+    # Initialize text-to-speech dengan error handling untuk server environment
+    speech = None
+    if DETECTION_CONFIG['enable_speech']:
+        try:
+            speech = pyttsx3.init()
+            speech.setProperty('rate', 150)
+            if DETECTION_CONFIG['debug_mode']:
+                print("TTS initialized successfully")
+        except Exception as e:
+            if DETECTION_CONFIG['debug_mode']:
+                print(f"TTS initialization failed (normal in server environment): {e}")
+            speech = None
     
     # Initialize webcam
     camera = cv.VideoCapture(0)
@@ -972,14 +1069,20 @@ def gen_frames():
                 w = min(w, img_w - x)
                 h = min(h, img_h - y)
                 
-                # Draw landmarks on face
-                draw_landmarks(frame, face_landmarks, FACE, COLOR_GREEN)
-                draw_landmarks(frame, face_landmarks, LEFT_EYE_TOP_BOTTOM, COLOR_RED)
-                draw_landmarks(frame, face_landmarks, LEFT_EYE_LEFT_RIGHT, COLOR_RED)
-                draw_landmarks(frame, face_landmarks, RIGHT_EYE_TOP_BOTTOM, COLOR_RED)
-                draw_landmarks(frame, face_landmarks, RIGHT_EYE_LEFT_RIGHT, COLOR_RED)
-                draw_landmarks(frame, face_landmarks, UPPER_LOWER_LIPS, COLOR_BLUE)
-                draw_landmarks(frame, face_landmarks, LEFT_RIGHT_LIPS, COLOR_BLUE)
+                # ===== CRITICAL FIX: FORCE CONSISTENT LANDMARK DRAWING =====
+                # Ensure landmarks are drawn consistently across environments
+                try:
+                    if DETECTION_CONFIG['show_landmarks']:
+                        draw_landmarks(frame, face_landmarks, FACE, COLOR_GREEN)
+                        draw_landmarks(frame, face_landmarks, LEFT_EYE_TOP_BOTTOM, COLOR_RED)
+                        draw_landmarks(frame, face_landmarks, LEFT_EYE_LEFT_RIGHT, COLOR_RED)
+                        draw_landmarks(frame, face_landmarks, RIGHT_EYE_TOP_BOTTOM, COLOR_RED)
+                        draw_landmarks(frame, face_landmarks, RIGHT_EYE_LEFT_RIGHT, COLOR_RED)
+                        draw_landmarks(frame, face_landmarks, UPPER_LOWER_LIPS, COLOR_BLUE)
+                        draw_landmarks(frame, face_landmarks, LEFT_RIGHT_LIPS, COLOR_BLUE)
+                except Exception as e:
+                    if DETECTION_CONFIG['debug_mode']:
+                        print(f"Landmark drawing error: {e}")
                 
                 # Create mesh points for iris detection
                 mesh_points = []    
@@ -994,13 +1097,18 @@ def gen_frames():
                 left_iris_points = mesh_points[LEFT_IRIS]
                 right_iris_points = mesh_points[RIGHT_IRIS]
 
-                # Draw iris circles
-                (l_cx, l_cy), l_radius = cv.minEnclosingCircle(left_iris_points)
-                (r_cx, r_cy), r_radius = cv.minEnclosingCircle(right_iris_points)
-                center_left = np.array([l_cx, l_cy], dtype=np.int32)
-                center_right = np.array([r_cx, r_cy], dtype=np.int32)
-                cv.circle(frame, center_left, int(l_radius), COLOR_MAGENTA, 1, cv.LINE_AA)
-                cv.circle(frame, center_right, int(r_radius), COLOR_MAGENTA, 1, cv.LINE_AA)
+                # Draw iris circles dengan error handling
+                try:
+                    if DETECTION_CONFIG['show_landmarks']:
+                        (l_cx, l_cy), l_radius = cv.minEnclosingCircle(left_iris_points)
+                        (r_cx, r_cy), r_radius = cv.minEnclosingCircle(right_iris_points)
+                        center_left = np.array([l_cx, l_cy], dtype=np.int32)
+                        center_right = np.array([r_cx, r_cy], dtype=np.int32)
+                        cv.circle(frame, center_left, int(l_radius), COLOR_MAGENTA, 1, cv.LINE_AA)
+                        cv.circle(frame, center_right, int(r_radius), COLOR_MAGENTA, 1, cv.LINE_AA)
+                except Exception as e:
+                    if DETECTION_CONFIG['debug_mode']:
+                        print(f"Iris circle drawing error: {e}")
                 
                 # Analyze facial state
                 status, state = detect_drowsiness(frame, face_landmarks)
@@ -1068,13 +1176,17 @@ def gen_frames():
                 color = state_colors.get(state, (0, 255, 0))
                 cv.rectangle(frame, (x, y), (x + w, y + h), color, 2)
                 
-                # Add state label with duration if in distraction
+                # ===== CRITICAL FIX: STANDARDIZE TEXT DISPLAY FORMAT =====
+                # Force consistent text format across all environments (ALWAYS show timer like local)
                 state_text = f"Person {i+1}: {state}"
-                if state in DISTRACTION_THRESHOLDS and state in person_state_timers[person_key]:
+                
+                # ALWAYS show timer when in distraction state (like local version)
+                if DETECTION_CONFIG['force_timer_display'] and state in DISTRACTION_THRESHOLDS and state in person_state_timers[person_key]:
                     duration = current_time - person_state_timers[person_key][state]
                     threshold = DISTRACTION_THRESHOLDS[state]
                     state_text += f" ({int(duration)}s/{threshold}s)"
                 
+                # Display text dengan font yang konsisten
                 cv.putText(frame, state_text, (x, y - 10), cv.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
                 
                 # Store detection for session data (only store focused states and confirmed distractions)
@@ -1096,13 +1208,14 @@ def gen_frames():
                     "duration": distraction_duration if state in DISTRACTION_THRESHOLDS else 0
                 })
                 
-                # Give voice alert only
+                # Give voice alert only (dengan error handling untuk server)
                 if should_alert and speech:
                     try:
                         speech.say(alert_message)
                         speech.runAndWait()
                     except Exception as e:
-                        print(f"Alert error: {e}")
+                        if DETECTION_CONFIG['debug_mode']:
+                            print(f"Alert error (normal in server environment): {e}")
         
         # Update session statistics
         if frame_detections:
@@ -1145,6 +1258,7 @@ def gen_frames():
         video_writer.release()
         video_writer = None
 
+# ===== ROUTES =====
 @application.route('/')
 def index():
     return render_template('index.html')
@@ -1275,6 +1389,9 @@ def stop_monitoring():
         video_writer.release()
         video_writer = None
     
+    # Save session data to persistent storage
+    save_session_data(session_data)
+    
     # Generate PDF report
     pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
@@ -1354,6 +1471,12 @@ def get_monitoring_data():
 def monitoring_status():
     return jsonify({"is_active": live_monitoring_active})
 
+@application.route('/get_session_history')
+def get_session_history():
+    """Get session history for display"""
+    history = load_session_history()
+    return jsonify({"history": history})
+
 @application.route('/api/detect', methods=['POST'])
 def api_detect():
     if 'file' not in request.files:
@@ -1397,18 +1520,31 @@ def api_detect():
 
 @application.route('/check_camera')
 def check_camera():
-    """Cek camera server tersedia atau tidak"""
+    """Check if camera is available in server environment"""
     try:
         camera = cv.VideoCapture(0)
         is_available = camera.isOpened()
         camera.release()
-        return jsonify({"camera_available": is_available})
-    except:
-        return jsonify({"camera_available": False})
+        
+        if DETECTION_CONFIG['debug_mode']:
+            print(f"Camera availability check: {is_available}")
+            
+        return jsonify({
+            "camera_available": is_available,
+            "environment": "Railway" if IS_RAILWAY else "Local"
+        })
+    except Exception as e:
+        if DETECTION_CONFIG['debug_mode']:
+            print(f"Camera check error: {e}")
+        return jsonify({
+            "camera_available": False,
+            "error": str(e),
+            "environment": "Railway" if IS_RAILWAY else "Local"
+        })
 
 @application.route('/process_frame', methods=['POST'])
 def process_frame():
-    """Proses frame dari browser user"""
+    """Process frame from browser user (for browser-based webcam access)"""
     try:
         data = request.get_json()
         frame_data = data['frame'].split(',')[1]
@@ -1416,20 +1552,77 @@ def process_frame():
         nparr = np.frombuffer(frame_bytes, np.uint8)
         frame = cv.imdecode(nparr, cv.IMREAD_COLOR)
         
-        # Proses detection seperti biasa
+        # Process detection like usual
         processed_frame, detections = detect_persons_with_attention(frame, mode="video")
         
-        # Kirim balik ke browser
+        # Send back to browser
         _, buffer = cv.imencode('.jpg', processed_frame)
         processed_frame_b64 = base64.b64encode(buffer).decode('utf-8')
         
         return jsonify({
             "success": True,
             "processed_frame": f"data:image/jpeg;base64,{processed_frame_b64}",
-            "detections": detections
+            "detections": detections,
+            "environment": "Railway" if IS_RAILWAY else "Local"
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": str(e),
+            "environment": "Railway" if IS_RAILWAY else "Local"
+        }), 500
+
+@application.route('/health')
+def health_check():
+    """Health check endpoint untuk Railway"""
+    return jsonify({
+        "status": "healthy",
+        "environment": "Railway" if IS_RAILWAY else "Local",
+        "mediapipe_available": True,
+        "opencv_version": cv.__version__ if hasattr(cv, '__version__') else "unknown",
+        "mediapipe_version": mp.__version__ if hasattr(mp, '__version__') else "unknown"
+    })
+
+@application.route('/environment')
+def environment_info():
+    """Get environment information for debugging"""
+    return jsonify({
+        "is_railway": IS_RAILWAY,
+        "is_local": IS_LOCAL,
+        "detection_config": DETECTION_CONFIG,
+        "opencv_version": cv.__version__ if hasattr(cv, '__version__') else "unknown",
+        "mediapipe_version": mp.__version__ if hasattr(mp, '__version__') else "unknown",
+        "python_version": sys.version,
+        "environment_variables": {
+            "RAILWAY_ENVIRONMENT": os.environ.get('RAILWAY_ENVIRONMENT'),
+            "MEDIAPIPE_DISABLE_GPU": os.environ.get('MEDIAPIPE_DISABLE_GPU'),
+            "OPENCV_LOG_LEVEL": os.environ.get('OPENCV_LOG_LEVEL'),
+            "PORT": os.environ.get('PORT')
+        }
+    })
+
+# Error handlers untuk production
+@application.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": "Not found"}), 404
+
+@application.errorhandler(500)
+def internal_error(error):
+    return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == "__main__":
-    application.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    # Environment specific configuration
+    port = int(os.environ.get('PORT', 5000))
+    debug = IS_LOCAL  # Only enable debug in local environment
+    
+    print(f"Starting Smart Focus Alert application...")
+    print(f"Environment: {'Railway' if IS_RAILWAY else 'Local'}")
+    print(f"Port: {port}")
+    print(f"Debug mode: {debug}")
+    print(f"Detection config: {DETECTION_CONFIG}")
+    
+    application.run(
+        host='0.0.0.0', 
+        port=port, 
+        debug=debug,
+        threaded=True
+    )
