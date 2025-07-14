@@ -1,0 +1,8 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "gunicorn app:application --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
+
+[variables]
+NIXPACKS_PYTHON_VERSION = "3.9"
