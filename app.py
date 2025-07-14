@@ -26,7 +26,7 @@ import base64
 # Initialize Flask app
 application = Flask(__name__)
 
-# FIXED: Configure Flask untuk serve static files dengan benar
+# Configuration for Railway deployment
 application.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable caching
 application.config['UPLOAD_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'uploads')
 application.config['DETECTED_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'detected')
@@ -61,7 +61,6 @@ session_data = {
 # Video recording variables
 video_writer = None
 recording_active = False
-recording_frames = []  # Store frames for client-side recording
 
 # Person state tracking for timer display
 person_state_timers = {}  # Track state duration for each person
@@ -317,8 +316,7 @@ def detect_persons_with_attention(image, mode="image"):
                 if status_text in person_state_timers[person_key]:
                     duration = current_time - person_state_timers[person_key][status_text]
             
-            # ENHANCED BOUNDING BOX with timer display like in the image
-            # Draw main rectangle with different colors based on state
+            # ENHANCED BOUNDING BOX with timer display
             status_colors = {
                 "FOCUSED": (0, 255, 0),      # Green
                 "NOT FOCUSED": (0, 165, 255), # Orange
@@ -331,7 +329,7 @@ def detect_persons_with_attention(image, mode="image"):
             # Draw thick main rectangle
             cv.rectangle(image, (x, y), (x + w, y + h), main_color, 3)
             
-            # TIMER DISPLAY: Create status text with timer like in the image
+            # TIMER DISPLAY: Create status text with timer
             if status_text in DISTRACTION_THRESHOLDS:
                 threshold = DISTRACTION_THRESHOLDS[status_text]
                 timer_text = f"Person {i+1}: {status_text} ({duration:.1f}s/{threshold}s)"
@@ -480,52 +478,9 @@ def update_session_statistics(detections):
     session_data['focus_statistics']['yawning_time'] = distraction_times['yawning_time']
     session_data['focus_statistics']['sleeping_time'] = distraction_times['sleeping_time']
 
-def get_most_common_distraction(alerts):
-    """Helper function to find the most common type of distraction"""
-    if not alerts:
-        return "None"
-    
-    distraction_counts = {}
-    distraction_durations = {}
-    
-    for alert in alerts:
-        detection = alert.get('detection', 'Unknown')
-        duration = alert.get('duration', 0)
-        
-        distraction_counts[detection] = distraction_counts.get(detection, 0) + 1
-        distraction_durations[detection] = distraction_durations.get(detection, 0) + duration
-    
-    if not distraction_counts:
-        return "None"
-    
-    most_common = max(distraction_counts, key=distraction_counts.get)
-    count = distraction_counts[most_common]
-    total_duration = distraction_durations[most_common]
-    
-    return f"{most_common} ({count} times, {total_duration}s total)"
-
-def calculate_average_focus_metric(focused_time, total_session_seconds):
-    """Calculate a meaningful average focus metric"""
-    if total_session_seconds <= 0:
-        return "N/A"
-    
-    total_minutes = total_session_seconds / 60
-    focused_minutes = focused_time / 60
-    
-    if total_session_seconds < 60:
-        focus_percentage = (focused_time / total_session_seconds) * 100
-        return f"{focus_percentage:.1f}% of session time"
-    elif total_session_seconds < 3600:
-        return f"{focused_minutes:.1f} min focused out of {total_minutes:.1f} min total"
-    else:
-        hours = total_session_seconds / 3600
-        focused_per_hour = focused_minutes / hours
-        return f"{focused_per_hour:.1f} min focused per hour"
-
 def generate_pdf_report(session_data, output_path):
-    """Generate PDF report for session - FIXED with better error handling"""
+    """Generate PDF report for session"""
     try:
-        # Ensure directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         print(f"Generating PDF report at: {output_path}")
         
@@ -542,15 +497,6 @@ def generate_pdf_report(session_data, output_path):
             textColor=colors.HexColor('#3B82F6')
         )
         
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=16,
-            spaceAfter=12,
-            spaceBefore=20,
-            textColor=colors.HexColor('#1F2937')
-        )
-        
         story.append(Paragraph("Smart Focus Alert - Session Report", title_style))
         story.append(Spacer(1, 20))
         
@@ -562,41 +508,12 @@ def generate_pdf_report(session_data, output_path):
             total_session_seconds = 0
             duration_str = "N/A"
         
-        distraction_times = calculate_distraction_time_from_alerts(session_data['alerts'])
-        unfocused_time = distraction_times['unfocused_time']
-        yawning_time = distraction_times['yawning_time']
-        sleeping_time = distraction_times['sleeping_time']
-        
-        total_distraction_time = unfocused_time + yawning_time + sleeping_time
-        
-        if total_session_seconds > 0:
-            focused_time = max(0, total_session_seconds - total_distraction_time)
-            focus_accuracy = (focused_time / total_session_seconds) * 100
-        else:
-            focused_time = 0
-            focus_accuracy = 0
-        
-        if focus_accuracy >= 90:
-            focus_rating = "Excellent"
-            rating_color = colors.HexColor('#10B981')
-        elif focus_accuracy >= 75:
-            focus_rating = "Good"
-            rating_color = colors.HexColor('#3B82F6')
-        elif focus_accuracy >= 60:
-            focus_rating = "Fair"
-            rating_color = colors.HexColor('#F59E0B')
-        else:
-            focus_rating = "Poor"
-            rating_color = colors.HexColor('#EF4444')
-        
         def format_time(seconds):
             minutes = int(seconds // 60)
             secs = int(seconds % 60)
             return f"{minutes}m {secs}s"
         
         # Session Information
-        story.append(Paragraph("Session Information", heading_style))
-        
         session_info = [
             ['Session Start Time', session_data.get('start_time', datetime.now()).strftime('%m/%d/%Y, %I:%M:%S %p')],
             ['Session Duration', duration_str],
@@ -618,50 +535,9 @@ def generate_pdf_report(session_data, output_path):
         ]))
         
         story.append(session_table)
-        story.append(Spacer(1, 20))
-        
-        # Focus Summary
-        story.append(Paragraph("Focus Accuracy Summary", heading_style))
-        
-        accuracy_text = f"<para align=center><font size=18 color='{rating_color.hexval()}'><b>{focus_accuracy:.1f}%</b></font></para>"
-        story.append(Paragraph(accuracy_text, styles['Normal']))
-        story.append(Spacer(1, 10))
-        
-        rating_text = f"<para align=center><font size=14 color='{rating_color.hexval()}'><b>Focus Quality: {focus_rating}</b></font></para>"
-        story.append(Paragraph(rating_text, styles['Normal']))
         story.append(Spacer(1, 30))
-        
-        # Statistics
-        story.append(Paragraph("Session Statistics", heading_style))
-        
-        stats_text = f"<b>Total Session Time:</b> {format_time(total_session_seconds)}<br/>"
-        stats_text += f"<b>Focused Time:</b> {format_time(focused_time)}<br/>"
-        stats_text += f"<b>Distraction Time:</b> {format_time(total_distraction_time)}<br/>"
-        stats_text += f"<b>Unfocused Time:</b> {format_time(unfocused_time)}<br/>"
-        stats_text += f"<b>Yawning Time:</b> {format_time(yawning_time)}<br/>"
-        stats_text += f"<b>Sleeping Time:</b> {format_time(sleeping_time)}"
-        
-        story.append(Paragraph(stats_text, styles['Normal']))
-        story.append(Spacer(1, 20))
-        
-        # Alert History
-        if session_data['alerts']:
-            story.append(Paragraph("Recent Alerts", heading_style))
-            
-            alert_text = ""
-            for i, alert in enumerate(session_data['alerts'][-10:], 1):
-                try:
-                    alert_time = datetime.fromisoformat(alert['timestamp']).strftime('%H:%M:%S')
-                except:
-                    alert_time = alert['timestamp']
-                
-                alert_text += f"<b>{i}.</b> {alert_time} - {alert['person']}: {alert['detection']} "
-                alert_text += f"({alert.get('duration', 0)}s)<br/>"
-            
-            story.append(Paragraph(alert_text, styles['Normal']))
         
         # Footer
-        story.append(Spacer(1, 30))
         footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System"
         footer_style = ParagraphStyle(
             'Footer',
@@ -672,10 +548,8 @@ def generate_pdf_report(session_data, output_path):
         )
         story.append(Paragraph(footer_text, footer_style))
         
-        # Build the PDF
         doc.build(story)
         
-        # Verify file was created
         if os.path.exists(output_path):
             file_size = os.path.getsize(output_path)
             print(f"PDF report successfully created: {output_path} (Size: {file_size} bytes)")
@@ -686,14 +560,11 @@ def generate_pdf_report(session_data, output_path):
             
     except Exception as e:
         print(f"Error generating PDF report: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return None
 
 def generate_upload_pdf_report(detections, file_info, output_path):
-    """Generate PDF report for uploaded file analysis - FIXED"""
+    """Generate PDF report for uploaded file analysis"""
     try:
-        # Ensure directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         print(f"Generating upload PDF report at: {output_path}")
         
@@ -713,36 +584,14 @@ def generate_upload_pdf_report(detections, file_info, output_path):
         story.append(Paragraph("Smart Focus Alert - Analysis Report", title_style))
         story.append(Spacer(1, 20))
         
-        # File info and analysis results
         file_info_text = f"<b>File:</b> {file_info.get('filename', 'Unknown')}<br/>"
         file_info_text += f"<b>Type:</b> {file_info.get('type', 'Unknown')}<br/>"
         file_info_text += f"<b>Analysis Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>"
         file_info_text += f"<b>Persons Detected:</b> {len(detections)}"
         
         story.append(Paragraph(file_info_text, styles['Normal']))
-        story.append(Spacer(1, 20))
-        
-        # Statistics
-        if detections:
-            status_counts = {'FOCUSED': 0, 'NOT FOCUSED': 0, 'YAWNING': 0, 'SLEEPING': 0}
-            for detection in detections:
-                status = detection.get('status', 'FOCUSED')
-                if status in status_counts:
-                    status_counts[status] += 1
-            
-            total_detections = len(detections)
-            focus_accuracy = (status_counts['FOCUSED'] / total_detections * 100) if total_detections > 0 else 0
-            
-            stats_text = f"<b>Focus Accuracy:</b> {focus_accuracy:.1f}%<br/>"
-            stats_text += f"<b>Focused Persons:</b> {status_counts['FOCUSED']}<br/>"
-            stats_text += f"<b>Unfocused Persons:</b> {status_counts['NOT FOCUSED']}<br/>"
-            stats_text += f"<b>Yawning Persons:</b> {status_counts['YAWNING']}<br/>"
-            stats_text += f"<b>Sleeping Persons:</b> {status_counts['SLEEPING']}"
-            
-            story.append(Paragraph(stats_text, styles['Normal']))
-        
-        # Footer
         story.append(Spacer(1, 30))
+        
         footer_text = f"Report generated by Smart Focus Alert System<br/>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         footer_style = ParagraphStyle(
             'Footer',
@@ -753,10 +602,8 @@ def generate_upload_pdf_report(detections, file_info, output_path):
         )
         story.append(Paragraph(footer_text, footer_style))
         
-        # Build the PDF
         doc.build(story)
         
-        # Verify file was created
         if os.path.exists(output_path):
             file_size = os.path.getsize(output_path)
             print(f"Upload PDF report successfully created: {output_path} (Size: {file_size} bytes)")
@@ -767,8 +614,6 @@ def generate_upload_pdf_report(detections, file_info, output_path):
             
     except Exception as e:
         print(f"Error generating upload PDF report: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return None
 
 def process_video_file(video_path):
@@ -811,16 +656,16 @@ def process_video_file(video_path):
     
     return output_path, all_detections
 
-def create_demo_recording_file():
-    """Create a demo recording file for download - FIXED with proper video creation"""
+def create_simple_recording_file():
+    """Create a simple recording file like the image shown - NO LIVE DETECTION"""
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         recording_filename = f"session_recording_{timestamp}.mp4"
         recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
         
-        print(f"Creating demo recording at: {recording_path}")
+        print(f"Creating simple recording at: {recording_path}")
         
-        # Create a meaningful demo video file
+        # Create simple recording like the image
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
         out = cv.VideoWriter(recording_path, fourcc, 30, (640, 480))
         
@@ -828,44 +673,42 @@ def create_demo_recording_file():
             print("Failed to open video writer")
             return None
         
-        # Create demo frames dengan informasi session yang lebih realistis
+        # Create frames similar to the image shown (dark blue background with text)
         total_frames = 150  # 5 seconds at 30fps
         for i in range(total_frames):
-            # Create a gradient background
-            frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            # Create dark blue background like in the image
+            frame = np.full((480, 640, 3), [42, 52, 74], dtype=np.uint8)  # Dark blue background
             
-            # Add gradient effect
-            for y in range(480):
-                color_intensity = int(50 + (y / 480) * 50)
-                frame[y, :] = [color_intensity, color_intensity//2, color_intensity//3]
-            
-            # Add session info
+            # Title
             cv.putText(frame, "Smart Focus Alert - Session Recording", (50, 60), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
             
+            # Frame counter (green)
             cv.putText(frame, f"Frame: {i+1}/{total_frames}", (50, 120), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
             
-            # Add session stats
+            # Session time (yellow)
             elapsed_time = i / 30  # seconds
-            cv.putText(frame, f"Session Time: {elapsed_time:.1f}s", (50, 160), 
+            cv.putText(frame, f"Session Time: {elapsed_time:.1f}s", (50, 180), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
             
-            cv.putText(frame, f"Alerts: {len(session_data.get('alerts', []))}", (50, 200), 
-                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 165, 0), 2)
+            # Alerts count (cyan)
+            cv.putText(frame, f"Alerts: {len(session_data.get('alerts', []))}", (50, 240), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 128, 0), 2)
             
-            cv.putText(frame, f"Detections: {session_data['focus_statistics']['total_detections']}", (50, 240), 
+            # Detections count (magenta)
+            cv.putText(frame, f"Detections: {session_data['focus_statistics']['total_detections']}", (50, 300), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 100, 255), 2)
             
-            # Add timestamp
-            current_time = datetime.now().strftime('%H:%M:%S')
-            cv.putText(frame, f"Generated: {current_time}", (50, 400), 
-                      cv.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
-            
-            # Add some dynamic elements
+            # Add animated circle like in the image (red/orange)
             circle_x = int(320 + 100 * np.sin(i * 0.1))
-            circle_y = int(300 + 50 * np.cos(i * 0.1))
-            cv.circle(frame, (circle_x, circle_y), 20, (100, 100, 255), -1)
+            circle_y = int(360 + 30 * np.cos(i * 0.1))
+            cv.circle(frame, (circle_x, circle_y), 25, (80, 80, 255), -1)  # Red-orange circle
+            
+            # Generated timestamp at bottom
+            current_time = datetime.now().strftime('%H:%M:%S')
+            cv.putText(frame, f"Generated: {current_time}", (50, 450), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.5, (180, 180, 180), 1)
             
             out.write(frame)
         
@@ -874,7 +717,7 @@ def create_demo_recording_file():
         # Verify file was created and has content
         if os.path.exists(recording_path):
             file_size = os.path.getsize(recording_path)
-            print(f"Demo recording created successfully: {recording_path} (Size: {file_size} bytes)")
+            print(f"Simple recording created successfully: {recording_path} (Size: {file_size} bytes)")
             if file_size > 0:
                 return recording_path
             else:
@@ -885,38 +728,10 @@ def create_demo_recording_file():
             return None
             
     except Exception as e:
-        print(f"Error creating demo recording: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"Error creating simple recording: {str(e)}")
         return None
 
-# FIXED: Static file serving routes dengan proper error handling
-@application.route('/download/uploads/<filename>')
-def download_uploaded_file(filename):
-    """Download uploaded files"""
-    try:
-        file_path = os.path.join(application.config['UPLOAD_FOLDER'], filename)
-        if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True, download_name=filename)
-        else:
-            return jsonify({"error": "File not found"}), 404
-    except Exception as e:
-        print(f"Error downloading uploaded file {filename}: {str(e)}")
-        return jsonify({"error": "Download failed"}), 500
-
-@application.route('/download/detected/<filename>')
-def download_detected_file(filename):
-    """Download detected/processed files"""
-    try:
-        file_path = os.path.join(application.config['DETECTED_FOLDER'], filename)
-        if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True, download_name=filename)
-        else:
-            return jsonify({"error": "File not found"}), 404
-    except Exception as e:
-        print(f"Error downloading detected file {filename}: {str(e)}")
-        return jsonify({"error": "Download failed"}), 500
-
+# Download endpoints
 @application.route('/download/reports/<filename>')
 def download_report_file(filename):
     """Download report files"""
@@ -937,8 +752,6 @@ def download_report_file(filename):
             return jsonify({"error": "Report file not found"}), 404
     except Exception as e:
         print(f"Error downloading report file {filename}: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return jsonify({"error": "Download failed"}), 500
 
 @application.route('/download/recordings/<filename>')
@@ -961,11 +774,9 @@ def download_recording_file(filename):
             return jsonify({"error": "Recording file not found"}), 404
     except Exception as e:
         print(f"Error downloading recording file {filename}: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return jsonify({"error": "Download failed"}), 500
 
-# FIXED: Keep original static routes for viewing (not downloading)
+# Static file serving routes for viewing
 @application.route('/static/uploads/<filename>')
 def uploaded_file(filename):
     """Serve uploaded files for viewing"""
@@ -1040,7 +851,6 @@ def upload():
                     result["detections"] = detections
                     result["type"] = "image"
                     
-                    # FIXED: Generate PDF report dengan download link yang benar
                     pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                     
@@ -1048,7 +858,7 @@ def upload():
                     pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
                     
                     if pdf_result and os.path.exists(pdf_path):
-                        result["pdf_report"] = f"/download/reports/{pdf_filename}"  # FIXED: Use download endpoint
+                        result["pdf_report"] = f"/download/reports/{pdf_filename}"
                 
             elif file_ext in ['mp4', 'avi', 'mov', 'mkv']:
                 output_path, detections = process_video_file(file_path)
@@ -1058,7 +868,6 @@ def upload():
                     result["detections"] = detections
                     result["type"] = "video"
                     
-                    # FIXED: Generate PDF report dengan download link yang benar
                     pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                     
@@ -1066,7 +875,7 @@ def upload():
                     pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
                     
                     if pdf_result and os.path.exists(pdf_path):
-                        result["pdf_report"] = f"/download/reports/{pdf_filename}"  # FIXED: Use download endpoint
+                        result["pdf_report"] = f"/download/reports/{pdf_filename}"
             
             return render_template('result.html', result=result)
     
@@ -1083,7 +892,6 @@ def start_monitoring():
     if live_monitoring_active:
         return jsonify({"status": "error", "message": "Monitoring already active"})
     
-    # Reset session data and timers
     session_data = {
         'start_time': datetime.now(),
         'end_time': None,
@@ -1099,7 +907,6 @@ def start_monitoring():
         'recording_path': None
     }
     
-    # Reset person tracking
     person_state_timers = {}
     person_current_state = {}
     last_alert_time = {}
@@ -1123,7 +930,7 @@ def stop_monitoring():
     
     print("Stopping live monitoring and generating files...")
     
-    # FIXED: Generate PDF report dengan error handling yang lebih baik
+    # Generate PDF report
     pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
     
@@ -1135,19 +942,19 @@ def stop_monitoring():
     }
     
     if pdf_result and os.path.exists(pdf_path):
-        response_data["pdf_report"] = f"/download/reports/{pdf_filename}"  # FIXED: Use download endpoint
+        response_data["pdf_report"] = f"/download/reports/{pdf_filename}"
         print(f"PDF report generated successfully: {pdf_filename}")
     else:
         print("Failed to generate PDF report")
     
-    # FIXED: Create demo recording file dengan error handling yang lebih baik
-    demo_recording_path = create_demo_recording_file()
-    if demo_recording_path and os.path.exists(demo_recording_path):
-        response_data["video_file"] = f"/download/recordings/{os.path.basename(demo_recording_path)}"  # FIXED: Use download endpoint
-        session_data['recording_path'] = demo_recording_path
-        print(f"Demo recording generated successfully: {os.path.basename(demo_recording_path)}")
+    # Create simple recording file (like the image shown)
+    simple_recording_path = create_simple_recording_file()
+    if simple_recording_path and os.path.exists(simple_recording_path):
+        response_data["video_file"] = f"/download/recordings/{os.path.basename(simple_recording_path)}"
+        session_data['recording_path'] = simple_recording_path
+        print(f"Simple recording generated successfully: {os.path.basename(simple_recording_path)}")
     else:
-        print("Failed to generate demo recording")
+        print("Failed to generate simple recording")
     
     print("Stop monitoring completed")
     return jsonify(response_data)
@@ -1212,13 +1019,10 @@ def monitoring_status():
 
 @application.route('/check_camera')
 def check_camera():
-    # Always return False for Railway - use client camera
     return jsonify({"camera_available": False})
 
 @application.route('/process_frame', methods=['POST'])
 def process_frame():
-    global recording_frames
-    
     try:
         data = request.get_json()
         frame_data = data['frame'].split(',')[1]
@@ -1229,16 +1033,8 @@ def process_frame():
         if frame is None:
             return jsonify({"error": "Invalid frame data"}), 400
         
-        # Store frame for recording (client-side recording alternative)
-        if live_monitoring_active and recording_active:
-            recording_frames.append(frame.copy())
-            # Keep only last 1000 frames to prevent memory overflow
-            if len(recording_frames) > 1000:
-                recording_frames = recording_frames[-1000:]
-        
         processed_frame, detections = detect_persons_with_attention(frame, mode="video")
         
-        # Update session data with detections for live monitoring
         if live_monitoring_active and detections:
             update_session_statistics(detections)
         
@@ -1254,12 +1050,10 @@ def process_frame():
         print(f"Error processing frame: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# Health check for Railway
 @application.route('/health')
 def health_check():
     return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
 
-# FIXED: Add debug route untuk check files
 @application.route('/debug/files')
 def debug_files():
     """Debug route to check file existence"""
