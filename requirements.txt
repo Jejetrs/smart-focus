@@ -1,11 +1,11 @@
 Flask==2.3.3
 Werkzeug==2.3.7
-mediapipe==0.10.8
+mediapipe==0.10.7
+opencv-python-headless==4.8.1.78
 numpy==1.24.3
+pyttsx3==2.90
 scipy==1.11.4
-Pillow==10.1.0
-reportlab==4.0.7
+reportlab==4.0.4
 matplotlib==3.7.2
-imageio==2.31.6
-imageio-ffmpeg==0.4.9
+Pillow==10.0.1
 gunicorn==21.2.0
