@@ -1,29 +1,11 @@
-# Smart Focus Alert - Railway Deployment Requirements
-# Enhanced version with Alert History & Speech support
-
-# Core ML and Computer Vision
-mediapipe
-opencv-contrib-python==4.7.0.72
-scipy
+Flask==2.3.3
+Werkzeug==2.3.7
+mediapipe==0.10.7
 numpy==1.24.3
-
-# Web Framework
-Flask==2.3.2
-gunicorn==21.2.0
-Werkzeug==2.3.6
-
-# Document Generation and Reporting
+pyttsx3==2.90
+scipy==1.11.4
+opencv-python-headless==4.8.1.78
 reportlab==4.0.4
 matplotlib==3.7.2
-
-# Text-to-Speech (will be disabled on Railway, browser handles audio)
-pyttsx3==2.90
-
-# Image Processing
 Pillow==10.0.1
-
-# Security and Utilities
-urllib3==2.0.4
-
-# Additional dependencies for enhanced functionality
-python-dateutil==2.8.2
+gunicorn==21.2.0
