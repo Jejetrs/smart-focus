@@ -105,6 +105,34 @@
             color: var(--primary-blue);
         }
 
+        /* Card Component */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .card-padding {
+            padding: 24px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
         /* Button Component */
         .btn {
             display: inline-flex;
@@ -147,67 +175,83 @@
             transform: none;
         }
 
-        /* Camera Setup Card */
-        .camera-setup-notice {
+        /* Page Layout */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px 24px;
+            min-height: calc(100vh - 88px);
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .page-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* Railway Notice */
+        .railway-notice {
             background: var(--card-bg);
             border-radius: 16px;
             padding: 20px;
             border: 1px solid var(--glass-border);
             margin-bottom: 24px;
-            display: block;
+            border-left: 4px solid var(--info);
         }
 
-        .setup-content {
+        .notice-content {
             display: flex;
             align-items: center;
             gap: 16px;
         }
 
-        .setup-icon {
+        .notice-icon {
             width: 48px;
             height: 48px;
-            background: rgba(245, 158, 11, 0.2);
+            background: rgba(6, 182, 212, 0.2);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--warning);
+            color: var(--info);
             font-size: 1.5rem;
         }
 
-        .setup-text {
+        .notice-text {
             flex: 1;
         }
 
-        .setup-title {
+        .notice-title {
             font-weight: 600;
             margin-bottom: 4px;
             color: var(--text-primary);
         }
 
-        .setup-subtitle {
+        .notice-subtitle {
             color: var(--text-secondary);
             font-size: 0.9rem;
         }
 
-        /* Sidebar Card Component */
-        .sidebar-card {
+        /* Monitoring Status */
+        .monitoring-status-card {
             background: var(--card-bg);
             border-radius: 16px;
-            padding: 16px;
+            padding: 24px;
             border: 1px solid var(--glass-border);
+            margin-bottom: 24px;
         }
 
-        .sidebar-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 20px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        /* Live Indicator Component */
+        /* Live Indicator */
         .live-indicator {
             display: flex;
             align-items: center;
@@ -237,7 +281,7 @@
             animation: pulse 1.5s infinite;
         }
 
-        /* Status Components */
+        /* Status Display */
         .status-display {
             display: flex;
             align-items: center;
@@ -290,7 +334,7 @@
         .status-indicator.status-yawning { background-color: #eab308; }
         .status-indicator.status-sleeping { background-color: var(--danger); }
 
-        /* Statistics Grid Component */
+        /* Statistics Grid */
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -315,86 +359,6 @@
             color: var(--text-secondary);
             font-size: 0.9rem;
             font-weight: 500;
-        }
-
-        /* Toggle Switch Component */
-        .toggle-switch {
-            position: relative;
-            width: 50px;
-            height: 24px;
-            background: var(--success);
-            border-radius: 12px;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-
-        .toggle-switch::before {
-            content: '';
-            position: absolute;
-            top: 2px;
-            right: 2px;
-            width: 20px;
-            height: 20px;
-            background: white;
-            border-radius: 50%;
-            transition: transform 0.3s ease;
-        }
-
-        .toggle-switch.off {
-            background: var(--text-muted);
-        }
-
-        .toggle-switch.off::before {
-            transform: translateX(-26px);
-        }
-
-        /* Page Layout */
-        .main-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 32px 24px;
-            min-height: calc(100vh - 88px);
-        }
-
-        .page-header {
-            text-align: center;
-            margin-bottom: 32px;
-        }
-
-        .page-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 12px;
-        }
-
-        .page-subtitle {
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-        }
-
-        /* Monitoring Status - Full Width */
-        .monitoring-status-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 24px;
-            border: 1px solid var(--glass-border);
-            margin-bottom: 24px;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .card-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--primary-blue);
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
 
         /* Two Column Layout */
@@ -427,8 +391,7 @@
             border: 1px solid var(--glass-border);
         }
 
-        /* Client Camera Elements */
-        .client-video {
+        .client-canvas {
             max-width: 100%;
             height: auto;
             border-radius: 12px;
@@ -436,7 +399,7 @@
             display: none;
         }
 
-        .client-canvas {
+        .client-video {
             max-width: 100%;
             height: auto;
             border-radius: 12px;
@@ -471,6 +434,22 @@
             border: 1px solid var(--glass-border);
         }
 
+        .sidebar-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
         .connection-status {
             display: flex;
             align-items: center;
@@ -484,12 +463,12 @@
         .connection-icon {
             width: 40px;
             height: 40px;
-            background: rgba(245, 158, 11, 0.2);
+            background: rgba(16, 185, 129, 0.2);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--warning);
+            color: var(--success);
         }
 
         .connection-text {
@@ -506,63 +485,12 @@
             font-size: 0.9rem;
         }
 
-        .audio-alert {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px;
-            background: var(--dark-bg);
-            border-radius: 12px;
-            margin-bottom: 10px;
-        }
-
-        .thresholds-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-
-        .threshold-item {
-            text-align: center;
-            padding: 16px 12px;
-            background: var(--dark-bg);
-            border-radius: 8px;
-        }
-
-        .threshold-label {
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .threshold-time {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        .threshold-sleep .threshold-label { color: var(--danger); }
-        .threshold-yawning .threshold-label { color: var(--warning); }
-        .threshold-focus .threshold-label { color: var(--info); }
-
         .alert-history {
             max-height: 250px;
             overflow-y: auto;
             background: var(--dark-bg);
             border-radius: 12px;
             padding: 16px;
-        }
-
-        .alert-history::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .alert-history::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.3);
-            border-radius: 3px;
-        }
-
-        .alert-history::-webkit-scrollbar-thumb {
-            background: var(--primary-blue);
-            border-radius: 3px;
         }
 
         .alert-item {
@@ -581,62 +509,47 @@
             margin-left: auto;
         }
 
-        .volume-label {
-            display: block;
-            margin-bottom: 12px;
-            font-weight: 500;
-            color: var(--text-secondary);
-        }
-
-        .volume-select {
-            width: 100%;
-            padding: 12px 16px;
-            background: var(--dark-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-size: 14px;
-        }
-
-        .download-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: var(--dark-bg);
-            padding: 16px;
-            border-radius: 8px;
-            margin-bottom: 12px;
-        }
-
-        .download-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .file-icon {
-            width: 40px;
-            height: 40px;
-            background: rgba(96, 165, 250, 0.2);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--primary-blue);
-        }
-
         /* Animations */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+        /* Voice Alert Notification */
+        .voice-alert {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px;
+            color: var(--text-primary);
+            z-index: 1000;
+            max-width: 350px;
+            backdrop-filter: blur(10px);
+            animation: slideInRight 0.3s ease-out;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
 
-        .fade-in { animation: fadeIn 0.6s ease-out; }
+        .voice-alert.warning {
+            border-left: 4px solid var(--warning);
+        }
+
+        .voice-alert.error {
+            border-left: 4px solid var(--danger);
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
 
         /* Responsive Design */
         @media (max-width: 1200px) {
@@ -655,11 +568,6 @@
         }
 
         @media (max-width: 768px) {
-            .nav-links {
-                flex-direction: column;
-                gap: 12px;
-            }
-            
             .main-container {
                 padding: 20px 16px;
             }
@@ -671,16 +579,6 @@
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
                 gap: 12px;
-            }
-            
-            .thresholds-grid {
-                grid-template-columns: 1fr;
-                gap: 8px;
-            }
-            
-            .controls-panel {
-                flex-direction: column;
-                align-items: center;
             }
         }
     </style>
@@ -707,23 +605,23 @@
         <!-- Page Header -->
         <div class="page-header">
             <h1 class="page-title text-gradient">Live Focus Monitoring</h1>
-            <p class="page-subtitle">Railway deployment with PIL-based face detection and automatic recording</p>
+            <p class="page-subtitle">Railway-optimized focus detection with MediaPipe and client-side processing</p>
         </div>
 
-        <!-- Camera Setup Notice -->
-        <div class="camera-setup-notice" id="cameraSetupNotice">
-            <div class="setup-content">
-                <div class="setup-icon">
-                    <i class="fas fa-info-circle"></i>
+        <!-- Railway Notice -->
+        <div class="railway-notice">
+            <div class="notice-content">
+                <div class="notice-icon">
+                    <i class="fas fa-cloud"></i>
                 </div>
-                <div class="setup-text">
-                    <div class="setup-title">Railway Deployment - Device Camera Mode</div>
-                    <div class="setup-subtitle">Optimized for Railway platform with PIL-based facial landmark detection</div>
+                <div class="notice-text">
+                    <div class="notice-title">Railway Deployment Active</div>
+                    <div class="notice-subtitle">Using client-side camera with MediaPipe processing for enhanced face detection and voice alerts</div>
                 </div>
             </div>
         </div>
 
-        <!-- Monitoring Status Card - Full Width -->
+        <!-- Monitoring Status Card -->
         <div class="monitoring-status-card">
             <div class="card-header">
                 <h2 class="card-title">
@@ -738,7 +636,7 @@
             
             <div class="status-display" id="currentStatus">
                 <span class="status-indicator"></span>
-                System Ready - Click Start to begin monitoring with automatic recording
+                System Ready - Enhanced client-side detection with voice alerts
             </div>
 
             <div class="stats-grid">
@@ -773,13 +671,13 @@
                     
                     <div class="video-placeholder" id="videoPlaceholder">
                         <i class="fas fa-video"></i>
-                        <h3 style="margin-bottom: 12px;">Enhanced Detection Ready</h3>
-                        <p style="margin-bottom: 20px;">Click "Start Monitoring" to begin detection with time-based alerts</p>
+                        <h3 style="margin-bottom: 12px;">Enhanced MediaPipe Detection</h3>
+                        <p style="margin-bottom: 20px;">Click "Start Monitoring" for advanced facial analysis</p>
                         <div style="text-align: left; max-width: 400px; line-height: 1.6;">
-                            <div style="margin-bottom: 8px;">• <strong>Sleep Detection:</strong> Alert after 10 seconds</div>
-                            <div style="margin-bottom: 8px;">• <strong>Yawning Detection:</strong> Alert after 3.5 seconds</div>
-                            <div style="margin-bottom: 8px;">• <strong>Unfocus Detection:</strong> Alert after 10 seconds</div>
-                            <div>• <strong>PIL-based Processing:</strong> Railway optimized</div>
+                            <div style="margin-bottom: 8px;">• <strong>Face Detection:</strong> High-accuracy recognition</div>
+                            <div style="margin-bottom: 8px;">• <strong>Eye Tracking:</strong> Focus and drowsiness detection</div>
+                            <div style="margin-bottom: 8px;">• <strong>Voice Alerts:</strong> Real-time notifications</div>
+                            <div>• <strong>PDF Reports:</strong> Comprehensive session analysis</div>
                         </div>
                     </div>
                 </div>
@@ -799,30 +697,13 @@
                     </button>
                 </div>
 
-                <!-- Alert Volume Card -->
-                <div class="left-card">
-                    <div class="sidebar-header">
-                        <i class="fas fa-volume-up"></i>
-                        Alert Volume
-                    </div>
-                    
-                    <label class="volume-label">Choose volume level:</label>
-                    <select class="volume-select" id="alertVolume">
-                        <option value="low">Low</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="high">High</option>
-                    </select>
-                </div>
-
                 <!-- Session Downloads Card -->
                 <div class="left-card" style="display: none;" id="downloadsSection">
                     <div class="sidebar-header">
                         <i class="fas fa-download"></i>
                         Session Downloads
                     </div>
-                    <div id="downloadItems">
-                        <!-- Download items will be populated here -->
-                    </div>
+                    <div id="downloadItems"></div>
                 </div>
             </div>
 
@@ -832,44 +713,11 @@
                 <div class="sidebar-card">
                     <div class="connection-status">
                         <div class="connection-icon">
-                            <i class="fas fa-clock"></i>
+                            <i class="fas fa-check-circle"></i>
                         </div>
                         <div class="connection-text">
-                            <div class="connection-title">Railway Deployment Ready</div>
-                            <div class="connection-subtitle">Device camera access ready</div>
-                        </div>
-                    </div>
-
-                    <div class="audio-alert">
-                        <i class="fas fa-volume-up" style="color: var(--text-secondary);"></i>
-                        <span style="flex: 1; font-weight: 500;">Audio Alert</span>
-                        <div class="toggle-switch" onclick="toggleAudioAlert()"></div>
-                    </div>
-
-                    <div class="audio-alert" style="margin-bottom: 0;">
-                        <span style="color: var(--text-secondary); font-size: 0.9rem;">Sound Alerts Enabled</span>
-                    </div>
-                </div>
-
-                <!-- Detection Thresholds -->
-                <div class="sidebar-card">
-                    <div class="sidebar-header">
-                        <i class="fas fa-list"></i>
-                        Detection Thresholds
-                    </div>
-                    
-                    <div class="thresholds-grid">
-                        <div class="threshold-item threshold-sleep">
-                            <div class="threshold-label">Sleep</div>
-                            <div class="threshold-time">10 seconds</div>
-                        </div>
-                        <div class="threshold-item threshold-yawning">
-                            <div class="threshold-label">Yawning</div>
-                            <div class="threshold-time">3.5 seconds</div>
-                        </div>
-                        <div class="threshold-item threshold-focus">
-                            <div class="threshold-label">No Focus</div>
-                            <div class="threshold-time">10 seconds</div>
+                            <div class="connection-title">Railway Optimized</div>
+                            <div class="connection-subtitle">Client-side camera ready</div>
                         </div>
                     </div>
                 </div>
@@ -892,25 +740,36 @@
         </div>
     </div>
 
+    <!-- Hidden audio elements for voice alerts -->
+    <audio id="alertSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMAFElj4em3dCIFJoXO8diJOggZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMAFElj4em3dCIFJoXO8diJOggZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMAFE=" type="audio/wav">
+    </audio>
+
     <script>
+        // Session variables
         let sessionStartTime = null;
         let alertCount = 0;
         let isMonitoring = false;
         let sessionTimer = null;
         let dataUpdateTimer = null;
         let lastAlertIds = new Set();
-        let audioEnabled = true;
 
+        // Camera variables
         let clientVideo = null;
         let clientCanvas = null;
         let clientCtx = null;
         let clientStream = null;
         let processingInterval = null;
-        let storedFrames = [];
 
+        // Speech synthesis
+        let speechSynth = null;
+        let voiceAlertEnabled = true;
+
+        // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             initializePage();
             setupEventListeners();
+            initializeSpeech();
         });
 
         function initializePage() {
@@ -922,12 +781,65 @@
             
             clientVideo = document.getElementById('clientVideo');
             clientCanvas = document.getElementById('clientCanvas');
-            if (clientCanvas) {
-                clientCtx = clientCanvas.getContext('2d');
+            clientCtx = clientCanvas.getContext('2d');
+        }
+
+        function initializeSpeech() {
+            if ('speechSynthesis' in window) {
+                speechSynth = window.speechSynthesis;
             }
         }
 
+        function speakAlert(message) {
+            if (!voiceAlertEnabled || !speechSynth) return;
+            
+            // Cancel any ongoing speech
+            speechSynth.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 0.8;
+            
+            speechSynth.speak(utterance);
+            
+            // Also play alert sound
+            const alertSound = document.getElementById('alertSound');
+            alertSound.play().catch(e => console.log('Audio play failed:', e));
+        }
+
+        function showVoiceAlert(message, type = 'warning') {
+            const alert = document.createElement('div');
+            alert.className = `voice-alert ${type}`;
+            alert.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <i class="fas ${type === 'error' ? 'fa-exclamation-triangle' : 'fa-bell'}" 
+                       style="color: ${type === 'error' ? 'var(--danger)' : 'var(--warning)'};"></i>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; margin-bottom: 4px;">Alert</div>
+                        <div style="font-size: 0.9rem;">${message}</div>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            style="background: none; border: none; color: var(--text-secondary); cursor: pointer;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(alert);
+            
+            // Speak the alert
+            speakAlert(message);
+            
+            setTimeout(() => {
+                if (alert.parentElement) {
+                    alert.remove();
+                }
+            }, 5000);
+        }
+
         function setupEventListeners() {
+            // Navigation links
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', function(e) {
                     if (this.getAttribute('href').startsWith('/')) {
@@ -940,18 +852,7 @@
                 });
             });
 
-            document.querySelectorAll('.btn').forEach(button => {
-                button.addEventListener('mouseenter', function() {
-                    if (!this.disabled) {
-                        this.style.transform = 'translateY(-3px) scale(1.05)';
-                    }
-                });
-                
-                button.addEventListener('mouseleave', function() {
-                    this.style.transform = 'translateY(0) scale(1)';
-                });
-            });
-
+            // Keyboard shortcuts
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
                     if (isMonitoring) {
@@ -965,30 +866,11 @@
                     }
                 }
             });
-
-            document.getElementById('alertVolume').addEventListener('change', function() {
-                showNotification(`Alert volume changed to ${this.value}`, 'info');
-            });
-        }
-
-        function toggleAudioAlert() {
-            audioEnabled = !audioEnabled;
-            const toggle = document.querySelector('.toggle-switch');
-            const statusText = document.querySelector('.audio-alert:last-of-type span');
-            
-            if (audioEnabled) {
-                toggle.classList.remove('off');
-                statusText.textContent = 'Sound Alerts Enabled';
-                statusText.style.color = 'var(--success)';
-            } else {
-                toggle.classList.add('off');
-                statusText.textContent = 'Sound Alerts Disabled';
-                statusText.style.color = 'var(--text-muted)';
-            }
         }
 
         async function startMonitoring() {
             try {
+                // Start server monitoring
                 const response = await fetch('/start_monitoring', { method: 'POST' });
                 const data = await response.json();
                 
@@ -999,7 +881,7 @@
                 await initializeClientCamera();
                 updateUIForActiveMonitoring();
                 startDataUpdates();
-                showNotification('Monitoring started with automatic recording', 'success');
+                showNotification('Enhanced monitoring started with voice alerts', 'success');
             } catch (error) {
                 showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
@@ -1008,7 +890,11 @@
         async function initializeClientCamera() {
             try {
                 clientStream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 640, height: 480, facingMode: 'user' }
+                    video: { 
+                        width: { ideal: 640 }, 
+                        height: { ideal: 480 }, 
+                        facingMode: 'user' 
+                    }
                 });
                 
                 clientVideo.srcObject = clientStream;
@@ -1019,119 +905,49 @@
                 clientVideo.style.display = 'none';
                 clientCanvas.style.display = 'block';
                 
+                // Start processing frames
                 processingInterval = setInterval(processClientFrame, 1000);
                 
             } catch (error) {
-                throw new Error('Failed to access device camera: ' + error.message);
+                throw new Error('Failed to access camera: ' + error.message);
             }
         }
 
         function processClientFrame() {
-            if (!clientVideo || !isMonitoring || !clientStream || !clientCtx) return;
+            if (!clientVideo || !isMonitoring || !clientStream) return;
 
             try {
                 // Draw video frame to canvas
                 clientCtx.drawImage(clientVideo, 0, 0, clientCanvas.width, clientCanvas.height);
                 
-                // Store frame for video creation
+                // Convert to base64
                 const frameData = clientCanvas.toDataURL('image/jpeg', 0.8);
-                storedFrames.push(frameData);
-                
-                // Keep only last 1000 frames to prevent memory issues
-                if (storedFrames.length > 1000) {
-                    storedFrames = storedFrames.slice(-1000);
-                }
 
                 // Send to server for processing
                 fetch('/process_frame', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify({ frame: frameData })
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.success && data.processed_frame) {
-                        // Display processed frame
+                    if (data.success && data.processed_image) {
+                        // Update canvas with processed image
                         const img = new Image();
                         img.onload = function() {
                             clientCtx.drawImage(img, 0, 0, clientCanvas.width, clientCanvas.height);
                         };
-                        img.src = data.processed_frame;
-                        
-                        // Update detection data
-                        if (data.detections && data.detections.length > 0) {
-                            updateLocalDetectionData(data.detections);
-                        }
+                        img.src = data.processed_image;
                     }
                 })
                 .catch(error => {
                     console.error('Frame processing error:', error);
                 });
-
-            } catch (error) {
-                console.error('Frame capture error:', error);
-            }
-        }
-
-        function updateLocalDetectionData(detections) {
-            // Update local statistics based on detections
-            const totalPersons = detections.length;
-            const focusedCount = detections.filter(d => d.status === 'FOCUSED').length;
-            
-            document.getElementById('totalPersons').textContent = totalPersons;
-            document.getElementById('focusedCount').textContent = focusedCount;
-            
-            // Determine overall status
-            let currentStatus = 'FOCUSED';
-            if (detections.some(d => d.status === 'SLEEPING')) {
-                currentStatus = 'SLEEPING';
-            } else if (detections.some(d => d.status === 'YAWNING')) {
-                currentStatus = 'YAWNING';
-            } else if (detections.some(d => d.status === 'NOT FOCUSED')) {
-                currentStatus = 'NOT FOCUSED';
-            }
-            
-            updateCurrentStatus(currentStatus);
-        }
-
-        async function stopMonitoring() {
-            try {
-                // Send stored frames to server
-                if (storedFrames.length > 0) {
-                    await fetch('/save_session_frames', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ frames: storedFrames })
-                    });
-                }
-
-                const response = await fetch('/stop_monitoring', { method: 'POST' });
-                const data = await response.json();
-
-                updateUIForInactiveMonitoring();
-                stopDataUpdates();
-
-                if (clientStream) {
-                    clientStream.getTracks().forEach(track => track.stop());
-                    clientStream = null;
-                }
-
-                if (processingInterval) {
-                    clearInterval(processingInterval);
-                    processingInterval = null;
-                }
-
-                storedFrames = [];
-
-                showNotification('Session complete! PDF report and recording generated.', 'success');
                 
-                if (data.pdf_report || data.video_file) {
-                    showDownloads(data.pdf_report, data.video_file);
-                } else {
-                    showDownloads('/static/reports/session_report.pdf', '/static/recordings/session_video.mp4');
-                }
             } catch (error) {
-                showNotification('Failed to stop monitoring: ' + error.message, 'error');
+                console.error('Client frame processing error:', error);
             }
         }
 
@@ -1139,251 +955,252 @@
             isMonitoring = true;
             sessionStartTime = Date.now();
             
+            // Update UI elements
             document.getElementById('startBtn').disabled = true;
             document.getElementById('stopBtn').disabled = false;
             document.getElementById('screenshotBtn').disabled = false;
             
+            // Update live indicator
             const liveIndicator = document.getElementById('liveIndicator');
             const liveDot = document.getElementById('liveDot');
             const liveText = document.getElementById('liveText');
             
             liveIndicator.classList.add('active');
             liveDot.classList.add('active');
-            liveText.textContent = 'LIVE • RECORDING';
+            liveText.textContent = 'LIVE';
             
+            // Hide placeholder, show canvas
             document.getElementById('videoPlaceholder').style.display = 'none';
             
-            updateCurrentStatus('READY');
-            startSessionTimer();
-            
-            const alertHistory = document.getElementById('alertHistory');
-            alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring started - automatic recording active</p></div>';
-            
-            lastAlertIds.clear();
+            // Start session timer
+            sessionTimer = setInterval(updateSessionTimer, 1000);
         }
 
-        function updateUIForInactiveMonitoring() {
+        async function stopMonitoring() {
+            try {
+                // Stop server monitoring
+                const response = await fetch('/stop_monitoring', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Show PDF download link
+                    if (data.pdf_report) {
+                        showDownloadSection(data.pdf_report);
+                    }
+                    showNotification('Session stopped. Report generated.', 'success');
+                } else {
+                    throw new Error(data.message);
+                }
+
+                updateUIForStoppedMonitoring();
+                
+            } catch (error) {
+                showNotification('Error stopping monitoring: ' + error.message, 'error');
+            }
+        }
+
+        function updateUIForStoppedMonitoring() {
             isMonitoring = false;
             
+            // Update UI elements
             document.getElementById('startBtn').disabled = false;
             document.getElementById('stopBtn').disabled = true;
             document.getElementById('screenshotBtn').disabled = true;
             
+            // Update live indicator
             const liveIndicator = document.getElementById('liveIndicator');
             const liveDot = document.getElementById('liveDot');
             const liveText = document.getElementById('liveText');
             
             liveIndicator.classList.remove('active');
             liveDot.classList.remove('active');
-            liveText.textContent = 'READY';
+            liveText.textContent = 'STOPPED';
             
-            document.getElementById('clientVideo').style.display = 'none';
-            document.getElementById('clientCanvas').style.display = 'none';
-            document.getElementById('videoPlaceholder').style.display = 'block';
-            
-            updateCurrentStatus('READY');
-            
+            // Stop timers and camera
             if (sessionTimer) {
                 clearInterval(sessionTimer);
                 sessionTimer = null;
             }
             
-            document.getElementById('totalPersons').textContent = '0';
-            document.getElementById('focusedCount').textContent = '0';
-        }
-
-        function startDataUpdates() {
-            dataUpdateTimer = setInterval(() => {
-                if (isMonitoring) {
-                    fetch('/get_monitoring_data')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (!data.error) {
-                                updateMonitoringDisplay(data);
-                                updateAlerts(data.latest_alerts || []);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Failed to fetch monitoring data:', error);
-                        });
-                }
-            }, 3000);
-        }
-
-        function stopDataUpdates() {
             if (dataUpdateTimer) {
                 clearInterval(dataUpdateTimer);
                 dataUpdateTimer = null;
             }
+            
+            if (processingInterval) {
+                clearInterval(processingInterval);
+                processingInterval = null;
+            }
+            
+            // Stop camera stream
+            if (clientStream) {
+                clientStream.getTracks().forEach(track => track.stop());
+                clientStream = null;
+            }
+            
+            // Show placeholder again
+            document.getElementById('videoPlaceholder').style.display = 'block';
+            clientCanvas.style.display = 'none';
         }
 
-        function updateMonitoringDisplay(data) {
-            document.getElementById('alertCount').textContent = data.alert_count || 0;
+        function takeScreenshot() {
+            if (!isMonitoring || !clientCanvas) return;
+            
+            try {
+                // Create download link for screenshot
+                const link = document.createElement('a');
+                link.download = `screenshot_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+                link.href = clientCanvas.toDataURL();
+                link.click();
+                
+                showNotification('Screenshot saved', 'success');
+            } catch (error) {
+                showNotification('Screenshot failed: ' + error.message, 'error');
+            }
+        }
+
+        function startDataUpdates() {
+            dataUpdateTimer = setInterval(async () => {
+                try {
+                    const response = await fetch('/get_monitoring_data');
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        console.error('Data update error:', data.error);
+                        return;
+                    }
+                    
+                    // Update statistics
+                    document.getElementById('totalPersons').textContent = data.total_persons || 0;
+                    document.getElementById('focusedCount').textContent = data.focused_count || 0;
+                    document.getElementById('alertCount').textContent = data.alert_count || 0;
+                    
+                    // Update current status
+                    updateCurrentStatus(data.current_status || 'READY');
+                    
+                    // Update alert history
+                    updateAlertHistory(data.latest_alerts || []);
+                    
+                    // Handle voice alerts
+                    if (data.voice_alerts && data.voice_alerts.length > 0) {
+                        data.voice_alerts.forEach(alert => {
+                            showVoiceAlert(alert.message, alert.type);
+                        });
+                    }
+                    
+                } catch (error) {
+                    console.error('Failed to update monitoring data:', error);
+                }
+            }, 2000);
         }
 
         function updateCurrentStatus(status) {
-            const statusElement = document.getElementById('currentStatus');
-            const statusClasses = ['status-ready', 'status-focused', 'status-unfocused', 'status-yawning', 'status-sleeping'];
+            const statusDisplay = document.getElementById('currentStatus');
+            const statusIndicator = statusDisplay.querySelector('.status-indicator');
             
-            statusClasses.forEach(cls => statusElement.classList.remove(cls));
+            // Remove all status classes
+            statusDisplay.className = 'status-display';
+            statusIndicator.className = 'status-indicator';
             
-            let statusClass, message;
+            // Add appropriate status class
+            const statusClass = status.toLowerCase().replace(/\s+/g, '-');
+            statusDisplay.classList.add(`status-${statusClass}`);
+            statusIndicator.classList.add(`status-${statusClass}`);
+            
+            // Update text
+            let statusText = '';
             switch(status) {
                 case 'FOCUSED':
-                    statusClass = 'status-focused';
-                    message = 'All persons are focused - Recording active';
+                    statusText = 'All persons are focused and alert';
                     break;
                 case 'NOT FOCUSED':
-                    statusClass = 'status-unfocused';
-                    message = 'Some persons are not focused - Recording active';
+                    statusText = 'Some persons are not focused';
                     break;
                 case 'YAWNING':
-                    statusClass = 'status-yawning';
-                    message = 'Yawning detected - fatigue signs - Recording active';
+                    statusText = 'Yawning detected - fatigue warning';
                     break;
                 case 'SLEEPING':
-                    statusClass = 'status-sleeping';
-                    message = 'Sleep detected - eyes closed - Recording active';
+                    statusText = 'Sleeping detected - immediate attention needed';
                     break;
                 default:
-                    statusClass = 'status-ready';
-                    message = 'Monitoring active - detecting faces - Recording in progress';
+                    statusText = 'System ready - enhanced client-side detection with voice alerts';
             }
             
-            statusElement.classList.add(statusClass);
-            statusElement.innerHTML = `
-                <span class="status-indicator ${statusClass.replace('status-', 'status-')}"></span>
-                ${message}
-            `;
+            statusDisplay.innerHTML = `<span class="status-indicator status-${statusClass}"></span>${statusText}`;
         }
 
-        function updateAlerts(alerts) {
+        function updateAlertHistory(alerts) {
             const alertHistory = document.getElementById('alertHistory');
             
-            if (alerts.length === 0) {
-                alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>No recent alerts.</p></div>';
+            if (!alerts || alerts.length === 0) {
+                alertHistory.innerHTML = `
+                    <div class="text-center" style="color: var(--text-secondary); padding: 20px;">
+                        <i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i>
+                        <p>No alerts yet - monitoring in progress</p>
+                    </div>
+                `;
                 return;
             }
-
-            alertHistory.innerHTML = alerts.map(alert => 
-                `<div class="alert-item" style="border-left-color: ${alert.type === 'error' ? 'var(--danger)' : 'var(--warning)'};">
+            
+            alertHistory.innerHTML = alerts.map(alert => `
+                <div class="alert-item">
+                    <i class="fas fa-exclamation-triangle" style="color: var(--${alert.type === 'error' ? 'danger' : 'warning'}); margin-right: 12px;"></i>
                     <div style="flex: 1;">
-                        <div style="font-weight: 500; margin-bottom: 4px;">${alert.message}</div>
+                        <div style="font-weight: 500;">${alert.message}</div>
                     </div>
                     <div class="alert-time">${alert.time}</div>
-                </div>`
-            ).join('');
+                </div>
+            `).join('');
         }
 
-        function startSessionTimer() {
-            sessionTimer = setInterval(() => {
-                if (sessionStartTime) {
-                    const elapsed = Date.now() - sessionStartTime;
-                    const hours = Math.floor(elapsed / 3600000);
-                    const minutes = Math.floor((elapsed % 3600000) / 60000);
-                    const seconds = Math.floor((elapsed % 60000) / 1000);
-                    document.getElementById('sessionTime').textContent = 
-                        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                }
-            }, 1000);
+        function updateSessionTimer() {
+            if (!sessionStartTime) return;
+            
+            const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+            const hours = Math.floor(elapsed / 3600);
+            const minutes = Math.floor((elapsed % 3600) / 60);
+            const seconds = elapsed % 60;
+            
+            const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('sessionTime').textContent = timeString;
         }
 
-        function showDownloads(pdfReport, videoFile) {
+        function showDownloadSection(pdfUrl) {
             const downloadsSection = document.getElementById('downloadsSection');
             const downloadItems = document.getElementById('downloadItems');
             
-            downloadItems.innerHTML = '';
-            
-            if (pdfReport) {
-                const pdfItem = document.createElement('div');
-                pdfItem.className = 'download-item';
-                pdfItem.innerHTML = `
-                    <div class="download-info">
-                        <div class="file-icon">
-                            <i class="fas fa-file-pdf"></i>
-                        </div>
+            downloadItems.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--dark-bg); border-radius: 8px; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <i class="fas fa-file-pdf" style="color: var(--danger); font-size: 1.2rem;"></i>
                         <div>
-                            <div style="font-weight: 600;">Session Report</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with comprehensive analysis</div>
+                            <div style="font-weight: 500;">Session Report</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">PDF Report</div>
                         </div>
                     </div>
-                    <a href="${pdfReport}" download class="btn btn-primary">
+                    <a href="${pdfUrl}" download class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.8rem;">
                         <i class="fas fa-download"></i>
+                        Download
                     </a>
-                `;
-                downloadItems.appendChild(pdfItem);
-            }
-            
-            if (videoFile) {
-                const videoItem = document.createElement('div');
-                videoItem.className = 'download-item';
-                videoItem.innerHTML = `
-                    <div class="download-info">
-                        <div class="file-icon">
-                            <i class="fas fa-video"></i>
-                        </div>
-                        <div>
-                            <div style="font-weight: 600;">Session Recording</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Video with face detection overlays</div>
-                        </div>
-                    </div>
-                    <a href="${videoFile}" download class="btn btn-secondary">
-                        <i class="fas fa-download"></i>
-                    </a>
-                `;
-                downloadItems.appendChild(videoItem);
-            }
+                </div>
+            `;
             
             downloadsSection.style.display = 'block';
         }
 
-        function takeScreenshot() {
-            if (clientCanvas && isMonitoring) {
-                const link = document.createElement('a');
-                link.download = `screenshot_${new Date().getTime()}.png`;
-                link.href = clientCanvas.toDataURL();
-                link.click();
-                showNotification('Screenshot captured successfully', 'success');
-            }
-        }
-
         function showNotification(message, type = 'info') {
             const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: var(--glass-bg);
-                border: 1px solid var(--glass-border);
-                border-radius: 8px;
-                padding: 16px;
-                color: var(--text-primary);
-                z-index: 1000;
-                max-width: 300px;
-                animation: slideInRight 0.3s ease-out;
-                backdrop-filter: blur(10px);
-            `;
-            
-            const colors = {
-                success: 'var(--success)',
-                warning: 'var(--warning)',
-                error: 'var(--danger)',
-                info: 'var(--info)'
-            };
-            
-            const icons = {
-                success: 'fa-check-circle',
-                warning: 'fa-exclamation-triangle',
-                error: 'fa-times-circle',
-                info: 'fa-info-circle'
-            };
-            
+            notification.className = `voice-alert ${type}`;
             notification.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i class="fas ${icons[type] || icons.info}" style="color: ${colors[type] || colors.info};"></i>
-                    <span>${message}</span>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-triangle' : 'fa-info-circle'}" 
+                       style="color: var(--${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'});"></i>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; margin-bottom: 4px;">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
+                        <div style="font-size: 0.9rem;">${message}</div>
+                    </div>
                     <button onclick="this.parentElement.parentElement.remove()" 
-                            style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-left: auto;">
+                            style="background: none; border: none; color: var(--text-secondary); cursor: pointer;">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -1395,29 +1212,8 @@
                 if (notification.parentElement) {
                     notification.remove();
                 }
-            }, 5000);
+            }, 4000);
         }
-
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideInRight {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-
-        window.addEventListener('beforeunload', function() {
-            if (clientStream) {
-                clientStream.getTracks().forEach(track => track.stop());
-            }
-        });
     </script>
 </body>
 </html>
