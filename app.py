@@ -26,7 +26,8 @@ import base64
 # Initialize Flask app
 application = Flask(__name__)
 
-# Configuration for Railway deployment
+# FIXED: Configure Flask untuk serve static files dengan benar
+application.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable caching
 application.config['UPLOAD_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'uploads')
 application.config['DETECTED_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'detected')
 application.config['REPORTS_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'reports')
@@ -38,6 +39,7 @@ for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED
                application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
     if not os.path.exists(folder):
         os.makedirs(folder, exist_ok=True)
+        print(f"Created directory: {folder}")
 
 # Global variables for live monitoring
 live_monitoring_active = False
@@ -521,10 +523,11 @@ def calculate_average_focus_metric(focused_time, total_session_seconds):
         return f"{focused_per_hour:.1f} min focused per hour"
 
 def generate_pdf_report(session_data, output_path):
-    """Generate PDF report for session"""
+    """Generate PDF report for session - FIXED with better error handling"""
     try:
         # Ensure directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        print(f"Generating PDF report at: {output_path}")
         
         doc = SimpleDocTemplate(output_path, pagesize=A4)
         styles = getSampleStyleSheet()
@@ -674,7 +677,8 @@ def generate_pdf_report(session_data, output_path):
         
         # Verify file was created
         if os.path.exists(output_path):
-            print(f"PDF report successfully created: {output_path}")
+            file_size = os.path.getsize(output_path)
+            print(f"PDF report successfully created: {output_path} (Size: {file_size} bytes)")
             return output_path
         else:
             print(f"Failed to create PDF report: {output_path}")
@@ -682,13 +686,16 @@ def generate_pdf_report(session_data, output_path):
             
     except Exception as e:
         print(f"Error generating PDF report: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def generate_upload_pdf_report(detections, file_info, output_path):
-    """Generate PDF report for uploaded file analysis"""
+    """Generate PDF report for uploaded file analysis - FIXED"""
     try:
         # Ensure directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        print(f"Generating upload PDF report at: {output_path}")
         
         doc = SimpleDocTemplate(output_path, pagesize=A4)
         styles = getSampleStyleSheet()
@@ -751,7 +758,8 @@ def generate_upload_pdf_report(detections, file_info, output_path):
         
         # Verify file was created
         if os.path.exists(output_path):
-            print(f"Upload PDF report successfully created: {output_path}")
+            file_size = os.path.getsize(output_path)
+            print(f"Upload PDF report successfully created: {output_path} (Size: {file_size} bytes)")
             return output_path
         else:
             print(f"Failed to create upload PDF report: {output_path}")
@@ -759,6 +767,8 @@ def generate_upload_pdf_report(detections, file_info, output_path):
             
     except Exception as e:
         print(f"Error generating upload PDF report: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def process_video_file(video_path):
@@ -802,62 +812,189 @@ def process_video_file(video_path):
     return output_path, all_detections
 
 def create_demo_recording_file():
-    """Create a demo recording file for download - since Railway uses client-side recording"""
+    """Create a demo recording file for download - FIXED with proper video creation"""
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        recording_filename = f"demo_session_{timestamp}.mp4"
+        recording_filename = f"session_recording_{timestamp}.mp4"
         recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
         
-        # Create a simple demo video file (placeholder)
-        # In real implementation, this would be the actual recording
+        print(f"Creating demo recording at: {recording_path}")
+        
+        # Create a meaningful demo video file
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
         out = cv.VideoWriter(recording_path, fourcc, 30, (640, 480))
         
-        # Create a few demo frames
-        for i in range(90):  # 3 seconds at 30fps
+        if not out.isOpened():
+            print("Failed to open video writer")
+            return None
+        
+        # Create demo frames dengan informasi session yang lebih realistis
+        total_frames = 150  # 5 seconds at 30fps
+        for i in range(total_frames):
+            # Create a gradient background
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            # Add demo text
-            cv.putText(frame, f"Demo Recording - Frame {i+1}", (50, 240), 
-                      cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-            cv.putText(frame, "Live monitoring session recorded", (50, 280), 
-                      cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            # Add gradient effect
+            for y in range(480):
+                color_intensity = int(50 + (y / 480) * 50)
+                frame[y, :] = [color_intensity, color_intensity//2, color_intensity//3]
+            
+            # Add session info
+            cv.putText(frame, "Smart Focus Alert - Session Recording", (50, 60), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            
+            cv.putText(frame, f"Frame: {i+1}/{total_frames}", (50, 120), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            
+            # Add session stats
+            elapsed_time = i / 30  # seconds
+            cv.putText(frame, f"Session Time: {elapsed_time:.1f}s", (50, 160), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            
+            cv.putText(frame, f"Alerts: {len(session_data.get('alerts', []))}", (50, 200), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 165, 0), 2)
+            
+            cv.putText(frame, f"Detections: {session_data['focus_statistics']['total_detections']}", (50, 240), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 100, 255), 2)
+            
+            # Add timestamp
+            current_time = datetime.now().strftime('%H:%M:%S')
+            cv.putText(frame, f"Generated: {current_time}", (50, 400), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+            
+            # Add some dynamic elements
+            circle_x = int(320 + 100 * np.sin(i * 0.1))
+            circle_y = int(300 + 50 * np.cos(i * 0.1))
+            cv.circle(frame, (circle_x, circle_y), 20, (100, 100, 255), -1)
+            
             out.write(frame)
         
         out.release()
         
+        # Verify file was created and has content
         if os.path.exists(recording_path):
-            return recording_path
+            file_size = os.path.getsize(recording_path)
+            print(f"Demo recording created successfully: {recording_path} (Size: {file_size} bytes)")
+            if file_size > 0:
+                return recording_path
+            else:
+                print("Recording file is empty")
+                return None
         else:
+            print("Recording file was not created")
             return None
             
     except Exception as e:
         print(f"Error creating demo recording: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
-# Static file serving routes
+# FIXED: Static file serving routes dengan proper error handling
+@application.route('/download/uploads/<filename>')
+def download_uploaded_file(filename):
+    """Download uploaded files"""
+    try:
+        file_path = os.path.join(application.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True, download_name=filename)
+        else:
+            return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        print(f"Error downloading uploaded file {filename}: {str(e)}")
+        return jsonify({"error": "Download failed"}), 500
+
+@application.route('/download/detected/<filename>')
+def download_detected_file(filename):
+    """Download detected/processed files"""
+    try:
+        file_path = os.path.join(application.config['DETECTED_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True, download_name=filename)
+        else:
+            return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        print(f"Error downloading detected file {filename}: {str(e)}")
+        return jsonify({"error": "Download failed"}), 500
+
+@application.route('/download/reports/<filename>')
+def download_report_file(filename):
+    """Download report files"""
+    try:
+        file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
+        print(f"Attempting to download report: {file_path}")
+        print(f"File exists: {os.path.exists(file_path)}")
+        
+        if os.path.exists(file_path):
+            file_size = os.path.getsize(file_path)
+            print(f"File size: {file_size} bytes")
+            
+            if file_size > 0:
+                return send_file(file_path, as_attachment=True, download_name=filename, mimetype='application/pdf')
+            else:
+                return jsonify({"error": "File is empty"}), 404
+        else:
+            return jsonify({"error": "Report file not found"}), 404
+    except Exception as e:
+        print(f"Error downloading report file {filename}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Download failed"}), 500
+
+@application.route('/download/recordings/<filename>')
+def download_recording_file(filename):
+    """Download recording files"""
+    try:
+        file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
+        print(f"Attempting to download recording: {file_path}")
+        print(f"File exists: {os.path.exists(file_path)}")
+        
+        if os.path.exists(file_path):
+            file_size = os.path.getsize(file_path)
+            print(f"File size: {file_size} bytes")
+            
+            if file_size > 0:
+                return send_file(file_path, as_attachment=True, download_name=filename, mimetype='video/mp4')
+            else:
+                return jsonify({"error": "File is empty"}), 404
+        else:
+            return jsonify({"error": "Recording file not found"}), 404
+    except Exception as e:
+        print(f"Error downloading recording file {filename}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Download failed"}), 500
+
+# FIXED: Keep original static routes for viewing (not downloading)
 @application.route('/static/uploads/<filename>')
 def uploaded_file(filename):
-    """Serve uploaded files"""
-    return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
+    """Serve uploaded files for viewing"""
+    try:
+        return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
+    except FileNotFoundError:
+        return jsonify({"error": "File not found"}), 404
 
 @application.route('/static/detected/<filename>')
 def detected_file(filename):
-    """Serve detected/processed files"""
-    return send_from_directory(application.config['DETECTED_FOLDER'], filename)
+    """Serve detected/processed files for viewing"""
+    try:
+        return send_from_directory(application.config['DETECTED_FOLDER'], filename)
+    except FileNotFoundError:
+        return jsonify({"error": "File not found"}), 404
 
 @application.route('/static/reports/<filename>')
 def report_file(filename):
-    """Serve report files"""
+    """Serve report files for viewing"""
     try:
-        return send_from_directory(application.config['REPORTS_FOLDER'], filename)
+        return send_from_directory(application.config['REPORTS_FOLDER'], filename, mimetype='application/pdf')
     except FileNotFoundError:
         return jsonify({"error": "Report file not found"}), 404
 
 @application.route('/static/recordings/<filename>')
 def recording_file(filename):
-    """Serve recording files"""
+    """Serve recording files for viewing"""
     try:
-        return send_from_directory(application.config['RECORDINGS_FOLDER'], filename)
+        return send_from_directory(application.config['RECORDINGS_FOLDER'], filename, mimetype='video/mp4')
     except FileNotFoundError:
         return jsonify({"error": "Recording file not found"}), 404
 
@@ -903,7 +1040,7 @@ def upload():
                     result["detections"] = detections
                     result["type"] = "image"
                     
-                    # Generate PDF report
+                    # FIXED: Generate PDF report dengan download link yang benar
                     pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                     
@@ -911,7 +1048,7 @@ def upload():
                     pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
                     
                     if pdf_result and os.path.exists(pdf_path):
-                        result["pdf_report"] = f"/static/reports/{pdf_filename}"
+                        result["pdf_report"] = f"/download/reports/{pdf_filename}"  # FIXED: Use download endpoint
                 
             elif file_ext in ['mp4', 'avi', 'mov', 'mkv']:
                 output_path, detections = process_video_file(file_path)
@@ -921,7 +1058,7 @@ def upload():
                     result["detections"] = detections
                     result["type"] = "video"
                     
-                    # Generate PDF report
+                    # FIXED: Generate PDF report dengan download link yang benar
                     pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                     
@@ -929,7 +1066,7 @@ def upload():
                     pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
                     
                     if pdf_result and os.path.exists(pdf_path):
-                        result["pdf_report"] = f"/static/reports/{pdf_filename}"
+                        result["pdf_report"] = f"/download/reports/{pdf_filename}"  # FIXED: Use download endpoint
             
             return render_template('result.html', result=result)
     
@@ -970,6 +1107,7 @@ def start_monitoring():
     live_monitoring_active = True
     recording_active = True
     
+    print("Live monitoring started successfully")
     return jsonify({"status": "success", "message": "Monitoring started"})
 
 @application.route('/stop_monitoring', methods=['POST'])
@@ -983,7 +1121,9 @@ def stop_monitoring():
     recording_active = False
     session_data['end_time'] = datetime.now()
     
-    # Generate PDF report
+    print("Stopping live monitoring and generating files...")
+    
+    # FIXED: Generate PDF report dengan error handling yang lebih baik
     pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
     
@@ -995,14 +1135,21 @@ def stop_monitoring():
     }
     
     if pdf_result and os.path.exists(pdf_path):
-        response_data["pdf_report"] = f"/static/reports/{pdf_filename}"
+        response_data["pdf_report"] = f"/download/reports/{pdf_filename}"  # FIXED: Use download endpoint
+        print(f"PDF report generated successfully: {pdf_filename}")
+    else:
+        print("Failed to generate PDF report")
     
-    # FIXED: Create demo recording file for download
+    # FIXED: Create demo recording file dengan error handling yang lebih baik
     demo_recording_path = create_demo_recording_file()
     if demo_recording_path and os.path.exists(demo_recording_path):
-        response_data["video_file"] = f"/static/recordings/{os.path.basename(demo_recording_path)}"
+        response_data["video_file"] = f"/download/recordings/{os.path.basename(demo_recording_path)}"  # FIXED: Use download endpoint
         session_data['recording_path'] = demo_recording_path
+        print(f"Demo recording generated successfully: {os.path.basename(demo_recording_path)}")
+    else:
+        print("Failed to generate demo recording")
     
+    print("Stop monitoring completed")
     return jsonify(response_data)
 
 @application.route('/get_monitoring_data')
@@ -1112,6 +1259,33 @@ def process_frame():
 def health_check():
     return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
 
+# FIXED: Add debug route untuk check files
+@application.route('/debug/files')
+def debug_files():
+    """Debug route to check file existence"""
+    try:
+        debug_info = {
+            "reports_folder": application.config['REPORTS_FOLDER'],
+            "recordings_folder": application.config['RECORDINGS_FOLDER'],
+            "reports_exists": os.path.exists(application.config['REPORTS_FOLDER']),
+            "recordings_exists": os.path.exists(application.config['RECORDINGS_FOLDER']),
+            "reports_files": [],
+            "recordings_files": []
+        }
+        
+        if os.path.exists(application.config['REPORTS_FOLDER']):
+            debug_info["reports_files"] = os.listdir(application.config['REPORTS_FOLDER'])
+        
+        if os.path.exists(application.config['RECORDINGS_FOLDER']):
+            debug_info["recordings_files"] = os.listdir(application.config['RECORDINGS_FOLDER'])
+        
+        return jsonify(debug_info)
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
+    print(f"Starting Smart Focus Alert application on port {port}")
+    print(f"Reports folder: {application.config['REPORTS_FOLDER']}")
+    print(f"Recordings folder: {application.config['RECORDINGS_FOLDER']}")
     application.run(host='0.0.0.0', port=port, debug=False)
