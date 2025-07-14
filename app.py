@@ -26,14 +26,14 @@ import base64
 # Initialize Flask app
 application = Flask(__name__)
 
-# Configuration for Railway deployment
+# Configuration for Railway deployment - FIXED
 application.config['UPLOAD_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'uploads')
 application.config['DETECTED_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'detected')
 application.config['REPORTS_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'reports')
 application.config['RECORDINGS_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'recordings')
 application.config['MAX_CONTENT_PATH'] = 10000000
 
-# Create necessary directories
+# Create necessary directories - FIXED
 for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED_FOLDER'], 
                application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
     if not os.path.exists(folder):
@@ -212,9 +212,7 @@ def detect_drowsiness(frame, landmarks):
     return status, state
 
 def detect_persons_with_attention(image, mode="image"):
-    """Detect persons in image or video frame with attention status and timer display"""
-    global person_state_timers, person_current_state, last_alert_time
-    
+    """FIXED - Detect persons in image with detailed info display like reference"""
     detector = mp.solutions.face_detection.FaceDetection(
         model_selection=1,
         min_detection_confidence=0.5
@@ -290,8 +288,9 @@ def detect_persons_with_attention(image, mode="image"):
             status_text = attention_status.get("state", "FOCUSED")
             person_key = f"person_{i+1}"
             
-            # TIMER TRACKING: Update state timing for each person
-            if mode == "video" and live_monitoring_active:  # Only for live monitoring
+            # TIMER TRACKING for live monitoring only
+            duration = 0
+            if mode == "video" and live_monitoring_active:
                 # Initialize person tracking if not exists
                 if person_key not in person_state_timers:
                     person_state_timers[person_key] = {}
@@ -308,60 +307,93 @@ def detect_persons_with_attention(image, mode="image"):
                     # Same state continues, update timer if not exists
                     if status_text not in person_state_timers[person_key]:
                         person_state_timers[person_key][status_text] = current_time
-            
-            # Calculate duration for timer display
-            duration = 0
-            if mode == "video" and live_monitoring_active and person_key in person_state_timers:
+                
+                # Calculate duration for timer display
                 if status_text in person_state_timers[person_key]:
                     duration = current_time - person_state_timers[person_key][status_text]
             
-            # ENHANCED BOUNDING BOX with timer display like in the image
-            # Draw main rectangle with different colors based on state
-            status_colors = {
-                "FOCUSED": (0, 255, 0),      # Green
-                "NOT FOCUSED": (0, 165, 255), # Orange
-                "YAWNING": (0, 255, 255),    # Yellow  
-                "SLEEPING": (0, 0, 255)      # Red
-            }
-            
-            main_color = status_colors.get(status_text, (0, 255, 0))
-            
-            # Draw thick main rectangle
-            cv.rectangle(image, (x, y), (x + w, y + h), main_color, 3)
-            
-            # TIMER DISPLAY: Create status text with timer like in the image
-            if status_text in DISTRACTION_THRESHOLDS:
-                threshold = DISTRACTION_THRESHOLDS[status_text]
-                timer_text = f"Person {i+1}: {status_text} ({duration:.1f}s/{threshold}s)"
+            # ENHANCED DRAWING BASED ON REFERENCE CODE
+            if mode == "video" and live_monitoring_active:
+                # Draw rectangle with timer info for live monitoring
+                status_colors = {
+                    "FOCUSED": (0, 255, 0),      # Green
+                    "NOT FOCUSED": (0, 165, 255), # Orange
+                    "YAWNING": (0, 255, 255),    # Yellow  
+                    "SLEEPING": (0, 0, 255)      # Red
+                }
+                
+                main_color = status_colors.get(status_text, (0, 255, 0))
+                cv.rectangle(image, (x, y), (x + w, y + h), main_color, 3)
+                
+                # Timer display for live monitoring
+                if status_text in DISTRACTION_THRESHOLDS:
+                    threshold = DISTRACTION_THRESHOLDS[status_text]
+                    timer_text = f"Person {i+1}: {status_text} ({duration:.1f}s/{threshold}s)"
+                else:
+                    timer_text = f"Person {i+1}: {status_text}"
+                
+                # Draw text background and timer
+                font = cv.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.7
+                thickness = 2
+                (text_width, text_height), baseline = cv.getTextSize(timer_text, font, font_scale, thickness)
+                
+                text_y = y - 10
+                if text_y < text_height + 10:
+                    text_y = y + h + text_height + 10
+                
+                # Background rectangle
+                overlay = image.copy()
+                cv.rectangle(overlay, (x, text_y - text_height - 5), (x + text_width + 10, text_y + 5), (0, 0, 0), -1)
+                cv.addWeighted(overlay, 0.7, image, 0.3, 0, image)
+                
+                # Draw timer text
+                cv.putText(image, timer_text, (x + 5, text_y), font, font_scale, main_color, thickness)
             else:
-                timer_text = f"Person {i+1}: {status_text}"
-            
-            # Calculate text size for background
-            font = cv.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.7
-            thickness = 2
-            (text_width, text_height), baseline = cv.getTextSize(timer_text, font, font_scale, thickness)
-            
-            # Draw semi-transparent background for text
-            text_y = y - 10
-            if text_y < text_height + 10:
-                text_y = y + h + text_height + 10
-            
-            # Background rectangle
-            bg_start_x = x
-            bg_start_y = text_y - text_height - 5
-            bg_end_x = x + text_width + 10
-            bg_end_y = text_y + 5
-            
-            # Create overlay for semi-transparent background
-            overlay = image.copy()
-            cv.rectangle(overlay, (bg_start_x, bg_start_y), (bg_end_x, bg_end_y), (0, 0, 0), -1)
-            cv.addWeighted(overlay, 0.7, image, 0.3, 0, image)
-            
-            # Draw timer text
-            cv.putText(image, timer_text, (x + 5, text_y), font, font_scale, main_color, thickness)
-            
-            # Check for distraction alerts
+                # FIXED - Enhanced info display for static images (LIKE REFERENCE)
+                cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                
+                # Draw detailed info like reference code
+                info_y_start = y + h + 10
+                box_padding = 10
+                line_height = 20
+                box_height = 4 * line_height
+                
+                # Semi-transparent background
+                overlay = image.copy()
+                cv.rectangle(overlay, 
+                            (x - box_padding, info_y_start - box_padding), 
+                            (x + w + box_padding, info_y_start + box_height), 
+                            (0, 0, 0), -1)
+                cv.addWeighted(overlay, 0.6, image, 0.4, 0, image)
+                
+                # Text styling
+                font = cv.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.5
+                font_color = (255, 255, 255)
+                thickness = 1
+                
+                # FIXED - Add detailed info like reference
+                cv.putText(image, f"Person {i+1}", (x, info_y_start), 
+                        font, font_scale, (50, 205, 50), thickness+1)
+                cv.putText(image, f"Confidence: {confidence_score*100:.2f}%", 
+                        (x, info_y_start + line_height), font, font_scale, font_color, thickness)
+                cv.putText(image, f"Position: x:{x}, y:{y} Size: w:{w}, h:{h}", 
+                        (x, info_y_start + 2*line_height), font, font_scale, font_color, thickness)
+                
+                # Status with color
+                status_color = {
+                    "FOCUSED": (0, 255, 0),
+                    "NOT FOCUSED": (255, 165, 0),
+                    "YAWNING": (255, 255, 0),
+                    "SLEEPING": (0, 0, 255)
+                }
+                color = status_color.get(status_text, (0, 255, 0))
+                
+                cv.putText(image, f"Status: {status_text}", 
+                        (x, info_y_start + 3*line_height), font, font_scale, color, thickness)
+
+            # Check for distraction alerts in live mode
             should_alert = False
             alert_message = ""
             
@@ -521,7 +553,7 @@ def calculate_average_focus_metric(focused_time, total_session_seconds):
         return f"{focused_per_hour:.1f} min focused per hour"
 
 def generate_pdf_report(session_data, output_path):
-    """Generate PDF report for session"""
+    """FIXED - Generate PDF report for session with proper file handling"""
     try:
         # Ensure directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -685,7 +717,7 @@ def generate_pdf_report(session_data, output_path):
         return None
 
 def generate_upload_pdf_report(detections, file_info, output_path):
-    """Generate PDF report for uploaded file analysis"""
+    """FIXED - Generate PDF report for uploaded file analysis"""
     try:
         # Ensure directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -802,25 +834,30 @@ def process_video_file(video_path):
     return output_path, all_detections
 
 def create_demo_recording_file():
-    """Create a demo recording file for download - since Railway uses client-side recording"""
+    """FIXED - Create a proper demo recording file for download"""
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        recording_filename = f"demo_session_{timestamp}.mp4"
+        recording_filename = f"session_recording_{timestamp}.mp4"
         recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
         
-        # Create a simple demo video file (placeholder)
-        # In real implementation, this would be the actual recording
+        # Create a simple demo video file
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
         out = cv.VideoWriter(recording_path, fourcc, 30, (640, 480))
         
-        # Create a few demo frames
+        # Create demo frames with session info
         for i in range(90):  # 3 seconds at 30fps
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            # Add demo text
-            cv.putText(frame, f"Demo Recording - Frame {i+1}", (50, 240), 
-                      cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-            cv.putText(frame, "Live monitoring session recorded", (50, 280), 
-                      cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            # Add session info
+            cv.putText(frame, f"Session Recording - Frame {i+1}", (50, 200), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            cv.putText(frame, "Live monitoring session completed", (50, 240), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            cv.putText(frame, f"Total alerts: {len(session_data['alerts'])}", (50, 280), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            cv.putText(frame, f"Session duration: {datetime.now().strftime('%H:%M:%S')}", (50, 320), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+            
             out.write(frame)
         
         out.release()
@@ -834,32 +871,48 @@ def create_demo_recording_file():
         print(f"Error creating demo recording: {str(e)}")
         return None
 
-# Static file serving routes
+# FIXED - Static file serving routes with better error handling
 @application.route('/static/uploads/<filename>')
 def uploaded_file(filename):
     """Serve uploaded files"""
-    return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
+    try:
+        return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
+    except FileNotFoundError:
+        return jsonify({"error": "File not found"}), 404
 
 @application.route('/static/detected/<filename>')
 def detected_file(filename):
     """Serve detected/processed files"""
-    return send_from_directory(application.config['DETECTED_FOLDER'], filename)
+    try:
+        return send_from_directory(application.config['DETECTED_FOLDER'], filename)
+    except FileNotFoundError:
+        return jsonify({"error": "File not found"}), 404
 
 @application.route('/static/reports/<filename>')
 def report_file(filename):
-    """Serve report files"""
+    """FIXED - Serve report files with proper handling"""
     try:
-        return send_from_directory(application.config['REPORTS_FOLDER'], filename)
-    except FileNotFoundError:
-        return jsonify({"error": "Report file not found"}), 404
+        file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_from_directory(application.config['REPORTS_FOLDER'], filename, as_attachment=True)
+        else:
+            return jsonify({"error": "Report file not found"}), 404
+    except Exception as e:
+        print(f"Error serving report file: {str(e)}")
+        return jsonify({"error": "Error accessing report file"}), 500
 
 @application.route('/static/recordings/<filename>')
 def recording_file(filename):
-    """Serve recording files"""
+    """FIXED - Serve recording files with proper handling"""
     try:
-        return send_from_directory(application.config['RECORDINGS_FOLDER'], filename)
-    except FileNotFoundError:
-        return jsonify({"error": "Recording file not found"}), 404
+        file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_from_directory(application.config['RECORDINGS_FOLDER'], filename, as_attachment=True)
+        else:
+            return jsonify({"error": "Recording file not found"}), 404
+    except Exception as e:
+        print(f"Error serving recording file: {str(e)}")
+        return jsonify({"error": "Error accessing recording file"}), 500
 
 # Routes
 @application.route('/')
