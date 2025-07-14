@@ -743,7 +743,7 @@
                 </div>
                 <div class="setup-text">
                     <div class="setup-title">Using Device Camera</div>
-                    <div class="setup-subtitle">Server camera not available. Using your device camera for Railway/ngrok compatibility.</div>
+                    <div class="setup-subtitle" id="connectionSubtitle">Server camera not available. Using your device camera for Railway/ngrok compatibility.</div>
                 </div>
             </div>
         </div>
@@ -921,7 +921,7 @@
     </div>
 
     <script>
-        // ===== SESSION VARIABLES =====
+        // ===== FIXED SESSION VARIABLES =====
         let sessionStartTime = null;
         let alertCount = 0;
         let isMonitoring = false;
@@ -938,7 +938,7 @@
         let clientStream = null;
         let processingInterval = null;
 
-        // ===== ALERT TRACKING VARIABLES (NEW) =====
+        // ===== ALERT TRACKING VARIABLES =====
         let clientAlerts = [];
         let personStates = {};  // Track state for each person
         let personTimers = {};  // Track duration for each person
@@ -948,7 +948,7 @@
             'NOT FOCUSED': 10000    // 10 seconds in milliseconds
         };
 
-        // ===== AUDIO SYSTEM (NEW) =====
+        // ===== AUDIO SYSTEM =====
         let audioContext = null;
         let alertAudio = null;
 
@@ -957,7 +957,7 @@
             initializePage();
             setupEventListeners();
             checkCameraSetup();
-            initializeAudioSystem(); // NEW
+            initializeAudioSystem();
         });
 
         function initializePage() {
@@ -973,7 +973,7 @@
             clientCtx = clientCanvas.getContext('2d');
         }
 
-        // ===== NEW FUNCTION - Initialize Audio System =====
+        // ===== FIXED FUNCTION - Initialize Audio System =====
         function initializeAudioSystem() {
             try {
                 // Create audio context for beep sounds
@@ -990,7 +990,7 @@
             }
         }
 
-        // ===== NEW FUNCTION - Play Alert Sound =====
+        // ===== FIXED FUNCTION - Play Alert Sound =====
         function playAlertSound(alertType = 'default') {
             if (!audioEnabled || !audioContext) return;
 
@@ -1027,7 +1027,7 @@
             }
         }
 
-        // ===== NEW FUNCTION - Speak Alert Message =====
+        // ===== FIXED FUNCTION - Speak Alert Message =====
         function speakAlertMessage(message) {
             if (!audioEnabled || !window.speechSynthesis) return;
 
@@ -1136,10 +1136,10 @@
             }
         }
 
-        // ===== MODIFIED - startMonitoring function =====
+        // ===== FIXED - startMonitoring function =====
         async function startMonitoring() {
             try {
-                // Reset alert tracking (NEW)
+                // Reset alert tracking
                 clientAlerts = [];
                 personStates = {};
                 personTimers = {};
@@ -1196,7 +1196,7 @@
             document.getElementById('videoStream').style.display = 'block';
         }
 
-        // ===== MODIFIED - Process client frame with Alert Detection =====
+        // ===== FIXED - Process client frame with Alert Detection =====
         function processClientFrame() {
             if (!clientVideo || !isMonitoring || !clientStream) return;
 
@@ -1223,7 +1223,7 @@
                         };
                         img.src = data.processed_frame;
 
-                        // ===== NEW - Process detections for alerts =====
+                        // ===== FIXED - Process detections for alerts =====
                         if (data.detections && data.detections.length > 0) {
                             processDetectionAlerts(data.detections);
                         }
@@ -1238,7 +1238,7 @@
             }
         }
 
-        // ===== NEW FUNCTION - Process Detection Alerts =====
+        // ===== FIXED FUNCTION - Process Detection Alerts =====
         function processDetectionAlerts(detections) {
             const currentTime = Date.now();
 
@@ -1282,7 +1282,7 @@
             updateUIWithDetections(detections);
         }
 
-        // ===== NEW FUNCTION - Trigger Client Alert =====
+        // ===== FIXED FUNCTION - Trigger Client Alert =====
         function triggerClientAlert(personId, alertType, duration) {
             const alertTime = new Date().toLocaleTimeString();
             const alertMessage = getAlertMessage(personId, alertType);
@@ -1327,7 +1327,7 @@
             console.log('Alert triggered:', alert);
         }
 
-        // ===== NEW FUNCTION - Get Alert Message =====
+        // ===== FIXED FUNCTION - Get Alert Message =====
         function getAlertMessage(personId, alertType) {
             const messages = {
                 'SLEEPING': `Person ${personId} is sleeping - please wake up!`,
@@ -1337,7 +1337,7 @@
             return messages[alertType] || `Person ${personId} attention alert`;
         }
 
-        // ===== NEW FUNCTION - Update UI with Detections =====
+        // ===== FIXED FUNCTION - Update UI with Detections =====
         function updateUIWithDetections(detections) {
             // Update statistics
             document.getElementById('totalPersons').textContent = detections.length;
@@ -1358,7 +1358,7 @@
             updateCurrentStatus(overallStatus);
         }
 
-        // ===== NEW FUNCTION - Update Client Alert History =====
+        // ===== FIXED FUNCTION - Update Client Alert History =====
         function updateClientAlertHistory() {
             const alertHistory = document.getElementById('alertHistory');
             
@@ -1378,7 +1378,7 @@
             ).join('');
         }
 
-        // ===== MODIFIED - stopMonitoring function =====
+        // ===== FIXED - stopMonitoring function =====
         async function stopMonitoring() {
             try {
                 const response = await fetch('/stop_monitoring', { method: 'POST' });
@@ -1398,7 +1398,7 @@
                     processingInterval = null;
                 }
 
-                // Reset alert tracking (NEW)
+                // Reset alert tracking
                 personStates = {};
                 personTimers = {};
 
@@ -1415,7 +1415,7 @@
             }
         }
 
-        // ===== MODIFIED - updateUIForInactiveMonitoring function =====
+        // ===== FIXED - updateUIForInactiveMonitoring function =====
         function updateUIForInactiveMonitoring() {
             isMonitoring = false;
             
@@ -1440,6 +1440,7 @@
             
             updateCurrentStatus('READY');
             
+            // ===== FIXED - Clear session timer properly =====
             if (sessionTimer) {
                 clearInterval(sessionTimer);
                 sessionTimer = null;
@@ -1569,9 +1570,10 @@
             ).join('');
         }
 
+        // ===== FIXED - Session Timer function =====
         function startSessionTimer() {
             sessionTimer = setInterval(() => {
-                if (sessionStartTime) {
+                if (sessionStartTime && isMonitoring) {
                     const elapsed = Date.now() - sessionStartTime;
                     const hours = Math.floor(elapsed / 3600000);
                     const minutes = Math.floor((elapsed % 3600000) / 60000);
