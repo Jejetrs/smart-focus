@@ -813,17 +813,25 @@
                 </div>
                 
                 <div class="controls-panel">
-                    <button class="btn btn-primary" id="startBtn" onclick="startMonitoring()">
+                    <button class="btn btn-primary" id="startBtn" onclick="startMonitoring(); return false;">
                         <i class="fas fa-play"></i>
                         Start Monitoring
                     </button>
-                    <button class="btn btn-danger" id="stopBtn" onclick="stopMonitoring()" disabled>
+                    <button class="btn btn-danger" id="stopBtn" onclick="stopMonitoring(); return false;" disabled>
                         <i class="fas fa-stop"></i>
                         Stop & Generate Report
                     </button>
-                    <button class="btn btn-secondary" onclick="takeScreenshot()" id="screenshotBtn" disabled>
+                    <button class="btn btn-secondary" onclick="takeScreenshot(); return false;" id="screenshotBtn" disabled>
                         <i class="fas fa-camera"></i>
                         Screenshot
+                    </button>
+                    
+                    <!-- Debug buttons untuk troubleshooting -->
+                    <button class="btn" style="background: #6b7280; font-size: 12px;" onclick="testButton()">
+                        Test Button
+                    </button>
+                    <button class="btn" style="background: #059669; font-size: 12px;" onclick="manualStart()">
+                        Manual Start
                     </button>
                 </div>
 
@@ -954,6 +962,7 @@
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded'); // Debug log
             initializePage();
             setupEventListeners();
             checkCameraSetup();
@@ -961,6 +970,7 @@
         });
 
         function initializePage() {
+            console.log('Initializing page...'); // Debug log
             document.body.style.opacity = "0";
             document.body.style.transition = "opacity 0.6s ease";
             setTimeout(() => {
@@ -970,23 +980,53 @@
             // Initialize client camera elements
             clientVideo = document.getElementById('clientVideo');
             clientCanvas = document.getElementById('clientCanvas');
-            clientCtx = clientCanvas.getContext('2d');
+            
+            if (clientCanvas) {
+                clientCtx = clientCanvas.getContext('2d');
+                console.log('Canvas context initialized');
+            } else {
+                console.error('Canvas element not found');
+            }
+            
+            // Verify start button exists
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn) {
+                console.log('Start button found');
+                // Add direct event listener as backup
+                startBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Start button clicked directly');
+                    startMonitoring();
+                });
+            } else {
+                console.error('Start button not found');
+            }
         }
 
         // ===== FIXED FUNCTION - Initialize Audio System =====
         function initializeAudioSystem() {
+            console.log('Initializing audio system...'); // Debug log
+            
             try {
-                // Create audio context for beep sounds
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
-                // Create alert audio for speech synthesis
-                if ('speechSynthesis' in window) {
-                    console.log('Speech synthesis available');
+                // Check if Web Audio API is available
+                if (window.AudioContext || window.webkitAudioContext) {
+                    // Create audio context for beep sounds
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    console.log('AudioContext created successfully'); // Debug log
                 } else {
-                    console.log('Speech synthesis not available, using beep alerts only');
+                    console.log('Web Audio API not supported'); // Debug log
+                }
+                
+                // Check if speech synthesis is available
+                if ('speechSynthesis' in window) {
+                    console.log('Speech synthesis available'); // Debug log
+                } else {
+                    console.log('Speech synthesis not available, using beep alerts only'); // Debug log
                 }
             } catch (error) {
-                console.log('Audio initialization failed:', error);
+                console.log('Audio initialization failed:', error); // Debug log
+                // Don't throw error, just continue without audio
+                audioContext = null;
             }
         }
 
@@ -1045,27 +1085,90 @@
             }
         }
 
-        // Check camera setup
+        // Check camera setup with better error handling
         async function checkCameraSetup() {
+            console.log('Checking camera setup...'); // Debug log
+            
             try {
                 const response = await fetch('/check_camera');
                 const data = await response.json();
+                
+                console.log('Camera check response:', data); // Debug log
                 
                 if (!data.camera_available) {
                     usingClientCamera = true;
                     document.getElementById('cameraSetupNotice').style.display = 'block';
                     document.getElementById('connectionSubtitle').textContent = 'Using device camera (Railway/ngrok mode)';
                     console.log('Using client-side camera for Railway/ngrok compatibility');
+                } else {
+                    console.log('Server camera available');
                 }
             } catch (error) {
+                console.log('Camera check failed, falling back to client camera:', error); // Debug log
                 usingClientCamera = true;
-                document.getElementById('cameraSetupNotice').style.display = 'block';
-                document.getElementById('connectionSubtitle').textContent = 'Using device camera (fallback mode)';
+                
+                const setupNotice = document.getElementById('cameraSetupNotice');
+                const connectionSubtitle = document.getElementById('connectionSubtitle');
+                
+                if (setupNotice) {
+                    setupNotice.style.display = 'block';
+                }
+                if (connectionSubtitle) {
+                    connectionSubtitle.textContent = 'Using device camera (fallback mode)';
+                }
+                
                 console.log('Fallback to client-side camera');
             }
         }
 
         function setupEventListeners() {
+            console.log('Setting up event listeners...'); // Debug log
+            
+            // Start button - multiple event binding for safety
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const screenshotBtn = document.getElementById('screenshotBtn');
+            
+            if (startBtn) {
+                console.log('Start button found, adding event listeners'); // Debug log
+                
+                // Remove any existing listeners first
+                startBtn.onclick = null;
+                
+                // Add click event listener
+                startBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Start button clicked via addEventListener'); // Debug log
+                    startMonitoring();
+                });
+                
+                // Also set onclick as backup
+                startBtn.onclick = function(e) {
+                    e.preventDefault();
+                    console.log('Start button clicked via onclick'); // Debug log
+                    startMonitoring();
+                };
+            } else {
+                console.error('Start button not found!'); // Debug log
+            }
+            
+            if (stopBtn) {
+                stopBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Stop button clicked'); // Debug log
+                    stopMonitoring();
+                });
+            }
+            
+            if (screenshotBtn) {
+                screenshotBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('Screenshot button clicked'); // Debug log
+                    takeScreenshot();
+                });
+            }
+
             // Navigation links
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', function(e) {
@@ -1105,12 +1208,19 @@
                         takeScreenshot();
                     }
                 }
+                // Add Enter key for start button
+                if (e.key === 'Enter' && !isMonitoring) {
+                    startMonitoring();
+                }
             });
 
             // Volume change notification
-            document.getElementById('alertVolume').addEventListener('change', function() {
-                showNotification(`Alert volume changed to ${this.selectedOptions[0].text}`, 'info');
-            });
+            const alertVolume = document.getElementById('alertVolume');
+            if (alertVolume) {
+                alertVolume.addEventListener('change', function() {
+                    showNotification(`Alert volume changed to ${this.selectedOptions[0].text}`, 'info');
+                });
+            }
 
             // Enable audio context on user interaction
             document.addEventListener('click', function() {
@@ -1118,9 +1228,45 @@
                     audioContext.resume();
                 }
             }, { once: true });
+            
+            console.log('Event listeners setup complete'); // Debug log
         }
 
-        // Debug function to check file availability
+        // Debug function untuk test button functionality
+        function testButton() {
+            console.log('Test button function called');
+            alert('Button is working! JavaScript is functional.');
+            return false;
+        }
+
+        // Manual start function untuk troubleshooting
+        function manualStart() {
+            console.log('Manual start called');
+            try {
+                startMonitoring();
+            } catch (error) {
+                console.error('Manual start error:', error);
+                alert('Error in manual start: ' + error.message);
+            }
+        }
+
+        // Global function untuk dipanggil dari console
+        window.debugStart = function() {
+            console.log('Debug start called from console');
+            startMonitoring();
+        };
+
+        window.checkElements = function() {
+            console.log('=== Element Check ===');
+            console.log('Start button:', document.getElementById('startBtn'));
+            console.log('Stop button:', document.getElementById('stopBtn'));
+            console.log('Client video:', document.getElementById('clientVideo'));
+            console.log('Client canvas:', document.getElementById('clientCanvas'));
+            console.log('Is monitoring:', isMonitoring);
+            console.log('Using client camera:', usingClientCamera);
+            console.log('Audio enabled:', audioEnabled);
+            console.log('Audio context:', audioContext);
+        };
         async function checkFileAvailability(url) {
             try {
                 const response = await fetch(url, { method: 'HEAD' });
@@ -1146,22 +1292,48 @@
             }
         }
 
-        // ===== FIXED - startMonitoring function =====
+        // ===== FIXED - startMonitoring function with better error handling =====
         async function startMonitoring() {
+            console.log('startMonitoring() called'); // Debug log
+            
             try {
+                // Disable button immediately to prevent double clicks
+                const startBtn = document.getElementById('startBtn');
+                if (startBtn) {
+                    startBtn.disabled = true;
+                    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+                }
+
                 // Reset alert tracking
                 clientAlerts = [];
                 personStates = {};
                 personTimers = {};
                 alertCount = 0;
 
+                console.log('Sending start monitoring request...'); // Debug log
+
                 // Start server monitoring
-                const response = await fetch('/start_monitoring', { method: 'POST' });
+                const response = await fetch('/start_monitoring', { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                console.log('Server response:', response.status, response.statusText); // Debug log
+                
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
+                }
+                
                 const data = await response.json();
+                console.log('Server data:', data); // Debug log
                 
                 if (data.status !== 'success') {
-                    throw new Error(data.message);
+                    throw new Error(data.message || 'Unknown server error');
                 }
+
+                console.log('Initializing camera...'); // Debug log
 
                 if (usingClientCamera) {
                     await initializeClientCamera();
@@ -1172,30 +1344,84 @@
                 updateUIForActiveMonitoring();
                 startDataUpdates();
                 showNotification('Monitoring started with automatic recording and alert tracking', 'success');
+                
+                console.log('Monitoring started successfully'); // Debug log
+                
             } catch (error) {
+                console.error('Start monitoring error:', error); // Debug log
+                
+                // Re-enable button on error
+                const startBtn = document.getElementById('startBtn');
+                if (startBtn) {
+                    startBtn.disabled = false;
+                    startBtn.innerHTML = '<i class="fas fa-play"></i> Start Monitoring';
+                }
+                
                 showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
         }
 
-        // Initialize client camera
+        // Initialize client camera with better error handling
         async function initializeClientCamera() {
             try {
+                console.log('Requesting camera access...'); // Debug log
+                
+                // Check if getUserMedia is available
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Camera access not supported in this browser');
+                }
+                
                 clientStream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 640, height: 480, facingMode: 'user' }
+                    video: { 
+                        width: { ideal: 640 }, 
+                        height: { ideal: 480 }, 
+                        facingMode: 'user' 
+                    }
                 });
+                
+                console.log('Camera stream obtained:', clientStream); // Debug log
+                
+                if (!clientVideo) {
+                    throw new Error('Video element not found');
+                }
                 
                 clientVideo.srcObject = clientStream;
-                await new Promise((resolve) => {
-                    clientVideo.onloadedmetadata = resolve;
+                
+                // Wait for video to load
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Video loading timeout'));
+                    }, 10000); // 10 second timeout
+                    
+                    clientVideo.onloadedmetadata = () => {
+                        clearTimeout(timeout);
+                        console.log('Video metadata loaded'); // Debug log
+                        resolve();
+                    };
+                    
+                    clientVideo.onerror = (error) => {
+                        clearTimeout(timeout);
+                        reject(new Error('Video loading error: ' + error.message));
+                    };
                 });
                 
+                // Hide video, show canvas
                 clientVideo.style.display = 'none';
-                clientCanvas.style.display = 'block';
+                if (clientCanvas) {
+                    clientCanvas.style.display = 'block';
+                    console.log('Canvas displayed'); // Debug log
+                } else {
+                    throw new Error('Canvas element not found');
+                }
                 
                 // Start processing frames
+                console.log('Starting frame processing...'); // Debug log
                 processingInterval = setInterval(processClientFrame, 1000);
                 
+                console.log('Client camera initialized successfully'); // Debug log
+                
             } catch (error) {
+                console.error('Client camera initialization error:', error); // Debug log
                 throw new Error('Failed to access device camera: ' + error.message);
             }
         }
