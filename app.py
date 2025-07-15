@@ -33,21 +33,11 @@ application.config['REPORTS_FOLDER'] = os.path.join(os.path.realpath('.'), 'stat
 application.config['RECORDINGS_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'recordings')
 application.config['MAX_CONTENT_PATH'] = 10000000
 
-# Create necessary directories - FIXED with debug
+# Create necessary directories - FIXED
 for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED_FOLDER'], 
                application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
     if not os.path.exists(folder):
         os.makedirs(folder, exist_ok=True)
-        print(f"Created directory: {folder}")
-    else:
-        print(f"Directory exists: {folder}")
-
-# Debug: Print configuration
-print(f"Upload folder: {application.config['UPLOAD_FOLDER']}")
-print(f"Reports folder: {application.config['REPORTS_FOLDER']}")
-print(f"Recordings folder: {application.config['RECORDINGS_FOLDER']}")
-print(f"Current working directory: {os.getcwd()}")
-print(f"Static folder exists: {os.path.exists('static')}")
 
 # Global variables for live monitoring
 live_monitoring_active = False
@@ -846,68 +836,83 @@ def process_video_file(video_path):
 def create_demo_recording_file():
     """FIXED - Create a proper demo recording file for download"""
     try:
-        # Ensure directory exists
-        os.makedirs(application.config['RECORDINGS_FOLDER'], exist_ok=True)
-        
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         recording_filename = f"session_recording_{timestamp}.mp4"
         recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
         
-        print(f"Creating demo recording at: {recording_path}")
-        
-        # Create a simple demo video file with proper codec
+        # Create a simple demo video file
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
-        out = cv.VideoWriter(recording_path, fourcc, 30.0, (640, 480))
-        
-        if not out.isOpened():
-            print("VideoWriter failed to open")
-            return None
+        out = cv.VideoWriter(recording_path, fourcc, 30, (640, 480))
         
         # Create demo frames with session info
-        for i in range(150):  # 5 seconds at 30fps
+        for i in range(90):  # 3 seconds at 30fps
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            frame.fill(20)  # Dark gray background
             
-            # Add session info text
-            cv.putText(frame, f"Smart Focus Alert - Session Recording", (50, 150), 
+            # Add session info
+            cv.putText(frame, f"Session Recording - Frame {i+1}", (50, 200), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-            cv.putText(frame, f"Frame {i+1}/150", (50, 200), 
+            cv.putText(frame, "Live monitoring session completed", (50, 240), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-            cv.putText(frame, f"Live monitoring session completed", (50, 250), 
+            cv.putText(frame, f"Total alerts: {len(session_data['alerts'])}", (50, 280), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-            cv.putText(frame, f"Total alerts: {len(session_data.get('alerts', []))}", (50, 300), 
+            cv.putText(frame, f"Session duration: {datetime.now().strftime('%H:%M:%S')}", (50, 320), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-            cv.putText(frame, f"Timestamp: {datetime.now().strftime('%H:%M:%S')}", (50, 350), 
-                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
-            
-            # Add progress bar
-            progress_width = int((i / 150) * 540)
-            cv.rectangle(frame, (50, 400), (590, 420), (100, 100, 100), -1)
-            cv.rectangle(frame, (50, 400), (50 + progress_width, 420), (0, 255, 0), -1)
             
             out.write(frame)
         
         out.release()
         
-        # Verify file was created and has content
         if os.path.exists(recording_path):
-            file_size = os.path.getsize(recording_path)
-            print(f"Demo recording created successfully: {recording_filename}, size: {file_size} bytes")
-            if file_size > 0:
-                return recording_path
-            else:
-                print("Recording file is empty")
-                return None
+            return recording_path
         else:
-            print(f"Recording file was not created: {recording_path}")
             return None
             
     except Exception as e:
         print(f"Error creating demo recording: {str(e)}")
         return None
 
-# FIXED - Remove static file serving routes (let Flask handle automatically)
-# Flask will automatically serve files from the 'static' folder
+# FIXED - Static file serving routes with better error handling
+@application.route('/static/uploads/<filename>')
+def uploaded_file(filename):
+    """Serve uploaded files"""
+    try:
+        return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
+    except FileNotFoundError:
+        return jsonify({"error": "File not found"}), 404
+
+@application.route('/static/detected/<filename>')
+def detected_file(filename):
+    """Serve detected/processed files"""
+    try:
+        return send_from_directory(application.config['DETECTED_FOLDER'], filename)
+    except FileNotFoundError:
+        return jsonify({"error": "File not found"}), 404
+
+@application.route('/static/reports/<filename>')
+def report_file(filename):
+    """FIXED - Serve report files with proper handling"""
+    try:
+        file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_from_directory(application.config['REPORTS_FOLDER'], filename, as_attachment=True)
+        else:
+            return jsonify({"error": "Report file not found"}), 404
+    except Exception as e:
+        print(f"Error serving report file: {str(e)}")
+        return jsonify({"error": "Error accessing report file"}), 500
+
+@application.route('/static/recordings/<filename>')
+def recording_file(filename):
+    """FIXED - Serve recording files with proper handling"""
+    try:
+        file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_from_directory(application.config['RECORDINGS_FOLDER'], filename, as_attachment=True)
+        else:
+            return jsonify({"error": "Recording file not found"}), 404
+    except Exception as e:
+        print(f"Error serving recording file: {str(e)}")
+        return jsonify({"error": "Error accessing recording file"}), 500
 
 # Routes
 @application.route('/')
@@ -951,21 +956,15 @@ def upload():
                     result["detections"] = detections
                     result["type"] = "image"
                     
-                    # Generate PDF report with error handling
+                    # Generate PDF report
                     pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                     
                     file_info = {'filename': filename, 'type': file_ext.upper()}
-                    try:
-                        pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
-                        
-                        if pdf_result and os.path.exists(pdf_path):
-                            result["pdf_report"] = f"/static/reports/{pdf_filename}"
-                            print(f"PDF report created for upload: {pdf_filename}")
-                        else:
-                            print(f"Failed to create PDF report for upload: {pdf_filename}")
-                    except Exception as e:
-                        print(f"Error generating PDF report for upload: {str(e)}")
+                    pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
+                    
+                    if pdf_result and os.path.exists(pdf_path):
+                        result["pdf_report"] = f"/static/reports/{pdf_filename}"
                 
             elif file_ext in ['mp4', 'avi', 'mov', 'mkv']:
                 output_path, detections = process_video_file(file_path)
@@ -975,21 +974,15 @@ def upload():
                     result["detections"] = detections
                     result["type"] = "video"
                     
-                    # Generate PDF report with error handling
+                    # Generate PDF report
                     pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                     
                     file_info = {'filename': filename, 'type': file_ext.upper()}
-                    try:
-                        pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
-                        
-                        if pdf_result and os.path.exists(pdf_path):
-                            result["pdf_report"] = f"/static/reports/{pdf_filename}"
-                            print(f"PDF report created for video: {pdf_filename}")
-                        else:
-                            print(f"Failed to create PDF report for video: {pdf_filename}")
-                    except Exception as e:
-                        print(f"Error generating PDF report for video: {str(e)}")
+                    pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
+                    
+                    if pdf_result and os.path.exists(pdf_path):
+                        result["pdf_report"] = f"/static/reports/{pdf_filename}"
             
             return render_template('result.html', result=result)
     
@@ -1043,41 +1036,25 @@ def stop_monitoring():
     recording_active = False
     session_data['end_time'] = datetime.now()
     
+    # Generate PDF report
+    pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
+    
+    pdf_result = generate_pdf_report(session_data, pdf_path)
+    
     response_data = {
         "status": "success", 
         "message": "Monitoring stopped"
     }
     
-    try:
-        # Generate PDF report
-        pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
-        
-        print(f"Generating PDF at: {pdf_path}")
-        pdf_result = generate_pdf_report(session_data, pdf_path)
-        
-        if pdf_result and os.path.exists(pdf_path):
-            response_data["pdf_report"] = f"/static/reports/{pdf_filename}"
-            print(f"PDF created successfully: {pdf_filename}")
-        else:
-            print("PDF creation failed")
-        
-        # Create demo recording file for download
-        print("Creating demo recording...")
-        demo_recording_path = create_demo_recording_file()
-        if demo_recording_path and os.path.exists(demo_recording_path):
-            recording_filename = os.path.basename(demo_recording_path)
-            response_data["video_file"] = f"/static/recordings/{recording_filename}"
-            session_data['recording_path'] = demo_recording_path
-            print(f"Recording created successfully: {recording_filename}")
-        else:
-            print("Recording creation failed")
-            
-    except Exception as e:
-        print(f"Error in stop_monitoring: {str(e)}")
-        # Return basic response even if file creation fails
-        response_data["pdf_report"] = None
-        response_data["video_file"] = None
+    if pdf_result and os.path.exists(pdf_path):
+        response_data["pdf_report"] = f"/static/reports/{pdf_filename}"
+    
+    # FIXED: Create demo recording file for download
+    demo_recording_path = create_demo_recording_file()
+    if demo_recording_path and os.path.exists(demo_recording_path):
+        response_data["video_file"] = f"/static/recordings/{os.path.basename(demo_recording_path)}"
+        session_data['recording_path'] = demo_recording_path
     
     return jsonify(response_data)
 
@@ -1183,96 +1160,10 @@ def process_frame():
         print(f"Error processing frame: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# FIXED - Add explicit static file serving routes for Railway
-@application.route('/static/reports/<filename>')
-def serve_report(filename):
-    """Serve report files with proper headers"""
-    try:
-        file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
-        if os.path.exists(file_path):
-            return send_file(file_path, 
-                           as_attachment=True, 
-                           download_name=filename,
-                           mimetype='application/pdf')
-        else:
-            print(f"Report file not found: {file_path}")
-            return jsonify({"error": "Report file not found"}), 404
-    except Exception as e:
-        print(f"Error serving report: {str(e)}")
-        return jsonify({"error": "Error serving report file"}), 500
-
-@application.route('/static/recordings/<filename>')
-def serve_recording(filename):
-    """Serve recording files with proper headers"""
-    try:
-        file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
-        if os.path.exists(file_path):
-            return send_file(file_path, 
-                           as_attachment=True, 
-                           download_name=filename,
-                           mimetype='video/mp4')
-        else:
-            print(f"Recording file not found: {file_path}")
-            return jsonify({"error": "Recording file not found"}), 404
-    except Exception as e:
-        print(f"Error serving recording: {str(e)}")
-        return jsonify({"error": "Error serving recording file"}), 500
-
-# Health check for Railway with filesystem debug
+# Health check for Railway
 @application.route('/health')
 def health_check():
-    health_info = {
-        "status": "healthy", 
-        "timestamp": datetime.now().isoformat(),
-        "directories": {}
-    }
-    
-    # Check if directories exist and are writable
-    for name, path in [
-        ("upload", application.config['UPLOAD_FOLDER']),
-        ("detected", application.config['DETECTED_FOLDER']),
-        ("reports", application.config['REPORTS_FOLDER']),
-        ("recordings", application.config['RECORDINGS_FOLDER'])
-    ]:
-        health_info["directories"][name] = {
-            "exists": os.path.exists(path),
-            "writable": os.access(path, os.W_OK) if os.path.exists(path) else False,
-            "path": path
-        }
-    
-    return jsonify(health_info)
-
-# Debug route for Railway
-@application.route('/debug/files')
-def debug_files():
-    """Debug route to check file system status"""
-    debug_info = {
-        "cwd": os.getcwd(),
-        "static_exists": os.path.exists('static'),
-        "directories": {}
-    }
-    
-    for name, path in [
-        ("reports", application.config['REPORTS_FOLDER']),
-        ("recordings", application.config['RECORDINGS_FOLDER'])
-    ]:
-        if os.path.exists(path):
-            try:
-                files = os.listdir(path)
-                debug_info["directories"][name] = {
-                    "exists": True,
-                    "files": files,
-                    "count": len(files)
-                }
-            except Exception as e:
-                debug_info["directories"][name] = {
-                    "exists": True,
-                    "error": str(e)
-                }
-        else:
-            debug_info["directories"][name] = {"exists": False}
-    
-    return jsonify(debug_info)
+    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
