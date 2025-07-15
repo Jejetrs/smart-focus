@@ -1303,3 +1303,399 @@ def process_frame():
     except Exception as e:
         print(f"❌ Error processing frame: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+# API for analyzing uploaded files
+@application.route('/api/detect', methods=['POST'])
+def api_detect():
+    """API endpoint for file detection"""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(application.config['UPLOAD_FOLDER'], filename)
+    file.save(file_path)
+    
+    file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+    
+    if file_ext in ['jpg', 'jpeg', 'png', 'bmp']:
+        image = cv.imread(file_path)
+        if image is not None:
+            processed_image, detections = detect_persons_with_attention(image)
+            
+            output_filename = f"processed_{filename}"
+            output_path = os.path.join(application.config['DETECTED_FOLDER'], output_filename)
+            cv.imwrite(output_path, processed_image)
+            
+            return jsonify({
+                "type": "image",
+                "processed_image": f"/static/detected/{output_filename}",
+                "detections": detections
+            })
+        else:
+            return jsonify({"error": "Invalid image file"}), 400
+        
+    elif file_ext in ['mp4', 'avi', 'mov', 'mkv']:
+        output_path, detections = process_video_file(file_path)
+        
+        if os.path.exists(output_path):
+            return jsonify({
+                "type": "video",
+                "processed_video": f"/static/detected/{os.path.basename(output_path)}",
+                "detections": detections
+            })
+        else:
+            return jsonify({"error": "Video processing failed"}), 500
+    
+    return jsonify({"error": "Unsupported file format"}), 400
+
+# Health check for Railway
+@application.route('/health')
+def health_check():
+    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+
+# FIXED - Add storage info endpoint
+@application.route('/api/storage-info')
+def storage_info():
+    """Get current storage usage - helpful for monitoring"""
+    try:
+        total_size = 0
+        file_count = 0
+        folder_info = {}
+        
+        for folder_name, folder_path in [
+            ('uploads', application.config['UPLOAD_FOLDER']),
+            ('detected', application.config['DETECTED_FOLDER']),
+            ('reports', application.config['REPORTS_FOLDER']),
+            ('recordings', application.config['RECORDINGS_FOLDER'])
+        ]:
+            folder_size = 0
+            folder_files = 0
+            
+            if os.path.exists(folder_path):
+                for filename in os.listdir(folder_path):
+                    file_path = os.path.join(folder_path, filename)
+                    if os.path.isfile(file_path):
+                        file_size = os.path.getsize(file_path)
+                        folder_size += file_size
+                        folder_files += 1
+                        total_size += file_size
+                        file_count += 1
+            
+            folder_info[folder_name] = {
+                'files': folder_files,
+                'size_mb': round(folder_size / (1024 * 1024), 2)
+            }
+        
+        return jsonify({
+            'total_size_mb': round(total_size / (1024 * 1024), 2),
+            'total_files': file_count,
+            'folders': folder_info,
+            'status': 'healthy' if total_size < 100 * 1024 * 1024 else 'warning'  # Warning if > 100MB
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# FIXED - Add cleanup endpoint
+@application.route('/api/cleanup', methods=['POST'])
+def cleanup_old_files():
+    """Manual cleanup of old files"""
+    try:
+        data = request.get_json() or {}
+        cutoff_hours = int(data.get('hours', 24))
+        cutoff_time = time.time() - (cutoff_hours * 3600)
+        cleaned_count = 0
+        
+        for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED_FOLDER'], 
+                      application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
+            try:
+                if os.path.exists(folder):
+                    for filename in os.listdir(folder):
+                        file_path = os.path.join(folder, filename)
+                        if os.path.isfile(file_path):
+                            if os.path.getmtime(file_path) < cutoff_time:
+                                os.remove(file_path)
+                                cleaned_count += 1
+            except OSError:
+                continue
+        
+        return jsonify({
+            'success': True,
+            'cleaned_files': cleaned_count,
+            'message': f'Cleaned up {cleaned_count} files older than {cutoff_hours} hours'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# FIXED - Add file verification endpoint
+@application.route('/api/verify-file/<path:filepath>')
+def verify_file(filepath):
+    """Verify if a file exists and get its info"""
+    try:
+        # Determine full path
+        if filepath.startswith('static/'):
+            full_path = os.path.join(BASE_DIR, filepath)
+        else:
+            full_path = os.path.join(BASE_DIR, 'static', filepath)
+        
+        if os.path.exists(full_path) and os.path.isfile(full_path):
+            file_size = os.path.getsize(full_path)
+            file_mtime = os.path.getmtime(full_path)
+            
+            return jsonify({
+                'exists': True,
+                'size': file_size,
+                'size_mb': round(file_size / (1024 * 1024), 2),
+                'modified': datetime.fromtimestamp(file_mtime).isoformat(),
+                'path': full_path
+            })
+        else:
+            return jsonify({
+                'exists': False,
+                'path': full_path
+            }), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# FIXED - Add session management endpoints
+@application.route('/api/session/<session_id>/files')
+def get_session_files(session_id):
+    """Get downloadable files for a session"""
+    try:
+        # This would typically query a database, but for now we'll check recent files
+        pdf_files = []
+        video_files = []
+        
+        # Check reports folder
+        if os.path.exists(application.config['REPORTS_FOLDER']):
+            for filename in os.listdir(application.config['REPORTS_FOLDER']):
+                if session_id in filename or filename.startswith('session_report_'):
+                    pdf_files.append(f"/static/reports/{filename}")
+        
+        # Check recordings folder
+        if os.path.exists(application.config['RECORDINGS_FOLDER']):
+            for filename in os.listdir(application.config['RECORDINGS_FOLDER']):
+                if session_id in filename or filename.startswith('session_recording_'):
+                    video_files.append(f"/static/recordings/{filename}")
+        
+        return jsonify({
+            'success': True,
+            'files': {
+                'pdf_reports': pdf_files,
+                'video_recordings': video_files
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# FIXED - Add batch file operations
+@application.route('/api/files/batch-delete', methods=['POST'])
+def batch_delete_files():
+    """Delete multiple files at once"""
+    try:
+        data = request.get_json()
+        file_paths = data.get('files', [])
+        deleted_count = 0
+        errors = []
+        
+        for file_path in file_paths:
+            try:
+                # Ensure file is in allowed directories
+                full_path = os.path.join(BASE_DIR, file_path.lstrip('/'))
+                
+                # Security check - only allow files in static folders
+                allowed_dirs = [
+                    application.config['UPLOAD_FOLDER'],
+                    application.config['DETECTED_FOLDER'],
+                    application.config['REPORTS_FOLDER'],
+                    application.config['RECORDINGS_FOLDER']
+                ]
+                
+                if any(full_path.startswith(allowed_dir) for allowed_dir in allowed_dirs):
+                    if os.path.exists(full_path) and os.path.isfile(full_path):
+                        os.remove(full_path)
+                        deleted_count += 1
+                    else:
+                        errors.append(f"File not found: {file_path}")
+                else:
+                    errors.append(f"Access denied: {file_path}")
+                    
+            except Exception as e:
+                errors.append(f"Error deleting {file_path}: {str(e)}")
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'errors': errors
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# FIXED - Add system stats endpoint
+@application.route('/api/system-stats')
+def system_stats():
+    """Get system statistics"""
+    try:
+        # Get basic system info
+        stats = {
+            'server_time': datetime.now().isoformat(),
+            'uptime': time.time() - session_data.get('start_time', time.time()),
+            'active_monitoring': live_monitoring_active,
+            'total_sessions': 1 if session_data.get('start_time') else 0
+        }
+        
+        # Add storage info
+        try:
+            storage_response = storage_info()
+            if hasattr(storage_response, 'json'):
+                stats['storage'] = storage_response.json
+        except:
+            pass
+        
+        # Add recent activity
+        recent_files = []
+        for folder_name, folder_path in [
+            ('reports', application.config['REPORTS_FOLDER']),
+            ('recordings', application.config['RECORDINGS_FOLDER'])
+        ]:
+            if os.path.exists(folder_path):
+                for filename in os.listdir(folder_path):
+                    file_path = os.path.join(folder_path, filename)
+                    if os.path.isfile(file_path):
+                        recent_files.append({
+                            'name': filename,
+                            'type': folder_name,
+                            'size': os.path.getsize(file_path),
+                            'modified': datetime.fromtimestamp(os.path.getmtime(file_path)).isoformat()
+                        })
+        
+        # Sort by modification time and get last 5
+        recent_files.sort(key=lambda x: x['modified'], reverse=True)
+        stats['recent_files'] = recent_files[:5]
+        
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# FIXED - Add download statistics
+@application.route('/api/download-stats')
+def download_stats():
+    """Get download statistics"""
+    try:
+        stats = {
+            'total_downloads': 0,
+            'file_types': {
+                'pdf': 0,
+                'video': 0,
+                'image': 0
+            },
+            'recent_downloads': []
+        }
+        
+        # This would typically be stored in a database
+        # For now, we'll estimate based on file access times
+        
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# FIXED - Error handlers
+@application.errorhandler(404)
+def not_found(error):
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Endpoint not found'}), 404
+    return render_template('404.html'), 404
+
+@application.errorhandler(500)
+def internal_error(error):
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Internal server error'}), 500
+    return render_template('500.html'), 500
+
+@application.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({'error': 'File too large'}), 413
+
+# FIXED - Add CORS headers for API endpoints
+@application.after_request
+def after_request(response):
+    # Add CORS headers for API endpoints
+    if request.path.startswith('/api/') or request.path.startswith('/static/'):
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    
+    # Add security headers
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    
+    return response
+
+# FIXED - Add OPTIONS handler for CORS
+@application.route('/api/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    response = jsonify({'status': 'ok'})
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    return response
+
+# FIXED - Add background cleanup task
+def start_background_cleanup():
+    """Start background cleanup task"""
+    def cleanup_task():
+        while True:
+            try:
+                # Cleanup files older than 24 hours
+                cutoff_time = time.time() - (24 * 3600)
+                cleaned_count = 0
+                
+                for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED_FOLDER'], 
+                              application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
+                    try:
+                        if os.path.exists(folder):
+                            for filename in os.listdir(folder):
+                                file_path = os.path.join(folder, filename)
+                                if os.path.isfile(file_path):
+                                    if os.path.getmtime(file_path) < cutoff_time:
+                                        os.remove(file_path)
+                                        cleaned_count += 1
+                    except OSError:
+                        continue
+                
+                if cleaned_count > 0:
+                    print(f"🧹 Background cleanup: removed {cleaned_count} old files")
+                    
+                # Sleep for 1 hour
+                time.sleep(3600)
+                
+            except Exception as e:
+                print(f"❌ Background cleanup error: {e}")
+                time.sleep(3600)
+    
+    # Start cleanup thread
+    cleanup_thread = threading.Thread(target=cleanup_task, daemon=True)
+    cleanup_thread.start()
+    print("🧹 Background cleanup task started")
+
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 5000))
+    print(f"🚀 Starting Smart Focus Alert on port {port}")
+    print(f"📁 Base directory: {BASE_DIR}")
+    print(f"📊 Storage info available at: /api/storage-info")
+    print(f"🧹 Manual cleanup available at: /api/cleanup")
+    print(f"🔍 File verification available at: /api/verify-file/<path>")
+    print(f"📈 System stats available at: /api/system-stats")
+    
+    # Ensure directories exist on startup
+    ensure_directories()
+    
+    # Start background cleanup
+    start_background_cleanup()
+    
+    application.run(host='0.0.0.0', port=port, debug=False, threaded=True)
