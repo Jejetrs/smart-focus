@@ -1408,7 +1408,7 @@
                 if (data.pdf_report || data.video_file) {
                     showDownloads(data.pdf_report, data.video_file);
                 } else {
-                    showDownloads('/reports/session_report.pdf', '/recordings/session_video.mp4');
+                    showDownloads('/static/reports/session_report.pdf', '/static/recordings/session_video.mp4');
                 }
             } catch (error) {
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
