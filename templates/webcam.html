@@ -1120,7 +1120,17 @@
             }, { once: true });
         }
 
-        function toggleAudioAlert() {
+        // Debug function to check file availability
+        async function checkFileAvailability(url) {
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                console.log(`File check for ${url}:`, response.status, response.statusText);
+                return response.ok;
+            } catch (error) {
+                console.error(`Error checking file ${url}:`, error);
+                return false;
+            }
+        }
             audioEnabled = !audioEnabled;
             const toggle = document.querySelector('.toggle-switch');
             const statusText = document.getElementById('audioStatus');
@@ -1384,6 +1394,8 @@
                 const response = await fetch('/stop_monitoring', { method: 'POST' });
                 const data = await response.json();
 
+                console.log('Stop monitoring response:', data); // Debug log
+
                 updateUIForInactiveMonitoring();
                 stopDataUpdates();
 
@@ -1404,13 +1416,16 @@
 
                 showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
                 
-                // Show download options
+                // Show download options with proper file validation
                 if (data.pdf_report || data.video_file) {
-                    showDownloads(data.pdf_report, data.video_file);
+                    console.log('Showing downloads:', data.pdf_report, data.video_file); // Debug log
+                    await showDownloads(data.pdf_report, data.video_file);
                 } else {
-                    showDownloads('/static/reports/session_report.pdf', '/static/recordings/session_video.mp4');
+                    console.log('No download files available'); // Debug log
+                    showNotification('Session completed but download files are not available', 'warning');
                 }
             } catch (error) {
+                console.error('Stop monitoring error:', error);
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
             }
         }
@@ -1584,53 +1599,108 @@
             }, 1000);
         }
 
-        function showDownloads(pdfReport, videoFile) {
+        async function showDownloads(pdfReport, videoFile) {
+            console.log('showDownloads called with:', pdfReport, videoFile); // Debug log
+            
             const downloadsSection = document.getElementById('downloadsSection');
             const downloadItems = document.getElementById('downloadItems');
             
             downloadItems.innerHTML = '';
             
-            if (pdfReport) {
-                const pdfItem = document.createElement('div');
-                pdfItem.className = 'download-item';
-                pdfItem.innerHTML = `
-                    <div class="download-info">
-                        <div class="file-icon">
-                            <i class="fas fa-file-pdf"></i>
+            // Only show downloads if files actually exist
+            let hasDownloads = false;
+            
+            if (pdfReport && pdfReport !== 'null' && pdfReport !== null) {
+                console.log('Adding PDF download:', pdfReport); // Debug log
+                
+                // Check if file is actually available
+                const pdfAvailable = await checkFileAvailability(pdfReport);
+                console.log('PDF file available:', pdfAvailable);
+                
+                if (pdfAvailable) {
+                    hasDownloads = true;
+                    
+                    const pdfItem = document.createElement('div');
+                    pdfItem.className = 'download-item';
+                    pdfItem.innerHTML = `
+                        <div class="download-info">
+                            <div class="file-icon">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight: 600;">Session Report</div>
+                                <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with ${alertCount} alerts tracked</div>
+                            </div>
                         </div>
-                        <div>
-                            <div style="font-weight: 600;">Session Report</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with ${alertCount} alerts tracked</div>
-                        </div>
-                    </div>
-                    <a href="${pdfReport}" download class="btn btn-primary">
-                        <i class="fas fa-download"></i>
-                    </a>
-                `;
-                downloadItems.appendChild(pdfItem);
+                        <a href="${pdfReport}" download class="btn btn-primary" onclick="console.log('Downloading PDF:', '${pdfReport}')">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    `;
+                    downloadItems.appendChild(pdfItem);
+                } else {
+                    console.log('PDF file not available yet');
+                }
             }
             
-            if (videoFile) {
-                const videoItem = document.createElement('div');
-                videoItem.className = 'download-item';
-                videoItem.innerHTML = `
-                    <div class="download-info">
-                        <div class="file-icon">
-                            <i class="fas fa-video"></i>
+            if (videoFile && videoFile !== 'null' && videoFile !== null) {
+                console.log('Adding video download:', videoFile); // Debug log
+                
+                // Check if file is actually available
+                const videoAvailable = await checkFileAvailability(videoFile);
+                console.log('Video file available:', videoAvailable);
+                
+                if (videoAvailable) {
+                    hasDownloads = true;
+                    
+                    const videoItem = document.createElement('div');
+                    videoItem.className = 'download-item';
+                    videoItem.innerHTML = `
+                        <div class="download-info">
+                            <div class="file-icon">
+                                <i class="fas fa-video"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight: 600;">Session Recording</div>
+                                <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays</div>
+                            </div>
                         </div>
-                        <div>
-                            <div style="font-weight: 600;">Session Recording</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays</div>
-                        </div>
-                    </div>
-                    <a href="${videoFile}" download class="btn btn-secondary">
-                        <i class="fas fa-download"></i>
-                    </a>
-                `;
-                downloadItems.appendChild(videoItem);
+                        <a href="${videoFile}" download class="btn btn-secondary" onclick="console.log('Downloading video:', '${videoFile}')">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    `;
+                    downloadItems.appendChild(videoItem);
+                } else {
+                    console.log('Video file not available yet');
+                }
             }
             
-            downloadsSection.style.display = 'block';
+            if (hasDownloads) {
+                downloadsSection.style.display = 'block';
+                console.log('Downloads section shown with', downloadItems.children.length, 'items'); // Debug log
+            } else {
+                console.log('No valid downloads to show'); // Debug log
+                showNotification('Download files are being generated. Please check the debug info at /debug/files', 'warning');
+                
+                // Add debug link
+                const debugItem = document.createElement('div');
+                debugItem.className = 'download-item';
+                debugItem.innerHTML = `
+                    <div class="download-info">
+                        <div class="file-icon">
+                            <i class="fas fa-bug"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600;">Debug File System</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Check file generation status</div>
+                        </div>
+                    </div>
+                    <a href="/debug/files" target="_blank" class="btn" style="background: #6b7280;">
+                        <i class="fas fa-external-link-alt"></i>
+                    </a>
+                `;
+                downloadItems.appendChild(debugItem);
+                downloadsSection.style.display = 'block';
+            }
         }
 
         function takeScreenshot() {
