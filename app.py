@@ -61,9 +61,10 @@ video_writer = None
 recording_active = False
 recording_frames = []  # Store frames for client-side recording
 
-# Person state tracking for timer display
-person_state_timers = {}  # Track state duration for each person
+# FIXED - Person state tracking for persistent timer display
+person_state_timers = {}  # Track state start time for each person
 person_current_state = {}  # Track current state for each person
+person_state_durations = {}  # Track total duration in each state
 last_alert_time = {}  # Track last alert time for cooldown
 
 # Distraction thresholds (in seconds)
@@ -212,7 +213,7 @@ def detect_drowsiness(frame, landmarks):
     return status, state
 
 def detect_persons_with_attention(image, mode="image"):
-    """FIXED - Detect persons in image with detailed info display like reference"""
+    """FIXED - Detect persons in image with enhanced info display and persistent timer"""
     detector = mp.solutions.face_detection.FaceDetection(
         model_selection=1,
         min_detection_confidence=0.5
@@ -288,33 +289,40 @@ def detect_persons_with_attention(image, mode="image"):
             status_text = attention_status.get("state", "FOCUSED")
             person_key = f"person_{i+1}"
             
-            # TIMER TRACKING for live monitoring only
+            # FIXED - PERSISTENT TIMER TRACKING for live monitoring
             duration = 0
             if mode == "video" and live_monitoring_active:
                 # Initialize person tracking if not exists
                 if person_key not in person_state_timers:
                     person_state_timers[person_key] = {}
                     person_current_state[person_key] = None
+                    person_state_durations[person_key] = {}
                     last_alert_time[person_key] = 0
                 
-                # Update state timing
+                # Update state timing with persistent tracking
                 if person_current_state[person_key] != status_text:
-                    # State changed, reset all timers and set new state
-                    person_state_timers[person_key] = {}
+                    # State changed, save previous state duration and start new one
+                    if person_current_state[person_key] is not None:
+                        prev_state = person_current_state[person_key]
+                        if prev_state in person_state_timers[person_key]:
+                            prev_duration = current_time - person_state_timers[person_key][prev_state]
+                            if prev_state not in person_state_durations[person_key]:
+                                person_state_durations[person_key][prev_state] = 0
+                            person_state_durations[person_key][prev_state] += prev_duration
+                    
+                    # Start new state
                     person_current_state[person_key] = status_text
                     person_state_timers[person_key][status_text] = current_time
-                else:
-                    # Same state continues, update timer if not exists
-                    if status_text not in person_state_timers[person_key]:
-                        person_state_timers[person_key][status_text] = current_time
                 
-                # Calculate duration for timer display
+                # Calculate current duration for display
                 if status_text in person_state_timers[person_key]:
-                    duration = current_time - person_state_timers[person_key][status_text]
+                    current_state_duration = current_time - person_state_timers[person_key][status_text]
+                    total_duration = person_state_durations[person_key].get(status_text, 0) + current_state_duration
+                    duration = total_duration
             
-            # ENHANCED DRAWING BASED ON REFERENCE CODE
+            # ENHANCED DRAWING BASED ON MODE
             if mode == "video" and live_monitoring_active:
-                # Draw rectangle with timer info for live monitoring
+                # FIXED - Draw rectangle with PERSISTENT timer info for live monitoring
                 status_colors = {
                     "FOCUSED": (0, 255, 0),      # Green
                     "NOT FOCUSED": (0, 165, 255), # Orange
@@ -325,12 +333,12 @@ def detect_persons_with_attention(image, mode="image"):
                 main_color = status_colors.get(status_text, (0, 255, 0))
                 cv.rectangle(image, (x, y), (x + w, y + h), main_color, 3)
                 
-                # Timer display for live monitoring
+                # PERSISTENT Timer display for live monitoring
                 if status_text in DISTRACTION_THRESHOLDS:
                     threshold = DISTRACTION_THRESHOLDS[status_text]
                     timer_text = f"Person {i+1}: {status_text} ({duration:.1f}s/{threshold}s)"
                 else:
-                    timer_text = f"Person {i+1}: {status_text}"
+                    timer_text = f"Person {i+1}: {status_text} ({duration:.1f}s)"
                 
                 # Draw text background and timer
                 font = cv.FONT_HERSHEY_SIMPLEX
@@ -350,14 +358,14 @@ def detect_persons_with_attention(image, mode="image"):
                 # Draw timer text
                 cv.putText(image, timer_text, (x + 5, text_y), font, font_scale, main_color, thickness)
             else:
-                # FIXED - Enhanced info display for static images (LIKE REFERENCE)
+                # FIXED - Enhanced info display for static images with accuracy and position
                 cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 
                 # Draw detailed info like reference code
                 info_y_start = y + h + 10
                 box_padding = 10
                 line_height = 20
-                box_height = 4 * line_height
+                box_height = 5 * line_height  # Increased for additional info
                 
                 # Semi-transparent background
                 overlay = image.copy()
@@ -373,13 +381,15 @@ def detect_persons_with_attention(image, mode="image"):
                 font_color = (255, 255, 255)
                 thickness = 1
                 
-                # FIXED - Add detailed info like reference
+                # FIXED - Add detailed info with accuracy and position
                 cv.putText(image, f"Person {i+1}", (x, info_y_start), 
                         font, font_scale, (50, 205, 50), thickness+1)
                 cv.putText(image, f"Confidence: {confidence_score*100:.2f}%", 
                         (x, info_y_start + line_height), font, font_scale, font_color, thickness)
-                cv.putText(image, f"Position: x:{x}, y:{y} Size: w:{w}, h:{h}", 
+                cv.putText(image, f"Position: X:{x}, Y:{y}", 
                         (x, info_y_start + 2*line_height), font, font_scale, font_color, thickness)
+                cv.putText(image, f"Size: W:{w}, H:{h}", 
+                        (x, info_y_start + 3*line_height), font, font_scale, font_color, thickness)
                 
                 # Status with color
                 status_color = {
@@ -391,7 +401,7 @@ def detect_persons_with_attention(image, mode="image"):
                 color = status_color.get(status_text, (0, 255, 0))
                 
                 cv.putText(image, f"Status: {status_text}", 
-                        (x, info_y_start + 3*line_height), font, font_scale, color, thickness)
+                        (x, info_y_start + 4*line_height), font, font_scale, color, thickness)
 
             # Check for distraction alerts in live mode
             should_alert = False
@@ -553,12 +563,14 @@ def calculate_average_focus_metric(focused_time, total_session_seconds):
         return f"{focused_per_hour:.1f} min focused per hour"
 
 def generate_pdf_report(session_data, output_path):
-    """FIXED - Generate PDF report for session with proper file handling"""
+    """FIXED - Generate PDF report for session with absolute paths"""
     try:
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        # Ensure directory exists with absolute path
+        abs_output_path = os.path.abspath(output_path)
+        output_dir = os.path.dirname(abs_output_path)
+        os.makedirs(output_dir, exist_ok=True)
         
-        doc = SimpleDocTemplate(output_path, pagesize=A4)
+        doc = SimpleDocTemplate(abs_output_path, pagesize=A4)
         styles = getSampleStyleSheet()
         story = []
         
@@ -704,25 +716,29 @@ def generate_pdf_report(session_data, output_path):
         # Build the PDF
         doc.build(story)
         
-        # Verify file was created
-        if os.path.exists(output_path):
-            print(f"PDF report successfully created: {output_path}")
-            return output_path
+        # Verify file was created with absolute path check
+        if os.path.exists(abs_output_path):
+            print(f"PDF report successfully created: {abs_output_path}")
+            return abs_output_path
         else:
-            print(f"Failed to create PDF report: {output_path}")
+            print(f"Failed to create PDF report: {abs_output_path}")
             return None
             
     except Exception as e:
         print(f"Error generating PDF report: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def generate_upload_pdf_report(detections, file_info, output_path):
-    """FIXED - Generate PDF report for uploaded file analysis"""
+    """FIXED - Generate PDF report for uploaded file analysis with absolute paths"""
     try:
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        # Ensure directory exists with absolute path
+        abs_output_path = os.path.abspath(output_path)
+        output_dir = os.path.dirname(abs_output_path)
+        os.makedirs(output_dir, exist_ok=True)
         
-        doc = SimpleDocTemplate(output_path, pagesize=A4)
+        doc = SimpleDocTemplate(abs_output_path, pagesize=A4)
         styles = getSampleStyleSheet()
         story = []
         
@@ -781,16 +797,18 @@ def generate_upload_pdf_report(detections, file_info, output_path):
         # Build the PDF
         doc.build(story)
         
-        # Verify file was created
-        if os.path.exists(output_path):
-            print(f"Upload PDF report successfully created: {output_path}")
-            return output_path
+        # Verify file was created with absolute path check
+        if os.path.exists(abs_output_path):
+            print(f"Upload PDF report successfully created: {abs_output_path}")
+            return abs_output_path
         else:
-            print(f"Failed to create upload PDF report: {output_path}")
+            print(f"Failed to create upload PDF report: {abs_output_path}")
             return None
             
     except Exception as e:
         print(f"Error generating upload PDF report: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def process_video_file(video_path):
@@ -834,11 +852,14 @@ def process_video_file(video_path):
     return output_path, all_detections
 
 def create_demo_recording_file():
-    """FIXED - Create a proper demo recording file for download"""
+    """FIXED - Create a proper demo recording file for download with absolute path"""
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         recording_filename = f"session_recording_{timestamp}.mp4"
-        recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
+        recording_path = os.path.abspath(os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename))
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(recording_path), exist_ok=True)
         
         # Create a simple demo video file
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
@@ -869,49 +890,72 @@ def create_demo_recording_file():
             
     except Exception as e:
         print(f"Error creating demo recording: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
-# FIXED - Static file serving routes with better error handling
+# FIXED - Add favicon route
+@application.route('/favicon.ico')
+def favicon():
+    return '', 204  # Return empty response with "No Content" status
+
+# FIXED - Static file serving routes with better error handling and absolute paths
 @application.route('/static/uploads/<filename>')
 def uploaded_file(filename):
     """Serve uploaded files"""
     try:
-        return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
-    except FileNotFoundError:
-        return jsonify({"error": "File not found"}), 404
+        file_path = os.path.abspath(os.path.join(application.config['UPLOAD_FOLDER'], filename))
+        if os.path.exists(file_path):
+            return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
+        else:
+            return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        print(f"Error serving upload file: {str(e)}")
+        return jsonify({"error": "Error accessing file"}), 500
 
 @application.route('/static/detected/<filename>')
 def detected_file(filename):
     """Serve detected/processed files"""
     try:
-        return send_from_directory(application.config['DETECTED_FOLDER'], filename)
-    except FileNotFoundError:
-        return jsonify({"error": "File not found"}), 404
+        file_path = os.path.abspath(os.path.join(application.config['DETECTED_FOLDER'], filename))
+        if os.path.exists(file_path):
+            return send_from_directory(application.config['DETECTED_FOLDER'], filename)
+        else:
+            return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        print(f"Error serving detected file: {str(e)}")
+        return jsonify({"error": "Error accessing file"}), 500
 
 @application.route('/static/reports/<filename>')
 def report_file(filename):
-    """FIXED - Serve report files with proper handling"""
+    """FIXED - Serve report files with proper handling and absolute paths"""
     try:
-        file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
+        file_path = os.path.abspath(os.path.join(application.config['REPORTS_FOLDER'], filename))
         if os.path.exists(file_path):
             return send_from_directory(application.config['REPORTS_FOLDER'], filename, as_attachment=True)
         else:
+            print(f"Report file not found: {file_path}")
             return jsonify({"error": "Report file not found"}), 404
     except Exception as e:
         print(f"Error serving report file: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "Error accessing report file"}), 500
 
 @application.route('/static/recordings/<filename>')
 def recording_file(filename):
-    """FIXED - Serve recording files with proper handling"""
+    """FIXED - Serve recording files with proper handling and absolute paths"""
     try:
-        file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
+        file_path = os.path.abspath(os.path.join(application.config['RECORDINGS_FOLDER'], filename))
         if os.path.exists(file_path):
             return send_from_directory(application.config['RECORDINGS_FOLDER'], filename, as_attachment=True)
         else:
+            print(f"Recording file not found: {file_path}")
             return jsonify({"error": "Recording file not found"}), 404
     except Exception as e:
         print(f"Error serving recording file: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "Error accessing recording file"}), 500
 
 # Routes
@@ -956,14 +1000,14 @@ def upload():
                     result["detections"] = detections
                     result["type"] = "image"
                     
-                    # Generate PDF report
+                    # Generate PDF report with absolute path
                     pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                     
                     file_info = {'filename': filename, 'type': file_ext.upper()}
                     pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
                     
-                    if pdf_result and os.path.exists(pdf_path):
+                    if pdf_result and os.path.exists(pdf_result):
                         result["pdf_report"] = f"/static/reports/{pdf_filename}"
                 
             elif file_ext in ['mp4', 'avi', 'mov', 'mkv']:
@@ -974,14 +1018,14 @@ def upload():
                     result["detections"] = detections
                     result["type"] = "video"
                     
-                    # Generate PDF report
+                    # Generate PDF report with absolute path
                     pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                     
                     file_info = {'filename': filename, 'type': file_ext.upper()}
                     pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
                     
-                    if pdf_result and os.path.exists(pdf_path):
+                    if pdf_result and os.path.exists(pdf_result):
                         result["pdf_report"] = f"/static/reports/{pdf_filename}"
             
             return render_template('result.html', result=result)
@@ -994,7 +1038,8 @@ def webcam():
 
 @application.route('/start_monitoring', methods=['POST'])
 def start_monitoring():
-    global live_monitoring_active, session_data, recording_active, person_state_timers, person_current_state, last_alert_time
+    global live_monitoring_active, session_data, recording_active
+    global person_state_timers, person_current_state, person_state_durations, last_alert_time
     
     if live_monitoring_active:
         return jsonify({"status": "error", "message": "Monitoring already active"})
@@ -1015,9 +1060,10 @@ def start_monitoring():
         'recording_path': None
     }
     
-    # Reset person tracking
+    # Reset person tracking with new persistent structure
     person_state_timers = {}
     person_current_state = {}
+    person_state_durations = {}
     last_alert_time = {}
     
     live_monitoring_active = True
@@ -1028,6 +1074,7 @@ def start_monitoring():
 @application.route('/stop_monitoring', methods=['POST'])
 def stop_monitoring():
     global live_monitoring_active, session_data, recording_active
+    global person_state_timers, person_current_state, person_state_durations
     
     if not live_monitoring_active:
         return jsonify({"status": "error", "message": "Monitoring not active"})
@@ -1036,7 +1083,7 @@ def stop_monitoring():
     recording_active = False
     session_data['end_time'] = datetime.now()
     
-    # Generate PDF report
+    # Generate PDF report with absolute path
     pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
     
@@ -1047,14 +1094,19 @@ def stop_monitoring():
         "message": "Monitoring stopped"
     }
     
-    if pdf_result and os.path.exists(pdf_path):
+    if pdf_result and os.path.exists(pdf_result):
         response_data["pdf_report"] = f"/static/reports/{pdf_filename}"
     
-    # FIXED: Create demo recording file for download
+    # FIXED: Create demo recording file for download with absolute path
     demo_recording_path = create_demo_recording_file()
     if demo_recording_path and os.path.exists(demo_recording_path):
         response_data["video_file"] = f"/static/recordings/{os.path.basename(demo_recording_path)}"
         session_data['recording_path'] = demo_recording_path
+    
+    # Reset persistent tracking
+    person_state_timers = {}
+    person_current_state = {}
+    person_state_durations = {}
     
     return jsonify(response_data)
 
@@ -1123,17 +1175,40 @@ def check_camera():
 
 @application.route('/process_frame', methods=['POST'])
 def process_frame():
+    """FIXED - Process frame with proper error handling for 502 errors"""
     global recording_frames
     
     try:
+        # Check if monitoring is active
+        if not live_monitoring_active:
+            return jsonify({"error": "Monitoring not active"}), 400
+        
+        # Validate request data
+        if not request.is_json:
+            return jsonify({"error": "Request must be JSON"}), 400
+        
         data = request.get_json()
-        frame_data = data['frame'].split(',')[1]
-        frame_bytes = base64.b64decode(frame_data)
-        nparr = np.frombuffer(frame_bytes, np.uint8)
-        frame = cv.imdecode(nparr, cv.IMREAD_COLOR)
+        if not data or 'frame' not in data:
+            return jsonify({"error": "No frame data provided"}), 400
+        
+        # Validate frame data format
+        frame_data_parts = data['frame'].split(',')
+        if len(frame_data_parts) != 2 or not frame_data_parts[0].startswith('data:image'):
+            return jsonify({"error": "Invalid frame data format"}), 400
+        
+        frame_data = frame_data_parts[1]
+        
+        # Decode frame
+        try:
+            frame_bytes = base64.b64decode(frame_data)
+            nparr = np.frombuffer(frame_bytes, np.uint8)
+            frame = cv.imdecode(nparr, cv.IMREAD_COLOR)
+        except Exception as decode_error:
+            print(f"Frame decode error: {str(decode_error)}")
+            return jsonify({"error": "Failed to decode frame"}), 400
         
         if frame is None:
-            return jsonify({"error": "Invalid frame data"}), 400
+            return jsonify({"error": "Invalid frame data - could not decode image"}), 400
         
         # Store frame for recording (client-side recording alternative)
         if live_monitoring_active and recording_active:
@@ -1142,28 +1217,45 @@ def process_frame():
             if len(recording_frames) > 1000:
                 recording_frames = recording_frames[-1000:]
         
-        processed_frame, detections = detect_persons_with_attention(frame, mode="video")
+        # Process frame
+        try:
+            processed_frame, detections = detect_persons_with_attention(frame, mode="video")
+        except Exception as process_error:
+            print(f"Frame processing error: {str(process_error)}")
+            return jsonify({"error": "Failed to process frame"}), 500
         
         # Update session data with detections for live monitoring
         if live_monitoring_active and detections:
             update_session_statistics(detections)
         
-        _, buffer = cv.imencode('.jpg', processed_frame)
-        processed_frame_b64 = base64.b64encode(buffer).decode('utf-8')
+        # Encode processed frame
+        try:
+            _, buffer = cv.imencode('.jpg', processed_frame, [cv.IMWRITE_JPEG_QUALITY, 80])
+            processed_frame_b64 = base64.b64encode(buffer).decode('utf-8')
+        except Exception as encode_error:
+            print(f"Frame encode error: {str(encode_error)}")
+            return jsonify({"error": "Failed to encode processed frame"}), 500
         
         return jsonify({
             "success": True,
             "processed_frame": f"data:image/jpeg;base64,{processed_frame_b64}",
             "detections": detections
         })
+        
     except Exception as e:
-        print(f"Error processing frame: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        print(f"Unexpected error in process_frame: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
 
 # Health check for Railway
 @application.route('/health')
 def health_check():
-    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+    return jsonify({
+        "status": "healthy", 
+        "timestamp": datetime.now().isoformat(),
+        "monitoring_active": live_monitoring_active
+    })
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
