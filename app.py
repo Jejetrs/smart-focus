@@ -871,48 +871,8 @@ def create_demo_recording_file():
         print(f"Error creating demo recording: {str(e)}")
         return None
 
-# FIXED - Static file serving routes with better error handling
-@application.route('/static/uploads/<filename>')
-def uploaded_file(filename):
-    """Serve uploaded files"""
-    try:
-        return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
-    except FileNotFoundError:
-        return jsonify({"error": "File not found"}), 404
-
-@application.route('/static/detected/<filename>')
-def detected_file(filename):
-    """Serve detected/processed files"""
-    try:
-        return send_from_directory(application.config['DETECTED_FOLDER'], filename)
-    except FileNotFoundError:
-        return jsonify({"error": "File not found"}), 404
-
-@application.route('/static/reports/<filename>')
-def report_file(filename):
-    """FIXED - Serve report files with proper handling"""
-    try:
-        file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
-        if os.path.exists(file_path):
-            return send_from_directory(application.config['REPORTS_FOLDER'], filename, as_attachment=True)
-        else:
-            return jsonify({"error": "Report file not found"}), 404
-    except Exception as e:
-        print(f"Error serving report file: {str(e)}")
-        return jsonify({"error": "Error accessing report file"}), 500
-
-@application.route('/static/recordings/<filename>')
-def recording_file(filename):
-    """FIXED - Serve recording files with proper handling"""
-    try:
-        file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
-        if os.path.exists(file_path):
-            return send_from_directory(application.config['RECORDINGS_FOLDER'], filename, as_attachment=True)
-        else:
-            return jsonify({"error": "Recording file not found"}), 404
-    except Exception as e:
-        print(f"Error serving recording file: {str(e)}")
-        return jsonify({"error": "Error accessing recording file"}), 500
+# FIXED - Remove static file serving routes (let Flask handle automatically)
+# Flask will automatically serve files from the 'static' folder
 
 # Routes
 @application.route('/')
