@@ -8,13 +8,11 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-        /* Global CSS Variables */
         :root {
             --primary-blue: #60a5fa;
             --primary-purple: #a78bfa;
             --dark-bg: #0f172a;
             --dark-secondary: #1e293b;
-            --card-bg: #1e293b;
             --glass-bg: rgba(30, 41, 59, 0.7);
             --glass-border: rgba(255, 255, 255, 0.08);
             --text-primary: #f8fafc;
@@ -26,7 +24,6 @@
             --info: #06b6d4;
         }
 
-        /* Reset and Base Styles */
         * {
             margin: 0;
             padding: 0;
@@ -34,35 +31,26 @@
         }
 
         body {
-            background: var(--dark-bg);
+            background: linear-gradient(135deg, var(--dark-bg) 0%, var(--dark-secondary) 100%);
             min-height: 100vh;
             font-family: 'Inter', sans-serif;
             color: var(--text-primary);
             line-height: 1.6;
         }
 
-        /* Utility Classes */
-        .flex { display: flex; }
-        .justify-between { justify-content: space-between; }
-        .justify-center { justify-content: center; }
-        .items-center { align-items: center; }
-        .text-center { text-align: center; }
-
-        .text-gradient {
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            transition: all 0.3s ease;
         }
 
-        /* Container Component */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
+        .glass-card:hover {
+            border-color: rgba(96, 165, 250, 0.2);
+            transform: translateY(-2px);
         }
 
-        /* Navbar Component */
         .navbar {
             background: var(--glass-bg);
             backdrop-filter: blur(10px);
@@ -73,18 +61,46 @@
             z-index: 100;
         }
 
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .results-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .items-center {
+            align-items: center;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
         .nav-brand {
             font-size: 1.5rem;
             font-weight: 700;
             text-decoration: none;
             color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .nav-brand i {
-            color: var(--primary-blue);
         }
 
         .nav-links {
@@ -100,45 +116,22 @@
             transition: color 0.3s ease;
         }
 
-        .nav-link:hover, .nav-link.active {
+        .nav-link:hover {
             color: var(--primary-blue);
         }
 
-        /* Card Component */
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            transition: all 0.3s ease;
+        .title-lg {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
         }
 
-        .card:hover {
-            border-color: rgba(96, 165, 250, 0.2);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        .card-padding {
-            padding: 24px;
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .card-title {
-            font-size: 1.25rem;
+        .title-md {
+            font-size: 1.875rem;
             font-weight: 600;
-            color: var(--primary-blue);
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            margin-bottom: 16px;
         }
 
-        /* Button Component */
         .btn {
             display: inline-flex;
             align-items: center;
@@ -150,8 +143,6 @@
             transition: all 0.3s ease;
             border: none;
             cursor: pointer;
-            font-size: 14px;
-            gap: 8px;
         }
 
         .btn-primary {
@@ -164,150 +155,57 @@
             color: white;
         }
 
-        .btn-danger {
-            background: linear-gradient(135deg, var(--danger), #dc2626);
-            color: white;
-        }
-
-        .btn:hover:not(:disabled) {
+        .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(96, 165, 250, 0.4);
         }
 
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* Page Layout */
-        .main-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 32px 24px;
-            min-height: calc(100vh - 88px);
-        }
-
-        .page-header {
-            text-align: center;
-            margin-bottom: 32px;
-        }
-
-        .page-title {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 12px;
-        }
-
-        .page-subtitle {
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-        }
-
-        /* Results Layout */
-        .results-grid {
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 32px;
-            margin-bottom: 32px;
-        }
-
-        .results-main {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .results-sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        /* Image Display */
-        .image-display {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 20px;
-            border: 1px solid var(--glass-border);
-        }
-
-        .image-container {
-            position: relative;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .processed-image {
+        .media-preview {
             max-width: 100%;
-            height: auto;
             border-radius: 12px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
 
-        .image-overlay {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        /* Enhanced Image Info Display - FIXED */
-        .image-info {
+        .comparison-view {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-            margin-top: 20px;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
-        .info-item {
-            background: var(--dark-bg);
-            padding: 16px;
-            border-radius: 8px;
-            border: 1px solid var(--glass-border);
+        .media-section {
+            text-align: center;
         }
 
-        .info-label {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-bottom: 4px;
-            text-transform: uppercase;
-            font-weight: 600;
+        .media-section h3 {
+            margin-bottom: 16px;
+            color: var(--text-secondary);
         }
 
-        .info-value {
-            font-size: 1.1rem;
-            color: var(--text-primary);
-            font-weight: 600;
+        .detection-summary {
+            background: var(--glass-bg);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 30px;
         }
 
-        .info-value.success { color: var(--success); }
-        .info-value.warning { color: var(--warning); }
-        .info-value.danger { color: var(--danger); }
-        .info-value.info { color: var(--info); }
-
-        /* Statistics Grid Component */
-        .stats-grid {
+        .summary-stats {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
         }
 
-        .stat-card {
-            background: var(--dark-bg);
+        .stat-box {
+            background: rgba(15, 23, 42, 0.8);
             border: 1px solid var(--glass-border);
             border-radius: 12px;
             padding: 20px;
             text-align: center;
         }
 
-        .stat-value {
-            font-size: 2rem;
+        .stat-number {
+            font-size: 2.5rem;
             font-weight: 700;
             margin-bottom: 8px;
         }
@@ -315,115 +213,130 @@
         .stat-label {
             color: var(--text-secondary);
             font-size: 0.9rem;
-            font-weight: 500;
         }
 
-        /* Detection Results */
-        .detection-results {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 24px;
-            border: 1px solid var(--glass-border);
+        .detection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
         }
 
-        .detection-list {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .detection-item {
-            background: var(--dark-bg);
+        .person-card {
+            background: var(--glass-bg);
             border: 1px solid var(--glass-border);
             border-radius: 12px;
             padding: 20px;
             transition: all 0.3s ease;
         }
 
-        .detection-item:hover {
-            border-color: rgba(96, 165, 250, 0.3);
-            transform: translateY(-2px);
+        .person-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary-blue);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
         }
 
-        .detection-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .person-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
             margin-bottom: 16px;
         }
 
-        .person-id {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--primary-blue);
+        .person-details {
+            margin-bottom: 16px;
         }
 
-        .status-badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .status-focused {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--success);
-        }
-
-        .status-unfocused {
-            background: rgba(245, 158, 11, 0.2);
-            color: var(--warning);
-        }
-
-        .status-yawning {
-            background: rgba(234, 179, 8, 0.2);
-            color: #eab308;
-        }
-
-        .status-sleeping {
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--danger);
-        }
-
-        .detection-details {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
-        }
-
-        .detail-item {
+        .detail-row {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 4px 0;
         }
 
         .detail-label {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            margin-bottom: 4px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
         }
 
         .detail-value {
             font-weight: 500;
-            color: var(--text-primary);
         }
 
-        /* Download Section */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        .status-badge.focused {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-badge.unfocused {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .status-badge.yawning {
+            background: rgba(234, 179, 8, 0.2);
+            color: #eab308;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+
+        .status-badge.sleeping {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-focused { background-color: var(--success); }
+        .status-unfocused { background-color: var(--warning); }
+        .status-yawning { background-color: #eab308; }
+        .status-sleeping { background-color: var(--danger); }
+
         .download-section {
-            background: var(--card-bg);
+            background: var(--glass-bg);
             border-radius: 16px;
             padding: 24px;
-            border: 1px solid var(--glass-border);
+            margin-top: 30px;
+        }
+
+        .download-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
         }
 
         .download-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: var(--dark-bg);
+            background: rgba(15, 23, 42, 0.6);
             padding: 16px;
             border-radius: 8px;
-            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .download-item:hover {
+            background: rgba(96, 165, 250, 0.1);
         }
 
         .download-info {
@@ -443,60 +356,60 @@
             color: var(--primary-blue);
         }
 
-        /* Action Buttons */
         .action-buttons {
             display: flex;
             justify-content: center;
             gap: 16px;
+            margin-top: 30px;
             flex-wrap: wrap;
         }
 
-        /* Animations */
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .text-danger { color: var(--danger); }
+        .text-info { color: var(--info); }
+
+        .mb-4 { margin-bottom: 16px; }
+        .mb-6 { margin-bottom: 24px; }
+        .mb-8 { margin-bottom: 32px; }
+        .p-6 { padding: 24px; }
+        .p-8 { padding: 32px; }
+
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .fade-in { animation: fadeIn 0.6s ease-out; }
-
-        /* Responsive Design */
-        @media (max-width: 1200px) {
-            .results-grid {
-                grid-template-columns: 1fr;
-                gap: 24px;
-            }
-            
-            .results-sidebar {
-                order: -1;
-            }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
         }
 
+        .fade-in { animation: fadeIn 0.6s ease-out; }
+        .slide-in { animation: slideIn 0.6s ease-out; }
+
         @media (max-width: 768px) {
-            .nav-links {
-                flex-direction: column;
-                gap: 12px;
-            }
-            
-            .main-container {
-                padding: 20px 16px;
-            }
-            
-            .page-title {
-                font-size: 2rem;
-            }
-            
-            .stats-grid {
+            .comparison-view {
                 grid-template-columns: 1fr;
             }
             
-            .image-info {
-                grid-template-columns: 1fr;
+            .summary-stats {
+                grid-template-columns: repeat(2, 1fr);
             }
             
-            .detection-details {
+            .detection-grid {
                 grid-template-columns: 1fr;
             }
-            
+
+            .nav-links { 
+                flex-direction: column; 
+                gap: 12px; 
+            }
+
+            .title-lg { 
+                font-size: 2rem; 
+            }
+
             .action-buttons {
                 flex-direction: column;
                 align-items: center;
@@ -505,334 +418,321 @@
     </style>
 </head>
 <body>
-    <!-- Navbar Component -->
+    <!-- Navigation -->
     <nav class="navbar">
         <div class="container">
             <div class="flex justify-between items-center">
                 <a href="/" class="nav-brand text-gradient">
-                    <i class="fas fa-eye"></i>
+                    <i class="fas fa-eye" style="margin-right: 8px;"></i>
                     Smart Focus Alert
                 </a>
                 <div class="nav-links">
                     <a href="/" class="nav-link">Home</a>
-                    <a href="/webcam" class="nav-link">Live Monitoring</a>
-                    <a href="/upload" class="nav-link active">Upload</a>
+                    <a href="/webcam" class="nav-link">Live Monitor</a>
+                    <a href="/upload" class="nav-link">Upload</a>
                 </div>
             </div>
         </div>
     </nav>
 
-    <div class="main-container">
-        <!-- Page Header -->
-        <div class="page-header">
-            <h1 class="page-title text-gradient">Analysis Results</h1>
-            <p class="page-subtitle">Comprehensive focus detection analysis with detailed insights</p>
+    <div class="results-container">
+        <!-- Header -->
+        <div class="text-center mb-8 fade-in">
+            <h1 class="title-lg text-gradient mb-4">Analysis Results</h1>
+            <p style="color: var(--text-secondary);">Detailed focus analysis report for your uploaded media</p>
         </div>
 
-        <!-- Results Grid Layout -->
-        <div class="results-grid">
-            <!-- Main Results -->
-            <div class="results-main">
-                <!-- Image Display -->
-                {% if result.processed_image %}
-                <div class="image-display card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-image"></i>
-                            Processed {{ result.type|title }}
-                        </h2>
-                    </div>
-                    
-                    <div class="image-container">
-                        <img src="{{ result.processed_image }}" alt="Processed Image" class="processed-image">
-                        <div class="image-overlay">
-                            {{ result.detections|length }} person(s) detected
-                        </div>
-                    </div>
+        {% if result %}
+        <!-- Media Comparison -->
+        {% if result.type == 'image' %}
+        <div class="comparison-view slide-in">
+            <div class="media-section">
+                <h3><i class="fas fa-image" style="margin-right: 8px;"></i>Original Image</h3>
+                <img src="{{ result.file_path }}" alt="Original" class="media-preview">
+            </div>
+            <div class="media-section">
+                <h3><i class="fas fa-search" style="margin-right: 8px;"></i>Processed Image</h3>
+                <img src="{{ result.processed_image }}" alt="Processed" class="media-preview">
+            </div>
+        </div>
+        {% elif result.type == 'video' %}
+        <div class="comparison-view slide-in">
+            <div class="media-section">
+                <h3><i class="fas fa-video" style="margin-right: 8px;"></i>Original Video</h3>
+                <video controls class="media-preview">
+                    <source src="{{ result.file_path }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            <div class="media-section">
+                <h3><i class="fas fa-play" style="margin-right: 8px;"></i>Processed Video</h3>
+                <video controls class="media-preview">
+                    <source src="{{ result.processed_video }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+        {% endif %}
 
-                    <!-- FIXED - Enhanced Image Information Display -->
-                    <div class="image-info">
-                        <div class="info-item">
-                            <div class="info-label">File Name</div>
-                            <div class="info-value">{{ result.filename }}</div>
-                        </div>
-                        
-                        <div class="info-item">
-                            <div class="info-label">File Type</div>
-                            <div class="info-value info">{{ result.type|upper }}</div>
-                        </div>
-                        
-                        <div class="info-item">
-                            <div class="info-label">Persons Detected</div>
-                            <div class="info-value success">{{ result.detections|length }}</div>
-                        </div>
-                        
-                        <div class="info-item">
-                            <div class="info-label">Focus Accuracy</div>
-                            {% set focused_count = result.detections|selectattr("status", "equalto", "FOCUSED")|list|length %}
-                            {% set total_count = result.detections|length %}
-                            {% if total_count > 0 %}
-                                {% set accuracy = (focused_count / total_count * 100)|round(1) %}
-                                <div class="info-value {% if accuracy >= 80 %}success{% elif accuracy >= 60 %}warning{% else %}danger{% endif %}">
-                                    {{ accuracy }}%
-                                </div>
-                            {% else %}
-                                <div class="info-value">N/A</div>
-                            {% endif %}
-                        </div>
-                    </div>
+        <!-- Detection Summary -->
+        <div class="detection-summary slide-in">
+            <h2 class="title-md text-gradient mb-6">
+                <i class="fas fa-chart-bar" style="margin-right: 8px;"></i>Detection Summary
+            </h2>
+            
+            <div class="summary-stats">
+                <div class="stat-box">
+                    <div class="stat-number text-success">{{ result.detections|length }}</div>
+                    <div class="stat-label">Total Persons Detected</div>
                 </div>
-                {% endif %}
-
-                <!-- Detection Results -->
-                {% if result.detections %}
-                <div class="detection-results card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <i class="fas fa-users"></i>
-                            Individual Detection Results
-                        </h2>
+                <div class="stat-box">
+                    <div class="stat-number text-info">
+                        {{ result.detections|selectattr("status", "equalto", "FOCUSED")|list|length }}
                     </div>
-                    
-                    <div class="detection-list">
-                        {% for detection in result.detections %}
-                        <div class="detection-item fade-in">
-                            <div class="detection-header">
-                                <div class="person-id">Person {{ detection.id }}</div>
-                                <div class="status-badge status-{{ detection.status.lower().replace(' ', '') }}">
-                                    {{ detection.status }}
-                                </div>
-                            </div>
-                            
-                            <div class="detection-details">
-                                <div class="detail-item">
-                                    <div class="detail-label">Confidence Score</div>
-                                    <div class="detail-value">{{ (detection.confidence * 100)|round(2) }}%</div>
-                                </div>
-                                
-                                <div class="detail-item">
-                                    <div class="detail-label">Detection Time</div>
-                                    <div class="detail-value">{{ detection.timestamp[:19] }}</div>
-                                </div>
-                                
-                                <!-- FIXED - Add Position and Size Information -->
-                                {% if detection.bbox %}
-                                <div class="detail-item">
-                                    <div class="detail-label">Position (X, Y)</div>
-                                    <div class="detail-value">{{ detection.bbox[0] }}, {{ detection.bbox[1] }}</div>
-                                </div>
-                                
-                                <div class="detail-item">
-                                    <div class="detail-label">Size (W × H)</div>
-                                    <div class="detail-value">{{ detection.bbox[2] }} × {{ detection.bbox[3] }}px</div>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
+                    <div class="stat-label">Focused Persons</div>
                 </div>
-                {% endif %}
+                <div class="stat-box">
+                    <div class="stat-number text-warning">
+                        {{ result.detections|selectattr("status", "equalto", "NOT FOCUSED")|list|length }}
+                    </div>
+                    <div class="stat-label">Unfocused Persons</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number text-danger">
+                        {{ (result.detections|selectattr("status", "equalto", "YAWNING")|list|length) + 
+                           (result.detections|selectattr("status", "equalto", "SLEEPING")|list|length) }}
+                    </div>
+                    <div class="stat-label">Attention Issues</div>
+                </div>
             </div>
 
-            <!-- Sidebar -->
-            <div class="results-sidebar">
-                <!-- Analysis Summary -->
-                <div class="card card-padding">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-chart-pie"></i>
-                            Analysis Summary
-                        </h3>
+            <!-- Overall Status -->
+            {% set focused_count = result.detections|selectattr("status", "equalto", "FOCUSED")|list|length %}
+            {% set total_count = result.detections|length %}
+            {% if total_count > 0 %}
+                {% set focus_percentage = (focused_count / total_count * 100)|round %}
+                <div class="text-center">
+                    <div style="font-size: 1.5rem; font-weight: 700; margin-bottom: 8px;">
+                        Overall Focus Score: 
+                        <span class="{% if focus_percentage >= 80 %}text-success{% elif focus_percentage >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ focus_percentage }}%
+                        </span>
+                    </div>
+                    <p style="color: var(--text-secondary);">
+                        {% if focus_percentage >= 80 %}
+                            Excellent focus levels detected
+                        {% elif focus_percentage >= 60 %}
+                            Moderate focus levels - some attention needed
+                        {% else %}
+                            Low focus levels - immediate attention recommended
+                        {% endif %}
+                    </p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Individual Detection Results -->
+        {% if result.detections %}
+        <div class="slide-in">
+            <h2 class="title-md text-gradient mb-6">
+                <i class="fas fa-users" style="margin-right: 8px;"></i>Individual Analysis
+            </h2>
+            
+            <div class="detection-grid">
+                {% for detection in result.detections %}
+                <div class="person-card">
+                    <!-- Person Image -->
+                    <img src="{{ detection.image_path }}" alt="Person {{ detection.id }}" class="person-image">
+                    
+                    <!-- Status Badge -->
+                    <div class="status-badge 
+                        {% if detection.status == 'FOCUSED' %}focused
+                        {% elif detection.status == 'NOT FOCUSED' %}unfocused
+                        {% elif detection.status == 'YAWNING' %}yawning
+                        {% elif detection.status == 'SLEEPING' %}sleeping
+                        {% endif %}">
+                        <span class="status-indicator 
+                            {% if detection.status == 'FOCUSED' %}status-focused
+                            {% elif detection.status == 'NOT FOCUSED' %}status-unfocused
+                            {% elif detection.status == 'YAWNING' %}status-yawning
+                            {% elif detection.status == 'SLEEPING' %}status-sleeping
+                            {% endif %}"></span>
+                        {{ detection.status }}
                     </div>
                     
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value" style="color: var(--success);">
-                                {{ result.detections|length }}
-                            </div>
-                            <div class="stat-label">Total Persons</div>
+                    <!-- Person Details -->
+                    <div class="person-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Person ID:</span>
+                            <span class="detail-value">#{{ detection.id }}</span>
                         </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-value" style="color: var(--info);">
-                                {{ result.detections|selectattr("status", "equalto", "FOCUSED")|list|length }}
-                            </div>
-                            <div class="stat-label">Focused</div>
+                        <div class="detail-row">
+                            <span class="detail-label">Confidence:</span>
+                            <span class="detail-value">{{ (detection.confidence * 100)|round(1) }}%</span>
                         </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-value" style="color: var(--warning);">
-                                {{ (result.detections|selectattr("status", "equalto", "NOT FOCUSED")|list|length) + 
-                                   (result.detections|selectattr("status", "equalto", "YAWNING")|list|length) }}
-                            </div>
-                            <div class="stat-label">Distracted</div>
+                        <div class="detail-row">
+                            <span class="detail-label">Position:</span>
+                            <span class="detail-value">
+                                X: {{ detection.bbox[0] }}, Y: {{ detection.bbox[1] }}
+                            </span>
                         </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-value" style="color: var(--danger);">
-                                {{ result.detections|selectattr("status", "equalto", "SLEEPING")|list|length }}
-                            </div>
-                            <div class="stat-label">Sleeping</div>
+                        <div class="detail-row">
+                            <span class="detail-label">Size:</span>
+                            <span class="detail-value">
+                                {{ detection.bbox[2] }} × {{ detection.bbox[3] }}
+                            </span>
                         </div>
                     </div>
                 </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
 
-                <!-- Download Section -->
-                {% if result.pdf_report or result.processed_image or result.processed_video %}
-                <div class="download-section">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-download"></i>
-                            Downloads
-                        </h3>
-                    </div>
-                    
-                    {% if result.pdf_report %}
-                    <div class="download-item">
-                        <div class="download-info">
-                            <div class="file-icon">
-                                <i class="fas fa-file-pdf"></i>
-                            </div>
-                            <div>
-                                <div style="font-weight: 600;">Analysis Report</div>
-                                <div style="color: var(--text-secondary); font-size: 0.9rem;">Detailed PDF report</div>
-                            </div>
+        <!-- Download Section -->
+        <div class="download-section slide-in">
+            <h2 class="title-md text-gradient mb-4">
+                <i class="fas fa-download" style="margin-right: 8px;"></i>Download Results
+            </h2>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">Download processed files and analysis reports</p>
+            
+            <div class="download-grid">
+                {% if result.type == 'image' %}
+                <div class="download-item">
+                    <div class="download-info">
+                        <div class="file-icon">
+                            <i class="fas fa-image"></i>
                         </div>
-                        <a href="{{ result.pdf_report }}" download class="btn btn-primary">
-                            <i class="fas fa-download"></i>
-                        </a>
-                    </div>
-                    {% endif %}
-                    
-                    {% if result.processed_image %}
-                    <div class="download-item">
-                        <div class="download-info">
-                            <div class="file-icon">
-                                <i class="fas fa-image"></i>
-                            </div>
-                            <div>
-                                <div style="font-weight: 600;">Processed Image</div>
-                                <div style="color: var(--text-secondary); font-size: 0.9rem;">With annotations</div>
-                            </div>
+                        <div>
+                            <div style="font-weight: 600;">Processed Image</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">With detection overlay</div>
                         </div>
-                        <a href="{{ result.processed_image }}" download class="btn btn-secondary">
-                            <i class="fas fa-download"></i>
-                        </a>
                     </div>
-                    {% endif %}
-                    
-                    {% if result.processed_video %}
-                    <div class="download-item">
-                        <div class="download-info">
-                            <div class="file-icon">
-                                <i class="fas fa-video"></i>
-                            </div>
-                            <div>
-                                <div style="font-weight: 600;">Processed Video</div>
-                                <div style="color: var(--text-secondary); font-size: 0.9rem;">With detections</div>
-                            </div>
+                    <a href="{{ result.processed_image }}" download class="btn btn-primary">
+                        <i class="fas fa-download"></i>
+                    </a>
+                </div>
+                {% elif result.type == 'video' %}
+                <div class="download-item">
+                    <div class="download-info">
+                        <div class="file-icon">
+                            <i class="fas fa-video"></i>
                         </div>
-                        <a href="{{ result.processed_video }}" download class="btn btn-secondary">
-                            <i class="fas fa-download"></i>
-                        </a>
+                        <div>
+                            <div style="font-weight: 600;">Processed Video</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">With detection overlay</div>
+                        </div>
                     </div>
-                    {% endif %}
+                    <a href="{{ result.processed_video }}" download class="btn btn-primary">
+                        <i class="fas fa-download"></i>
+                    </a>
                 </div>
                 {% endif %}
-
-                <!-- Detection Guide -->
-                <div class="card card-padding">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="fas fa-info-circle"></i>
-                            Detection Guide
-                        </h3>
-                    </div>
-                    
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 12px; height: 12px; background: var(--success); border-radius: 50%;"></div>
-                            <span style="font-size: 0.9rem;"><strong>Focused:</strong> Looking at screen</span>
+                
+                {% if result.pdf_report %}
+                <div class="download-item">
+                    <div class="download-info">
+                        <div class="file-icon">
+                            <i class="fas fa-file-pdf"></i>
                         </div>
-                        
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 12px; height: 12px; background: var(--warning); border-radius: 50%;"></div>
-                            <span style="font-size: 0.9rem;"><strong>Not Focused:</strong> Looking away</span>
-                        </div>
-                        
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 12px; height: 12px; background: #eab308; border-radius: 50%;"></div>
-                            <span style="font-size: 0.9rem;"><strong>Yawning:</strong> Signs of fatigue</span>
-                        </div>
-                        
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div style="width: 12px; height: 12px; background: var(--danger); border-radius: 50%;"></div>
-                            <span style="font-size: 0.9rem;"><strong>Sleeping:</strong> Eyes closed</span>
+                        <div>
+                            <div style="font-weight: 600;">Analysis Report</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Detailed PDF report</div>
                         </div>
                     </div>
+                    <a href="{{ result.pdf_report }}" download class="btn btn-secondary">
+                        <i class="fas fa-download"></i>
+                    </a>
                 </div>
+                {% endif %}
             </div>
         </div>
 
         <!-- Action Buttons -->
-        <div class="action-buttons">
+        <div class="action-buttons slide-in">
             <a href="/upload" class="btn btn-primary">
-                <i class="fas fa-upload"></i>
+                <i class="fas fa-upload" style="margin-right: 8px;"></i>
                 Analyze Another File
             </a>
-            
             <a href="/webcam" class="btn btn-secondary">
-                <i class="fas fa-video"></i>
+                <i class="fas fa-video" style="margin-right: 8px;"></i>
                 Start Live Monitoring
             </a>
-            
-            <a href="/" class="btn btn-info">
-                <i class="fas fa-home"></i>
+            <a href="/" class="btn btn-secondary">
+                <i class="fas fa-home" style="margin-right: 8px;"></i>
                 Back to Home
             </a>
         </div>
+        
+        {% else %}
+        <!-- No Results -->
+        <div class="text-center slide-in">
+            <div class="glass-card p-8">
+                <i class="fas fa-exclamation-triangle" style="font-size: 4rem; color: var(--warning); margin-bottom: 16px;"></i>
+                <h2 class="title-md text-gradient mb-4">No Results Found</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 24px;">
+                    There was an issue processing your file or no faces were detected.
+                </p>
+                <a href="/upload" class="btn btn-primary">
+                    <i class="fas fa-redo" style="margin-right: 8px;"></i>
+                    Try Again
+                </a>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <script>
-        // Page initialization
-        document.addEventListener('DOMContentLoaded', function() {
-            // Fade in animation
-            document.body.style.opacity = "0";
-            document.body.style.transition = "opacity 0.6s ease";
-            setTimeout(() => {
-                document.body.style.opacity = "1";
-            }, 100);
+        // Initialize animations
+        document.body.style.opacity = "0";
+        document.body.style.transition = "opacity 0.5s";
+        
+        window.addEventListener('load', function() {
+            document.body.style.opacity = "1";
+        });
 
-            // Smooth navigation
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', function(e) {
-                    if (this.getAttribute('href').startsWith('/')) {
-                        e.preventDefault();
-                        document.body.style.opacity = "0";
-                        setTimeout(() => {
-                            window.location.href = this.getAttribute('href');
-                        }, 300);
-                    }
-                });
+        // Navigation with smooth transitions
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                if (this.getAttribute('href').startsWith('/')) {
+                    e.preventDefault();
+                    document.body.style.opacity = "0";
+                    setTimeout(() => {
+                        window.location.href = this.getAttribute('href');
+                    }, 300);
+                }
             });
+        });
 
-            // Button hover effects
-            document.querySelectorAll('.btn').forEach(button => {
-                button.addEventListener('mouseenter', function() {
-                    this.style.transform = 'translateY(-3px) scale(1.05)';
-                });
-                
-                button.addEventListener('mouseleave', function() {
-                    this.style.transform = 'translateY(0) scale(1)';
-                });
+        // Button hover effects
+        document.querySelectorAll('.btn').forEach(button => {
+            button.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-3px) scale(1.05)';
             });
+            
+            button.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+            });
+        });
 
-            // Add staggered fade-in animation to detection items
-            const detectionItems = document.querySelectorAll('.detection-item');
-            detectionItems.forEach((item, index) => {
-                item.style.animationDelay = `${index * 0.1}s`;
+        // Card hover animations
+        document.querySelectorAll('.person-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-8px) scale(1.02)';
             });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+
+        // Performance monitoring
+        window.addEventListener('load', function() {
+            const perfData = performance.getEntriesByType('navigation')[0];
+            if (perfData) {
+                const loadTime = perfData.loadEventEnd - perfData.fetchStart;
+                console.log(`Results page loaded in ${loadTime}ms`);
+            }
         });
     </script>
 </body>
