@@ -228,27 +228,57 @@ def detect_drowsiness(frame, landmarks):
     return status, state
 
 def detect_persons_with_attention(image, mode="image"):
-    """Enhanced person detection with proper overlay information"""
+    """Enhanced person detection with improved sensitivity"""
+    # FIXED - Lower confidence thresholds for better detection
     detector = mp.solutions.face_detection.FaceDetection(
-        model_selection=1,
-        min_detection_confidence=0.5
+        model_selection=0,  # Use model 0 for better close-range detection
+        min_detection_confidence=0.3  # Lowered from 0.5 to 0.3
     )
 
     face_mesh = mp.solutions.face_mesh.FaceMesh(
         static_image_mode=(mode == "image"),
-        max_num_faces=10,
+        max_num_faces=5,  # Reduced for better performance
         refine_landmarks=True,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5
+        min_detection_confidence=0.3,  # Lowered from 0.5 to 0.3
+        min_tracking_confidence=0.3   # Lowered from 0.5 to 0.3
     )
     
+    # FIXED - Enhanced preprocessing for better detection
     rgb_image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+    
+    # Add brightness/contrast enhancement if image is too dark
+    lab = cv.cvtColor(image, cv.COLOR_BGR2LAB)
+    l, a, b = cv.split(lab)
+    clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    l = clahe.apply(l)
+    enhanced_image = cv.merge([l, a, b])
+    enhanced_image = cv.cvtColor(enhanced_image, cv.COLOR_LAB2BGR)
+    enhanced_rgb = cv.cvtColor(enhanced_image, cv.COLOR_BGR2RGB)
+    
+    # Try detection on both original and enhanced images
     detection_results = detector.process(rgb_image)
+    if not detection_results.detections:
+        print("🔍 No faces found in original image, trying enhanced image...")
+        detection_results = detector.process(enhanced_rgb)
+    
     mesh_results = face_mesh.process(rgb_image)
+    if not mesh_results.multi_face_landmarks:
+        mesh_results = face_mesh.process(enhanced_rgb)
     
     detections = []
     ih, iw, _ = image.shape
     current_time = time.time()
+    
+    # Add debug information
+    print(f"🎥 Processing frame: {iw}x{ih}")
+    print(f"📊 Image stats - Brightness: {np.mean(cv.cvtColor(image, cv.COLOR_BGR2GRAY)):.1f}, Contrast: {np.std(cv.cvtColor(image, cv.COLOR_BGR2GRAY)):.1f}")
+    
+    if detection_results.detections:
+        print(f"✅ Detections found: {len(detection_results.detections)}")
+        for i, detection in enumerate(detection_results.detections):
+            print(f"   Person {i+1}: Confidence {detection.score[0]*100:.1f}%")
+    else:
+        print("❌ No faces detected")
     
     if detection_results.detections:
         for i, detection in enumerate(detection_results.detections):
@@ -1128,6 +1158,102 @@ def upload_recording():
     except Exception as e:
         print(f"Error uploading recording: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+# FIXED - Add manual detection adjustment endpoint
+@application.route('/adjust_detection', methods=['POST'])
+def adjust_detection():
+    """Adjust detection sensitivity for troubleshooting"""
+    try:
+        data = request.get_json()
+        sensitivity = data.get('sensitivity', 'medium')
+        
+        # Adjust confidence thresholds based on sensitivity
+        if sensitivity == 'high':
+            confidence_level = 0.2  # Very sensitive
+        elif sensitivity == 'medium':
+            confidence_level = 0.3  # Default
+        else:  # low
+            confidence_level = 0.5  # Less sensitive
+        
+        return jsonify({
+            "success": True,
+            "message": f"Detection sensitivity set to {sensitivity}",
+            "confidence_level": confidence_level
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# FIXED - Add detection test endpoint
+@application.route('/test_detection', methods=['POST'])
+def test_detection():
+    """Test detection with current frame"""
+    try:
+        data = request.get_json()
+        frame_data = data['frame'].split(',')[1]
+        frame_bytes = base64.b64decode(frame_data)
+        nparr = np.frombuffer(frame_bytes, np.uint8)
+        frame = cv.imdecode(nparr, cv.IMREAD_COLOR)
+        
+        if frame is None:
+            return jsonify({"error": "Invalid frame data"}), 400
+        
+        # Test with multiple confidence levels
+        results = {}
+        for level_name, confidence in [('high', 0.2), ('medium', 0.3), ('low', 0.5)]:
+            detector = mp.solutions.face_detection.FaceDetection(
+                model_selection=0,
+                min_detection_confidence=confidence
+            )
+            
+            rgb_image = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
+            detection_results = detector.process(rgb_image)
+            
+            face_count = len(detection_results.detections) if detection_results.detections else 0
+            results[level_name] = {
+                'confidence': confidence,
+                'faces_detected': face_count
+            }
+        
+        # Image quality analysis
+        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+        brightness = np.mean(gray)
+        contrast = np.std(gray)
+        
+        return jsonify({
+            "success": True,
+            "detection_results": results,
+            "image_quality": {
+                "brightness": float(brightness),
+                "contrast": float(contrast),
+                "brightness_status": "good" if 50 <= brightness <= 200 else "poor",
+                "contrast_status": "good" if contrast > 30 else "poor"
+            },
+            "recommendations": get_detection_recommendations(results, brightness, contrast)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def get_detection_recommendations(results, brightness, contrast):
+    """Generate detection recommendations based on test results"""
+    recommendations = []
+    
+    if results['high']['faces_detected'] == 0:
+        recommendations.append("No faces detected at any sensitivity level")
+        if brightness < 50:
+            recommendations.append("Image too dark - increase lighting")
+        elif brightness > 200:
+            recommendations.append("Image too bright - reduce lighting")
+        if contrast < 30:
+            recommendations.append("Low contrast - ensure clear background separation")
+        recommendations.append("Try positioning yourself closer to camera")
+        recommendations.append("Ensure face is fully visible and looking at camera")
+    elif results['medium']['faces_detected'] == 0:
+        recommendations.append("Face detection working at high sensitivity only")
+        recommendations.append("Improve lighting conditions for better detection")
+    else:
+        recommendations.append("Face detection working normally")
+    
+    return recommendations
 
 # Health check for Railway
 @application.route('/health')
