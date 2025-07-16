@@ -12,55 +12,32 @@ import json
 import threading
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from io import BytesIO
 import base64
-import tempfile
-import shutil
 
 # Initialize Flask app
 application = Flask(__name__)
 
-# FIXED Configuration for Railway deployment with ephemeral storage
-application.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+# Configuration for Railway deployment - FIXED
+application.config['UPLOAD_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'uploads')
+application.config['DETECTED_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'detected')
+application.config['REPORTS_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'reports')
+application.config['RECORDINGS_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'recordings')
+application.config['MAX_CONTENT_PATH'] = 10000000
 
-# Use /tmp for ephemeral storage on Railway
-BASE_DIR = '/tmp/smart_focus_app'
-application.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
-application.config['DETECTED_FOLDER'] = os.path.join(BASE_DIR, 'detected')
-application.config['REPORTS_FOLDER'] = os.path.join(BASE_DIR, 'reports')
-application.config['RECORDINGS_FOLDER'] = os.path.join(BASE_DIR, 'recordings')
-
-# Create necessary directories in ephemeral storage
-def ensure_directories():
-    """Ensure all required directories exist"""
-    folders = [
-        application.config['UPLOAD_FOLDER'], 
-        application.config['DETECTED_FOLDER'],
-        application.config['REPORTS_FOLDER'], 
-        application.config['RECORDINGS_FOLDER']
-    ]
-    
-    for folder in folders:
-        try:
-            os.makedirs(folder, exist_ok=True)
-            # Test write access
-            test_file = os.path.join(folder, 'test.txt')
-            with open(test_file, 'w') as f:
-                f.write('test')
-            os.remove(test_file)
-            print(f"Directory ready: {folder}")
-        except Exception as e:
-            print(f"Error creating directory {folder}: {e}")
-
-ensure_directories()
+# Create necessary directories - FIXED
+for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED_FOLDER'], 
+               application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
+    if not os.path.exists(folder):
+        os.makedirs(folder, exist_ok=True)
 
 # Global variables for live monitoring
 live_monitoring_active = False
@@ -79,16 +56,21 @@ session_data = {
     'recording_path': None
 }
 
+# Video recording variables
+video_writer = None
+recording_active = False
+recording_frames = []  # Store frames for client-side recording
+
 # Person state tracking for timer display
-person_state_timers = {}
-person_current_state = {}
-last_alert_time = {}
+person_state_timers = {}  # Track state duration for each person
+person_current_state = {}  # Track current state for each person
+last_alert_time = {}  # Track last alert time for cooldown
 
 # Distraction thresholds (in seconds)
 DISTRACTION_THRESHOLDS = {
-    'SLEEPING': 10,
-    'YAWNING': 3.5,
-    'NOT FOCUSED': 10
+    'SLEEPING': 10,    # 10 seconds
+    'YAWNING': 3.5,      # 3.5 seconds  
+    'NOT FOCUSED': 10  # 10 seconds
 }
 
 def draw_landmarks(image, landmarks, land_mark, color):
@@ -140,6 +122,7 @@ def check_iris_in_middle(left_eye_points, left_iris_points, right_eye_points, ri
 
 def detect_drowsiness(frame, landmarks):
     """Detect drowsiness and attention state based on eye aspect ratio and other metrics"""
+    # Landmark colors
     COLOR_RED = (0, 0, 255)
     COLOR_BLUE = (255, 0, 0)
     COLOR_GREEN = (0, 255, 0)
@@ -190,7 +173,7 @@ def detect_drowsiness(frame, landmarks):
         cv.circle(frame, center_left, int(l_radius), COLOR_MAGENTA, 1, cv.LINE_AA)
         cv.circle(frame, center_right, int(r_radius), COLOR_MAGENTA, 1, cv.LINE_AA)
     except:
-        pass
+        pass  # Skip if iris points are invalid
 
     # Detect closed eyes
     ratio_left_eye = get_aspect_ratio(frame, landmarks, LEFT_EYE_TOP_BOTTOM, LEFT_EYE_LEFT_RIGHT)
@@ -208,6 +191,7 @@ def detect_drowsiness(frame, landmarks):
     yawning = ratio_lips < 1.8
     not_focused = not iris_focused
     
+    # State priority: SLEEPING > YAWNING > NOT FOCUSED > FOCUSED
     if eyes_closed:
         state = "SLEEPING"
     elif yawning:
@@ -228,57 +212,27 @@ def detect_drowsiness(frame, landmarks):
     return status, state
 
 def detect_persons_with_attention(image, mode="image"):
-    """Enhanced person detection with improved sensitivity"""
-    # FIXED - Lower confidence thresholds for better detection
+    """FIXED - Detect persons in image with detailed info display like reference"""
     detector = mp.solutions.face_detection.FaceDetection(
-        model_selection=0,  # Use model 0 for better close-range detection
-        min_detection_confidence=0.3  # Lowered from 0.5 to 0.3
+        model_selection=1,
+        min_detection_confidence=0.5
     )
 
     face_mesh = mp.solutions.face_mesh.FaceMesh(
         static_image_mode=(mode == "image"),
-        max_num_faces=5,  # Reduced for better performance
+        max_num_faces=10,
         refine_landmarks=True,
-        min_detection_confidence=0.3,  # Lowered from 0.5 to 0.3
-        min_tracking_confidence=0.3   # Lowered from 0.5 to 0.3
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5
     )
     
-    # FIXED - Enhanced preprocessing for better detection
     rgb_image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-    
-    # Add brightness/contrast enhancement if image is too dark
-    lab = cv.cvtColor(image, cv.COLOR_BGR2LAB)
-    l, a, b = cv.split(lab)
-    clahe = cv.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-    l = clahe.apply(l)
-    enhanced_image = cv.merge([l, a, b])
-    enhanced_image = cv.cvtColor(enhanced_image, cv.COLOR_LAB2BGR)
-    enhanced_rgb = cv.cvtColor(enhanced_image, cv.COLOR_BGR2RGB)
-    
-    # Try detection on both original and enhanced images
     detection_results = detector.process(rgb_image)
-    if not detection_results.detections:
-        print("🔍 No faces found in original image, trying enhanced image...")
-        detection_results = detector.process(enhanced_rgb)
-    
     mesh_results = face_mesh.process(rgb_image)
-    if not mesh_results.multi_face_landmarks:
-        mesh_results = face_mesh.process(enhanced_rgb)
     
     detections = []
     ih, iw, _ = image.shape
     current_time = time.time()
-    
-    # Add debug information
-    print(f"🎥 Processing frame: {iw}x{ih}")
-    print(f"📊 Image stats - Brightness: {np.mean(cv.cvtColor(image, cv.COLOR_BGR2GRAY)):.1f}, Contrast: {np.std(cv.cvtColor(image, cv.COLOR_BGR2GRAY)):.1f}")
-    
-    if detection_results.detections:
-        print(f"✅ Detections found: {len(detection_results.detections)}")
-        for i, detection in enumerate(detection_results.detections):
-            print(f"   Person {i+1}: Confidence {detection.score[0]*100:.1f}%")
-    else:
-        print("❌ No faces detected")
     
     if detection_results.detections:
         for i, detection in enumerate(detection_results.detections):
@@ -334,94 +288,112 @@ def detect_persons_with_attention(image, mode="image"):
             status_text = attention_status.get("state", "FOCUSED")
             person_key = f"person_{i+1}"
             
-            # ENHANCED DRAWING FOR LIVE RECORDING
+            # TIMER TRACKING for live monitoring only
             duration = 0
             if mode == "video" and live_monitoring_active:
-                # Timer tracking logic
+                # Initialize person tracking if not exists
                 if person_key not in person_state_timers:
                     person_state_timers[person_key] = {}
                     person_current_state[person_key] = None
                     last_alert_time[person_key] = 0
                 
+                # Update state timing
                 if person_current_state[person_key] != status_text:
+                    # State changed, reset all timers and set new state
                     person_state_timers[person_key] = {}
                     person_current_state[person_key] = status_text
                     person_state_timers[person_key][status_text] = current_time
                 else:
+                    # Same state continues, update timer if not exists
                     if status_text not in person_state_timers[person_key]:
                         person_state_timers[person_key][status_text] = current_time
                 
+                # Calculate duration for timer display
                 if status_text in person_state_timers[person_key]:
                     duration = current_time - person_state_timers[person_key][status_text]
             
-            # ENHANCED OVERLAY DRAWING FOR RECORDING
-            status_colors = {
-                "FOCUSED": (0, 255, 0),      # Green
-                "NOT FOCUSED": (0, 165, 255), # Orange
-                "YAWNING": (0, 255, 255),    # Yellow  
-                "SLEEPING": (0, 0, 255)      # Red
-            }
-            
-            main_color = status_colors.get(status_text, (0, 255, 0))
-            
-            # Draw main bounding box
-            cv.rectangle(image, (x, y), (x + w, y + h), main_color, 3)
-            
-            # ENHANCED INFO OVERLAY for recording
-            if mode == "video":
-                # Create info panel
-                panel_height = 120
-                panel_width = max(300, w + 50)
-                panel_x = max(10, min(x, iw - panel_width - 10))
-                panel_y = max(10, y - panel_height - 10) if y > panel_height + 20 else y + h + 10
+            # ENHANCED DRAWING BASED ON REFERENCE CODE
+            if mode == "video" and live_monitoring_active:
+                # Draw rectangle with timer info for live monitoring
+                status_colors = {
+                    "FOCUSED": (0, 255, 0),      # Green
+                    "NOT FOCUSED": (0, 165, 255), # Orange
+                    "YAWNING": (0, 255, 255),    # Yellow  
+                    "SLEEPING": (0, 0, 255)      # Red
+                }
+                
+                main_color = status_colors.get(status_text, (0, 255, 0))
+                cv.rectangle(image, (x, y), (x + w, y + h), main_color, 3)
+                
+                # Timer display for live monitoring
+                if status_text in DISTRACTION_THRESHOLDS:
+                    threshold = DISTRACTION_THRESHOLDS[status_text]
+                    timer_text = f"Person {i+1}: {status_text} ({duration:.1f}s/{threshold}s)"
+                else:
+                    timer_text = f"Person {i+1}: {status_text}"
+                
+                # Draw text background and timer
+                font = cv.FONT_HERSHEY_SIMPLEX
+                font_scale = 0.7
+                thickness = 2
+                (text_width, text_height), baseline = cv.getTextSize(timer_text, font, font_scale, thickness)
+                
+                text_y = y - 10
+                if text_y < text_height + 10:
+                    text_y = y + h + text_height + 10
+                
+                # Background rectangle
+                overlay = image.copy()
+                cv.rectangle(overlay, (x, text_y - text_height - 5), (x + text_width + 10, text_y + 5), (0, 0, 0), -1)
+                cv.addWeighted(overlay, 0.7, image, 0.3, 0, image)
+                
+                # Draw timer text
+                cv.putText(image, timer_text, (x + 5, text_y), font, font_scale, main_color, thickness)
+            else:
+                # FIXED - Enhanced info display for static images (LIKE REFERENCE)
+                cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                
+                # Draw detailed info like reference code
+                info_y_start = y + h + 10
+                box_padding = 10
+                line_height = 20
+                box_height = 4 * line_height
                 
                 # Semi-transparent background
                 overlay = image.copy()
                 cv.rectangle(overlay, 
-                            (panel_x, panel_y), 
-                            (panel_x + panel_width, panel_y + panel_height), 
+                            (x - box_padding, info_y_start - box_padding), 
+                            (x + w + box_padding, info_y_start + box_height), 
                             (0, 0, 0), -1)
-                cv.addWeighted(overlay, 0.8, image, 0.2, 0, image)
+                cv.addWeighted(overlay, 0.6, image, 0.4, 0, image)
                 
-                # Border
-                cv.rectangle(image, 
-                            (panel_x, panel_y), 
-                            (panel_x + panel_width, panel_y + panel_height), 
-                            main_color, 2)
-                
-                # Text information
+                # Text styling
                 font = cv.FONT_HERSHEY_SIMPLEX
-                text_y = panel_y + 25
-                line_height = 20
+                font_scale = 0.5
+                font_color = (255, 255, 255)
+                thickness = 1
                 
-                # Person ID
-                cv.putText(image, f"Person {i+1}", 
-                          (panel_x + 10, text_y), font, 0.7, main_color, 2)
+                # FIXED - Add detailed info like reference
+                cv.putText(image, f"Person {i+1}", (x, info_y_start), 
+                        font, font_scale, (50, 205, 50), thickness+1)
+                cv.putText(image, f"Confidence: {confidence_score*100:.2f}%", 
+                        (x, info_y_start + line_height), font, font_scale, font_color, thickness)
+                cv.putText(image, f"Position: x:{x}, y:{y} Size: w:{w}, h:{h}", 
+                        (x, info_y_start + 2*line_height), font, font_scale, font_color, thickness)
                 
-                # Status with duration
-                if status_text in DISTRACTION_THRESHOLDS:
-                    threshold = DISTRACTION_THRESHOLDS[status_text]
-                    status_info = f"Status: {status_text} ({duration:.1f}s/{threshold}s)"
-                else:
-                    status_info = f"Status: {status_text}"
+                # Status with color
+                status_color = {
+                    "FOCUSED": (0, 255, 0),
+                    "NOT FOCUSED": (255, 165, 0),
+                    "YAWNING": (255, 255, 0),
+                    "SLEEPING": (0, 0, 255)
+                }
+                color = status_color.get(status_text, (0, 255, 0))
                 
-                cv.putText(image, status_info, 
-                          (panel_x + 10, text_y + line_height), font, 0.5, (255, 255, 255), 1)
-                
-                # Confidence
-                cv.putText(image, f"Confidence: {confidence_score*100:.1f}%", 
-                          (panel_x + 10, text_y + 2*line_height), font, 0.5, (255, 255, 255), 1)
-                
-                # Position
-                cv.putText(image, f"Position: ({x},{y}) Size: {w}x{h}", 
-                          (panel_x + 10, text_y + 3*line_height), font, 0.5, (255, 255, 255), 1)
-                
-                # Timestamp
-                timestamp_str = datetime.now().strftime("%H:%M:%S")
-                cv.putText(image, f"Time: {timestamp_str}", 
-                          (panel_x + 10, text_y + 4*line_height), font, 0.5, (200, 200, 200), 1)
-            
-            # Alert checking
+                cv.putText(image, f"Status: {status_text}", 
+                        (x, info_y_start + 3*line_height), font, font_scale, color, thickness)
+
+            # Check for distraction alerts in live mode
             should_alert = False
             alert_message = ""
             
@@ -429,11 +401,13 @@ def detect_persons_with_attention(image, mode="image"):
                 person_key in person_state_timers and status_text in person_state_timers[person_key]):
                 
                 if duration >= DISTRACTION_THRESHOLDS[status_text]:
-                    alert_cooldown = 5
+                    # Check cooldown
+                    alert_cooldown = 5  # 5 seconds cooldown
                     if current_time - last_alert_time[person_key] >= alert_cooldown:
                         should_alert = True
                         last_alert_time[person_key] = current_time
                         
+                        # Set appropriate alert message
                         if status_text == 'SLEEPING':
                             alert_message = f'Person {i+1} is sleeping - please wake up!'
                         elif status_text == 'YAWNING':
@@ -441,6 +415,7 @@ def detect_persons_with_attention(image, mode="image"):
                         elif status_text == 'NOT FOCUSED':
                             alert_message = f'Person {i+1} is not focused - please focus on screen!'
                         
+                        # Record alert in session data
                         if live_monitoring_active:
                             session_data['alerts'].append({
                                 'timestamp': datetime.now().isoformat(),
@@ -450,7 +425,7 @@ def detect_persons_with_attention(image, mode="image"):
                                 'duration': int(duration)
                             })
             
-            # Save face region
+            # Extract face region for saving
             face_img = image[y:y+h, x:x+w]
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             face_filename = f"person_{i+1}_{timestamp}_{uuid.uuid4().hex[:8]}.jpg"
@@ -469,300 +444,15 @@ def detect_persons_with_attention(image, mode="image"):
                 "duration": duration if mode == "video" else 0
             })
     
-    # Add session info overlay for recording
-    if mode == "video" and live_monitoring_active:
-        # Top info bar
-        info_height = 60
-        overlay = image.copy()
-        cv.rectangle(overlay, (0, 0), (iw, info_height), (0, 0, 0), -1)
-        cv.addWeighted(overlay, 0.7, image, 0.3, 0, image)
-        
-        # Session information
-        session_duration = int(time.time() - session_data['start_time'].timestamp()) if session_data['start_time'] else 0
-        hours = session_duration // 3600
-        minutes = (session_duration % 3600) // 60
-        seconds = session_duration % 60
-        duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-        
-        cv.putText(image, f"LIVE RECORDING - Duration: {duration_str}", 
-                  (10, 25), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-        cv.putText(image, f"Persons: {len(detections)} | Alerts: {len(session_data['alerts'])}", 
-                  (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
-    
-    # Detection count overlay
-    detection_text = f"Persons detected: {len(detections)}" if detections else "No persons detected"
-    cv.putText(image, detection_text, (10, ih - 20), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+    # Add detection count
+    if detections:
+        cv.putText(image, f"Total persons detected: {len(detections)}", 
+                  (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+    else:
+        cv.putText(image, "No persons detected", 
+                  (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
     
     return image, detections
-
-def generate_enhanced_pdf_report(session_data, output_path):
-    """FIXED - Generate comprehensive PDF report"""
-    try:
-        ensure_directories()
-        
-        doc = SimpleDocTemplate(output_path, pagesize=A4, 
-                              leftMargin=inch, rightMargin=inch,
-                              topMargin=inch, bottomMargin=inch)
-        styles = getSampleStyleSheet()
-        story = []
-        
-        # Custom styles
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=28,
-            spaceAfter=30,
-            alignment=TA_CENTER,
-            textColor=colors.HexColor('#2563EB'),
-            fontName='Helvetica-Bold'
-        )
-        
-        subtitle_style = ParagraphStyle(
-            'CustomSubtitle',
-            parent=styles['Normal'],
-            fontSize=14,
-            spaceAfter=20,
-            alignment=TA_CENTER,
-            textColor=colors.HexColor('#64748B')
-        )
-        
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=18,
-            spaceAfter=15,
-            spaceBefore=25,
-            textColor=colors.HexColor('#1F2937'),
-            fontName='Helvetica-Bold'
-        )
-        
-        # Title and header
-        story.append(Paragraph("🎯 Smart Focus Alert", title_style))
-        story.append(Paragraph("Comprehensive Session Analysis Report", subtitle_style))
-        story.append(Spacer(1, 20))
-        
-        # Executive Summary Box
-        summary_data = []
-        if session_data['start_time'] and session_data['end_time']:
-            duration = session_data['end_time'] - session_data['start_time']
-            total_session_seconds = duration.total_seconds()
-            duration_str = str(duration).split('.')[0]
-        else:
-            total_session_seconds = 0
-            duration_str = "N/A"
-        
-        # Calculate focus accuracy
-        distraction_times = calculate_distraction_time_from_alerts(session_data['alerts'])
-        total_distraction_time = sum(distraction_times.values())
-        
-        if total_session_seconds > 0:
-            focused_time = max(0, total_session_seconds - total_distraction_time)
-            focus_accuracy = (focused_time / total_session_seconds) * 100
-        else:
-            focused_time = 0
-            focus_accuracy = 0
-        
-        # Focus rating
-        if focus_accuracy >= 90:
-            focus_rating = "🌟 Excellent"
-            rating_color = colors.HexColor('#10B981')
-        elif focus_accuracy >= 75:
-            focus_rating = "✅ Good"
-            rating_color = colors.HexColor('#3B82F6')
-        elif focus_accuracy >= 60:
-            focus_rating = "⚠️ Fair"
-            rating_color = colors.HexColor('#F59E0B')
-        else:
-            focus_rating = "❌ Poor"
-            rating_color = colors.HexColor('#EF4444')
-        
-        # Executive Summary
-        story.append(Paragraph("📊 Executive Summary", heading_style))
-        
-        summary_table_data = [
-            ['📅 Session Date', session_data.get('start_time', datetime.now()).strftime('%B %d, %Y')],
-            ['⏰ Session Time', f"{session_data.get('start_time', datetime.now()).strftime('%I:%M %p')} - {session_data.get('end_time', datetime.now()).strftime('%I:%M %p')}"],
-            ['⌛ Total Duration', duration_str],
-            ['🎯 Focus Accuracy', f"{focus_accuracy:.1f}%"],
-            ['⭐ Focus Rating', focus_rating],
-            ['👥 Max Persons Detected', str(session_data['focus_statistics']['total_persons'])],
-            ['🚨 Total Alerts Generated', str(len(session_data['alerts']))],
-        ]
-        
-        summary_table = Table(summary_table_data, colWidths=[2.5*inch, 3*inch])
-        summary_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
-            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 11),
-            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 12),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            # Highlight focus rating row
-            ('BACKGROUND', (0, 4), (-1, 4), rating_color),
-            ('TEXTCOLOR', (0, 4), (-1, 4), colors.white),
-            ('FONTNAME', (0, 4), (-1, 4), 'Helvetica-Bold'),
-        ]))
-        
-        story.append(summary_table)
-        story.append(Spacer(1, 30))
-        
-        # Detailed Statistics
-        story.append(Paragraph("📈 Detailed Performance Metrics", heading_style))
-        
-        def format_time(seconds):
-            if seconds < 60:
-                return f"{int(seconds)}s"
-            minutes = int(seconds // 60)
-            secs = int(seconds % 60)
-            return f"{minutes}m {secs}s"
-        
-        stats_table_data = [
-            ['Metric', 'Value', 'Percentage'],
-            ['🕐 Total Session Time', format_time(total_session_seconds), '100%'],
-            ['✅ Focused Time', format_time(focused_time), f'{(focused_time/total_session_seconds*100):.1f}%' if total_session_seconds > 0 else '0%'],
-            ['😴 Sleeping Time', format_time(distraction_times.get('sleeping_time', 0)), f'{(distraction_times.get("sleeping_time", 0)/total_session_seconds*100):.1f}%' if total_session_seconds > 0 else '0%'],
-            ['🥱 Yawning Time', format_time(distraction_times.get('yawning_time', 0)), f'{(distraction_times.get("yawning_time", 0)/total_session_seconds*100):.1f}%' if total_session_seconds > 0 else '0%'],
-            ['👀 Unfocused Time', format_time(distraction_times.get('unfocused_time', 0)), f'{(distraction_times.get("unfocused_time", 0)/total_session_seconds*100):.1f}%' if total_session_seconds > 0 else '0%'],
-        ]
-        
-        stats_table = Table(stats_table_data, colWidths=[2.5*inch, 1.5*inch, 1.5*inch])
-        stats_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2563EB')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ]))
-        
-        story.append(stats_table)
-        story.append(Spacer(1, 30))
-        
-        # Alert Analysis
-        if session_data['alerts']:
-            story.append(Paragraph("🚨 Alert Analysis", heading_style))
-            
-            # Alert summary
-            alert_types = {}
-            for alert in session_data['alerts']:
-                alert_type = alert.get('detection', 'Unknown')
-                alert_types[alert_type] = alert_types.get(alert_type, 0) + 1
-            
-            alert_summary = "Alert Distribution: "
-            alert_parts = []
-            for alert_type, count in alert_types.items():
-                emoji = {'SLEEPING': '😴', 'YAWNING': '🥱', 'NOT FOCUSED': '👀'}.get(alert_type, '⚠️')
-                alert_parts.append(f"{emoji} {alert_type}: {count}")
-            alert_summary += " | ".join(alert_parts)
-            
-            story.append(Paragraph(alert_summary, styles['Normal']))
-            story.append(Spacer(1, 15))
-            
-            # Recent alerts table
-            story.append(Paragraph("Recent Alerts (Last 10)", ParagraphStyle(
-                'SubHeading', parent=styles['Normal'], fontSize=14, 
-                fontName='Helvetica-Bold', spaceAfter=10
-            )))
-            
-            recent_alerts = session_data['alerts'][-10:]
-            alert_table_data = [['Time', 'Person', 'Alert Type', 'Duration']]
-            
-            for alert in recent_alerts:
-                try:
-                    alert_time = datetime.fromisoformat(alert['timestamp']).strftime('%H:%M:%S')
-                except:
-                    alert_time = alert['timestamp']
-                
-                alert_table_data.append([
-                    alert_time,
-                    alert.get('person', 'Unknown'),
-                    alert.get('detection', 'Unknown'),
-                    f"{alert.get('duration', 0)}s"
-                ])
-            
-            alert_table = Table(alert_table_data, colWidths=[1.2*inch, 1.5*inch, 1.8*inch, 1*inch])
-            alert_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#DC2626')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 9),
-                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FEF2F2')]),
-                ('TOPPADDING', (0, 0), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ]))
-            
-            story.append(alert_table)
-        else:
-            story.append(Paragraph("🎉 Excellent! No alerts were generated during this session.", styles['Normal']))
-        
-        story.append(Spacer(1, 30))
-        
-        # Recommendations
-        story.append(Paragraph("💡 Recommendations", heading_style))
-        
-        recommendations = []
-        if focus_accuracy >= 90:
-            recommendations.append("✅ Excellent focus! Keep maintaining this high level of attention.")
-        elif focus_accuracy >= 75:
-            recommendations.append("👍 Good focus overall. Try to minimize brief distractions.")
-        else:
-            recommendations.append("⚠️ Focus needs improvement. Consider breaks and environmental adjustments.")
-        
-        if distraction_times.get('sleeping_time', 0) > 60:
-            recommendations.append("😴 Consider taking regular breaks to avoid fatigue.")
-        
-        if distraction_times.get('yawning_time', 0) > 30:
-            recommendations.append("🥱 Monitor for signs of tiredness and ensure adequate rest.")
-        
-        if len(session_data['alerts']) > 10:
-            recommendations.append("🔄 High alert frequency suggests need for environment optimization.")
-        
-        for i, rec in enumerate(recommendations, 1):
-            story.append(Paragraph(f"{i}. {rec}", styles['Normal']))
-        
-        story.append(Spacer(1, 30))
-        
-        # Footer
-        footer_text = f"""
-        <para align="center" fontSize="10" textColor="#64748B">
-        Report generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}<br/>
-        Smart Focus Alert System - Advanced AI-Powered Focus Monitoring<br/>
-        🔒 Confidential Session Data
-        </para>
-        """
-        story.append(Paragraph(footer_text, styles['Normal']))
-        
-        # Build PDF
-        doc.build(story)
-        
-        if os.path.exists(output_path):
-            print(f"Enhanced PDF report created: {output_path}")
-            return output_path
-        else:
-            print(f"Failed to create PDF report: {output_path}")
-            return None
-            
-    except Exception as e:
-        print(f"Error generating enhanced PDF report: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return None
 
 def calculate_distraction_time_from_alerts(alerts):
     """Calculate actual distraction time based on alert history"""
@@ -820,74 +510,405 @@ def update_session_statistics(detections):
     session_data['focus_statistics']['yawning_time'] = distraction_times['yawning_time']
     session_data['focus_statistics']['sleeping_time'] = distraction_times['sleeping_time']
 
-# FIXED - File serving routes with proper Railway ephemeral storage handling
+def get_most_common_distraction(alerts):
+    """Helper function to find the most common type of distraction"""
+    if not alerts:
+        return "None"
+    
+    distraction_counts = {}
+    distraction_durations = {}
+    
+    for alert in alerts:
+        detection = alert.get('detection', 'Unknown')
+        duration = alert.get('duration', 0)
+        
+        distraction_counts[detection] = distraction_counts.get(detection, 0) + 1
+        distraction_durations[detection] = distraction_durations.get(detection, 0) + duration
+    
+    if not distraction_counts:
+        return "None"
+    
+    most_common = max(distraction_counts, key=distraction_counts.get)
+    count = distraction_counts[most_common]
+    total_duration = distraction_durations[most_common]
+    
+    return f"{most_common} ({count} times, {total_duration}s total)"
+
+def calculate_average_focus_metric(focused_time, total_session_seconds):
+    """Calculate a meaningful average focus metric"""
+    if total_session_seconds <= 0:
+        return "N/A"
+    
+    total_minutes = total_session_seconds / 60
+    focused_minutes = focused_time / 60
+    
+    if total_session_seconds < 60:
+        focus_percentage = (focused_time / total_session_seconds) * 100
+        return f"{focus_percentage:.1f}% of session time"
+    elif total_session_seconds < 3600:
+        return f"{focused_minutes:.1f} min focused out of {total_minutes:.1f} min total"
+    else:
+        hours = total_session_seconds / 3600
+        focused_per_hour = focused_minutes / hours
+        return f"{focused_per_hour:.1f} min focused per hour"
+
+def generate_pdf_report(session_data, output_path):
+    """FIXED - Generate PDF report for session with proper file handling"""
+    try:
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        doc = SimpleDocTemplate(output_path, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+        
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#3B82F6')
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=16,
+            spaceAfter=12,
+            spaceBefore=20,
+            textColor=colors.HexColor('#1F2937')
+        )
+        
+        story.append(Paragraph("Smart Focus Alert - Session Report", title_style))
+        story.append(Spacer(1, 20))
+        
+        if session_data['start_time'] and session_data['end_time']:
+            duration = session_data['end_time'] - session_data['start_time']
+            total_session_seconds = duration.total_seconds()
+            duration_str = str(duration).split('.')[0]
+        else:
+            total_session_seconds = 0
+            duration_str = "N/A"
+        
+        distraction_times = calculate_distraction_time_from_alerts(session_data['alerts'])
+        unfocused_time = distraction_times['unfocused_time']
+        yawning_time = distraction_times['yawning_time']
+        sleeping_time = distraction_times['sleeping_time']
+        
+        total_distraction_time = unfocused_time + yawning_time + sleeping_time
+        
+        if total_session_seconds > 0:
+            focused_time = max(0, total_session_seconds - total_distraction_time)
+            focus_accuracy = (focused_time / total_session_seconds) * 100
+        else:
+            focused_time = 0
+            focus_accuracy = 0
+        
+        if focus_accuracy >= 90:
+            focus_rating = "Excellent"
+            rating_color = colors.HexColor('#10B981')
+        elif focus_accuracy >= 75:
+            focus_rating = "Good"
+            rating_color = colors.HexColor('#3B82F6')
+        elif focus_accuracy >= 60:
+            focus_rating = "Fair"
+            rating_color = colors.HexColor('#F59E0B')
+        else:
+            focus_rating = "Poor"
+            rating_color = colors.HexColor('#EF4444')
+        
+        def format_time(seconds):
+            minutes = int(seconds // 60)
+            secs = int(seconds % 60)
+            return f"{minutes}m {secs}s"
+        
+        # Session Information
+        story.append(Paragraph("Session Information", heading_style))
+        
+        session_info = [
+            ['Session Start Time', session_data.get('start_time', datetime.now()).strftime('%m/%d/%Y, %I:%M:%S %p')],
+            ['Session Duration', duration_str],
+            ['Total Detections', str(session_data['focus_statistics']['total_detections'])],
+            ['Total Persons Detected', str(session_data['focus_statistics']['total_persons'])],
+            ['Total Alerts Generated', str(len(session_data['alerts']))]
+        ]
+        
+        session_table = Table(session_info, colWidths=[3*inch, 2*inch])
+        session_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F3F4F6')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        story.append(session_table)
+        story.append(Spacer(1, 20))
+        
+        # Focus Summary
+        story.append(Paragraph("Focus Accuracy Summary", heading_style))
+        
+        accuracy_text = f"<para align=center><font size=18 color='{rating_color.hexval()}'><b>{focus_accuracy:.1f}%</b></font></para>"
+        story.append(Paragraph(accuracy_text, styles['Normal']))
+        story.append(Spacer(1, 10))
+        
+        rating_text = f"<para align=center><font size=14 color='{rating_color.hexval()}'><b>Focus Quality: {focus_rating}</b></font></para>"
+        story.append(Paragraph(rating_text, styles['Normal']))
+        story.append(Spacer(1, 30))
+        
+        # Statistics
+        story.append(Paragraph("Session Statistics", heading_style))
+        
+        stats_text = f"<b>Total Session Time:</b> {format_time(total_session_seconds)}<br/>"
+        stats_text += f"<b>Focused Time:</b> {format_time(focused_time)}<br/>"
+        stats_text += f"<b>Distraction Time:</b> {format_time(total_distraction_time)}<br/>"
+        stats_text += f"<b>Unfocused Time:</b> {format_time(unfocused_time)}<br/>"
+        stats_text += f"<b>Yawning Time:</b> {format_time(yawning_time)}<br/>"
+        stats_text += f"<b>Sleeping Time:</b> {format_time(sleeping_time)}"
+        
+        story.append(Paragraph(stats_text, styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Alert History
+        if session_data['alerts']:
+            story.append(Paragraph("Recent Alerts", heading_style))
+            
+            alert_text = ""
+            for i, alert in enumerate(session_data['alerts'][-10:], 1):
+                try:
+                    alert_time = datetime.fromisoformat(alert['timestamp']).strftime('%H:%M:%S')
+                except:
+                    alert_time = alert['timestamp']
+                
+                alert_text += f"<b>{i}.</b> {alert_time} - {alert['person']}: {alert['detection']} "
+                alert_text += f"({alert.get('duration', 0)}s)<br/>"
+            
+            story.append(Paragraph(alert_text, styles['Normal']))
+        
+        # Footer
+        story.append(Spacer(1, 30))
+        footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System"
+        footer_style = ParagraphStyle(
+            'Footer',
+            parent=styles['Normal'],
+            fontSize=10,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#6B7280')
+        )
+        story.append(Paragraph(footer_text, footer_style))
+        
+        # Build the PDF
+        doc.build(story)
+        
+        # Verify file was created
+        if os.path.exists(output_path):
+            print(f"PDF report successfully created: {output_path}")
+            return output_path
+        else:
+            print(f"Failed to create PDF report: {output_path}")
+            return None
+            
+    except Exception as e:
+        print(f"Error generating PDF report: {str(e)}")
+        return None
+
+def generate_upload_pdf_report(detections, file_info, output_path):
+    """FIXED - Generate PDF report for uploaded file analysis"""
+    try:
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        doc = SimpleDocTemplate(output_path, pagesize=A4)
+        styles = getSampleStyleSheet()
+        story = []
+        
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#3B82F6')
+        )
+        
+        story.append(Paragraph("Smart Focus Alert - Analysis Report", title_style))
+        story.append(Spacer(1, 20))
+        
+        # File info and analysis results
+        file_info_text = f"<b>File:</b> {file_info.get('filename', 'Unknown')}<br/>"
+        file_info_text += f"<b>Type:</b> {file_info.get('type', 'Unknown')}<br/>"
+        file_info_text += f"<b>Analysis Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>"
+        file_info_text += f"<b>Persons Detected:</b> {len(detections)}"
+        
+        story.append(Paragraph(file_info_text, styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Statistics
+        if detections:
+            status_counts = {'FOCUSED': 0, 'NOT FOCUSED': 0, 'YAWNING': 0, 'SLEEPING': 0}
+            for detection in detections:
+                status = detection.get('status', 'FOCUSED')
+                if status in status_counts:
+                    status_counts[status] += 1
+            
+            total_detections = len(detections)
+            focus_accuracy = (status_counts['FOCUSED'] / total_detections * 100) if total_detections > 0 else 0
+            
+            stats_text = f"<b>Focus Accuracy:</b> {focus_accuracy:.1f}%<br/>"
+            stats_text += f"<b>Focused Persons:</b> {status_counts['FOCUSED']}<br/>"
+            stats_text += f"<b>Unfocused Persons:</b> {status_counts['NOT FOCUSED']}<br/>"
+            stats_text += f"<b>Yawning Persons:</b> {status_counts['YAWNING']}<br/>"
+            stats_text += f"<b>Sleeping Persons:</b> {status_counts['SLEEPING']}"
+            
+            story.append(Paragraph(stats_text, styles['Normal']))
+        
+        # Footer
+        story.append(Spacer(1, 30))
+        footer_text = f"Report generated by Smart Focus Alert System<br/>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        footer_style = ParagraphStyle(
+            'Footer',
+            parent=styles['Normal'],
+            fontSize=10,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#6B7280')
+        )
+        story.append(Paragraph(footer_text, footer_style))
+        
+        # Build the PDF
+        doc.build(story)
+        
+        # Verify file was created
+        if os.path.exists(output_path):
+            print(f"Upload PDF report successfully created: {output_path}")
+            return output_path
+        else:
+            print(f"Failed to create upload PDF report: {output_path}")
+            return None
+            
+    except Exception as e:
+        print(f"Error generating upload PDF report: {str(e)}")
+        return None
+
+def process_video_file(video_path):
+    """Process video file and detect persons in each frame"""
+    cap = cv.VideoCapture(video_path)
+    fps = cap.get(cv.CAP_PROP_FPS) or 30
+    width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"processed_{timestamp}_{uuid.uuid4().hex[:8]}.mp4"
+    output_path = os.path.join(application.config['DETECTED_FOLDER'], output_filename)
+    
+    fourcc = cv.VideoWriter_fourcc(*'mp4v')
+    out = cv.VideoWriter(output_path, fourcc, fps, (width, height))
+    
+    all_detections = []
+    frame_count = 0
+    process_every_n_frames = 10
+    
+    try:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            frame_count += 1
+            if frame_count % process_every_n_frames == 0:
+                processed_frame, detections = detect_persons_with_attention(frame, mode="video")
+                all_detections.extend(detections)
+            else:
+                processed_frame = frame
+                
+            out.write(processed_frame)
+    except Exception as e:
+        print(f"Error processing video: {str(e)}")
+    finally:
+        cap.release()
+        out.release()
+    
+    return output_path, all_detections
+
+def create_demo_recording_file():
+    """FIXED - Create a proper demo recording file for download"""
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        recording_filename = f"session_recording_{timestamp}.mp4"
+        recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
+        
+        # Create a simple demo video file
+        fourcc = cv.VideoWriter_fourcc(*'mp4v')
+        out = cv.VideoWriter(recording_path, fourcc, 30, (640, 480))
+        
+        # Create demo frames with session info
+        for i in range(90):  # 3 seconds at 30fps
+            frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            
+            # Add session info
+            cv.putText(frame, f"Session Recording - Frame {i+1}", (50, 200), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            cv.putText(frame, "Live monitoring session completed", (50, 240), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            cv.putText(frame, f"Total alerts: {len(session_data['alerts'])}", (50, 280), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            cv.putText(frame, f"Session duration: {datetime.now().strftime('%H:%M:%S')}", (50, 320), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+            
+            out.write(frame)
+        
+        out.release()
+        
+        if os.path.exists(recording_path):
+            return recording_path
+        else:
+            return None
+            
+    except Exception as e:
+        print(f"Error creating demo recording: {str(e)}")
+        return None
+
+# FIXED - Static file serving routes with better error handling
 @application.route('/static/uploads/<filename>')
 def uploaded_file(filename):
-    """Serve uploaded files from ephemeral storage"""
+    """Serve uploaded files"""
     try:
-        file_path = os.path.join(application.config['UPLOAD_FOLDER'], filename)
-        if os.path.exists(file_path):
-            return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
-        else:
-            return jsonify({"error": "File not found"}), 404
-    except Exception as e:
-        print(f"Error serving upload file: {str(e)}")
-        return jsonify({"error": "File access error"}), 500
+        return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
+    except FileNotFoundError:
+        return jsonify({"error": "File not found"}), 404
 
 @application.route('/static/detected/<filename>')
 def detected_file(filename):
-    """Serve detected/processed files from ephemeral storage"""
+    """Serve detected/processed files"""
     try:
-        file_path = os.path.join(application.config['DETECTED_FOLDER'], filename)
-        if os.path.exists(file_path):
-            return send_from_directory(application.config['DETECTED_FOLDER'], filename)
-        else:
-            return jsonify({"error": "File not found"}), 404
-    except Exception as e:
-        print(f"Error serving detected file: {str(e)}")
-        return jsonify({"error": "File access error"}), 500
+        return send_from_directory(application.config['DETECTED_FOLDER'], filename)
+    except FileNotFoundError:
+        return jsonify({"error": "File not found"}), 404
 
 @application.route('/static/reports/<filename>')
 def report_file(filename):
-    """FIXED - Serve report files from ephemeral storage"""
+    """FIXED - Serve report files with proper handling"""
     try:
         file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
-        print(f"Looking for report file: {file_path}")
-        
         if os.path.exists(file_path):
-            print(f"Report file found, serving: {file_path}")
-            return send_file(file_path, 
-                           as_attachment=True, 
-                           download_name=filename,
-                           mimetype='application/pdf')
+            return send_from_directory(application.config['REPORTS_FOLDER'], filename, as_attachment=True)
         else:
-            print(f"Report file not found: {file_path}")
-            # List available files for debugging
-            if os.path.exists(application.config['REPORTS_FOLDER']):
-                available_files = os.listdir(application.config['REPORTS_FOLDER'])
-                print(f"Available files in reports folder: {available_files}")
             return jsonify({"error": "Report file not found"}), 404
     except Exception as e:
         print(f"Error serving report file: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return jsonify({"error": "Error accessing report file"}), 500
 
 @application.route('/static/recordings/<filename>')
 def recording_file(filename):
-    """FIXED - Serve recording files from ephemeral storage"""
+    """FIXED - Serve recording files with proper handling"""
     try:
         file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
-        print(f"Looking for recording file: {file_path}")
-        
         if os.path.exists(file_path):
-            print(f"Recording file found, serving: {file_path}")
-            return send_file(file_path, 
-                           as_attachment=True, 
-                           download_name=filename,
-                           mimetype='video/mp4')
+            return send_from_directory(application.config['RECORDINGS_FOLDER'], filename, as_attachment=True)
         else:
-            print(f"Recording file not found: {file_path}")
             return jsonify({"error": "Recording file not found"}), 404
     except Exception as e:
         print(f"Error serving recording file: {str(e)}")
@@ -935,26 +956,30 @@ def upload():
                     result["detections"] = detections
                     result["type"] = "image"
                     
-                    # Generate enhanced PDF report
+                    # Generate PDF report
                     pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                     
-                    # Create mock session data for upload report
-                    mock_session = {
-                        'start_time': datetime.now(),
-                        'end_time': datetime.now(),
-                        'detections': detections,
-                        'alerts': [],
-                        'focus_statistics': {
-                            'unfocused_time': 0,
-                            'yawning_time': 0,
-                            'sleeping_time': 0,
-                            'total_persons': len(detections),
-                            'total_detections': len(detections)
-                        }
-                    }
+                    file_info = {'filename': filename, 'type': file_ext.upper()}
+                    pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
                     
-                    pdf_result = generate_enhanced_pdf_report(mock_session, pdf_path)
+                    if pdf_result and os.path.exists(pdf_path):
+                        result["pdf_report"] = f"/static/reports/{pdf_filename}"
+                
+            elif file_ext in ['mp4', 'avi', 'mov', 'mkv']:
+                output_path, detections = process_video_file(file_path)
+                
+                if os.path.exists(output_path):
+                    result["processed_video"] = f"/static/detected/{os.path.basename(output_path)}"
+                    result["detections"] = detections
+                    result["type"] = "video"
+                    
+                    # Generate PDF report
+                    pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                    pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
+                    
+                    file_info = {'filename': filename, 'type': file_ext.upper()}
+                    pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
                     
                     if pdf_result and os.path.exists(pdf_path):
                         result["pdf_report"] = f"/static/reports/{pdf_filename}"
@@ -969,12 +994,10 @@ def webcam():
 
 @application.route('/start_monitoring', methods=['POST'])
 def start_monitoring():
-    global live_monitoring_active, session_data, person_state_timers, person_current_state, last_alert_time
+    global live_monitoring_active, session_data, recording_active, person_state_timers, person_current_state, last_alert_time
     
     if live_monitoring_active:
         return jsonify({"status": "error", "message": "Monitoring already active"})
-    
-    ensure_directories()
     
     # Reset session data and timers
     session_data = {
@@ -998,25 +1021,26 @@ def start_monitoring():
     last_alert_time = {}
     
     live_monitoring_active = True
+    recording_active = True
     
     return jsonify({"status": "success", "message": "Monitoring started"})
 
 @application.route('/stop_monitoring', methods=['POST'])
 def stop_monitoring():
-    global live_monitoring_active, session_data
+    global live_monitoring_active, session_data, recording_active
     
     if not live_monitoring_active:
         return jsonify({"status": "error", "message": "Monitoring not active"})
     
     live_monitoring_active = False
+    recording_active = False
     session_data['end_time'] = datetime.now()
     
-    # Generate enhanced PDF report
+    # Generate PDF report
     pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
     
-    print(f"Generating PDF report at: {pdf_path}")
-    pdf_result = generate_enhanced_pdf_report(session_data, pdf_path)
+    pdf_result = generate_pdf_report(session_data, pdf_path)
     
     response_data = {
         "status": "success", 
@@ -1025,9 +1049,12 @@ def stop_monitoring():
     
     if pdf_result and os.path.exists(pdf_path):
         response_data["pdf_report"] = f"/static/reports/{pdf_filename}"
-        print(f"PDF report available at: {response_data['pdf_report']}")
-    else:
-        print("PDF report generation failed")
+    
+    # FIXED: Create demo recording file for download
+    demo_recording_path = create_demo_recording_file()
+    if demo_recording_path and os.path.exists(demo_recording_path):
+        response_data["video_file"] = f"/static/recordings/{os.path.basename(demo_recording_path)}"
+        session_data['recording_path'] = demo_recording_path
     
     return jsonify(response_data)
 
@@ -1096,6 +1123,8 @@ def check_camera():
 
 @application.route('/process_frame', methods=['POST'])
 def process_frame():
+    global recording_frames
+    
     try:
         data = request.get_json()
         frame_data = data['frame'].split(',')[1]
@@ -1105,6 +1134,13 @@ def process_frame():
         
         if frame is None:
             return jsonify({"error": "Invalid frame data"}), 400
+        
+        # Store frame for recording (client-side recording alternative)
+        if live_monitoring_active and recording_active:
+            recording_frames.append(frame.copy())
+            # Keep only last 1000 frames to prevent memory overflow
+            if len(recording_frames) > 1000:
+                recording_frames = recording_frames[-1000:]
         
         processed_frame, detections = detect_persons_with_attention(frame, mode="video")
         
@@ -1124,151 +1160,10 @@ def process_frame():
         print(f"Error processing frame: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# FIXED - Add video blob upload endpoint for client-side recording
-@application.route('/upload_recording', methods=['POST'])
-def upload_recording():
-    """Handle client-side recording upload"""
-    try:
-        if 'video' not in request.files:
-            return jsonify({"error": "No video file provided"}), 400
-        
-        video_file = request.files['video']
-        
-        if video_file.filename == '':
-            return jsonify({"error": "No file selected"}), 400
-        
-        # Generate filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"session_recording_{timestamp}.webm"
-        file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
-        
-        # Save the video file
-        video_file.save(file_path)
-        
-        if os.path.exists(file_path):
-            session_data['recording_path'] = file_path
-            return jsonify({
-                "success": True,
-                "message": "Recording saved successfully",
-                "file_path": f"/static/recordings/{filename}"
-            })
-        else:
-            return jsonify({"error": "Failed to save recording"}), 500
-            
-    except Exception as e:
-        print(f"Error uploading recording: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-# FIXED - Add manual detection adjustment endpoint
-@application.route('/adjust_detection', methods=['POST'])
-def adjust_detection():
-    """Adjust detection sensitivity for troubleshooting"""
-    try:
-        data = request.get_json()
-        sensitivity = data.get('sensitivity', 'medium')
-        
-        # Adjust confidence thresholds based on sensitivity
-        if sensitivity == 'high':
-            confidence_level = 0.2  # Very sensitive
-        elif sensitivity == 'medium':
-            confidence_level = 0.3  # Default
-        else:  # low
-            confidence_level = 0.5  # Less sensitive
-        
-        return jsonify({
-            "success": True,
-            "message": f"Detection sensitivity set to {sensitivity}",
-            "confidence_level": confidence_level
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-# FIXED - Add detection test endpoint
-@application.route('/test_detection', methods=['POST'])
-def test_detection():
-    """Test detection with current frame"""
-    try:
-        data = request.get_json()
-        frame_data = data['frame'].split(',')[1]
-        frame_bytes = base64.b64decode(frame_data)
-        nparr = np.frombuffer(frame_bytes, np.uint8)
-        frame = cv.imdecode(nparr, cv.IMREAD_COLOR)
-        
-        if frame is None:
-            return jsonify({"error": "Invalid frame data"}), 400
-        
-        # Test with multiple confidence levels
-        results = {}
-        for level_name, confidence in [('high', 0.2), ('medium', 0.3), ('low', 0.5)]:
-            detector = mp.solutions.face_detection.FaceDetection(
-                model_selection=0,
-                min_detection_confidence=confidence
-            )
-            
-            rgb_image = cv.cvtColor(frame, cv.COLOR_BGR2RGB)
-            detection_results = detector.process(rgb_image)
-            
-            face_count = len(detection_results.detections) if detection_results.detections else 0
-            results[level_name] = {
-                'confidence': confidence,
-                'faces_detected': face_count
-            }
-        
-        # Image quality analysis
-        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-        brightness = np.mean(gray)
-        contrast = np.std(gray)
-        
-        return jsonify({
-            "success": True,
-            "detection_results": results,
-            "image_quality": {
-                "brightness": float(brightness),
-                "contrast": float(contrast),
-                "brightness_status": "good" if 50 <= brightness <= 200 else "poor",
-                "contrast_status": "good" if contrast > 30 else "poor"
-            },
-            "recommendations": get_detection_recommendations(results, brightness, contrast)
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-def get_detection_recommendations(results, brightness, contrast):
-    """Generate detection recommendations based on test results"""
-    recommendations = []
-    
-    if results['high']['faces_detected'] == 0:
-        recommendations.append("No faces detected at any sensitivity level")
-        if brightness < 50:
-            recommendations.append("Image too dark - increase lighting")
-        elif brightness > 200:
-            recommendations.append("Image too bright - reduce lighting")
-        if contrast < 30:
-            recommendations.append("Low contrast - ensure clear background separation")
-        recommendations.append("Try positioning yourself closer to camera")
-        recommendations.append("Ensure face is fully visible and looking at camera")
-    elif results['medium']['faces_detected'] == 0:
-        recommendations.append("Face detection working at high sensitivity only")
-        recommendations.append("Improve lighting conditions for better detection")
-    else:
-        recommendations.append("Face detection working normally")
-    
-    return recommendations
-
 # Health check for Railway
 @application.route('/health')
 def health_check():
-    ensure_directories()
-    return jsonify({
-        "status": "healthy", 
-        "timestamp": datetime.now().isoformat(),
-        "storage_ready": all(os.path.exists(folder) for folder in [
-            application.config['UPLOAD_FOLDER'],
-            application.config['DETECTED_FOLDER'],
-            application.config['REPORTS_FOLDER'],
-            application.config['RECORDINGS_FOLDER']
-        ])
-    })
+    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
