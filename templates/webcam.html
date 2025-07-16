@@ -650,6 +650,22 @@
             color: var(--primary-blue);
         }
 
+        /* FIXED - Download notification styles */
+        .download-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 16px;
+            color: var(--text-primary);
+            z-index: 1000;
+            max-width: 300px;
+            animation: slideInRight 0.3s ease-out;
+            backdrop-filter: blur(10px);
+        }
+
         /* Animations */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -659,6 +675,17 @@
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         .fade-in { animation: fadeIn 0.6s ease-out; }
@@ -1404,11 +1431,9 @@
 
                 showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
                 
-                // Show download options
+                // FIXED - Show download options with better handling
                 if (data.pdf_report || data.video_file) {
                     showDownloads(data.pdf_report, data.video_file);
-                } else {
-                    showDownloads('/reports/session_report.pdf', '/recordings/session_video.mp4');
                 }
             } catch (error) {
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
@@ -1584,6 +1609,7 @@
             }, 1000);
         }
 
+        // ===== FIXED - Show downloads function with better error handling =====
         function showDownloads(pdfReport, videoFile) {
             const downloadsSection = document.getElementById('downloadsSection');
             const downloadItems = document.getElementById('downloadItems');
@@ -1603,9 +1629,10 @@
                             <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with ${alertCount} alerts tracked</div>
                         </div>
                     </div>
-                    <a href="${pdfReport}" download class="btn btn-primary">
+                    <button class="btn btn-primary" onclick="downloadFile('${pdfReport}', 'session_report.pdf')">
                         <i class="fas fa-download"></i>
-                    </a>
+                        Download
+                    </button>
                 `;
                 downloadItems.appendChild(pdfItem);
             }
@@ -1620,17 +1647,39 @@
                         </div>
                         <div>
                             <div style="font-weight: 600;">Session Recording</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Video with face detection overlays</div>
                         </div>
                     </div>
-                    <a href="${videoFile}" download class="btn btn-secondary">
+                    <button class="btn btn-secondary" onclick="downloadFile('${videoFile}', 'session_recording.mp4')">
                         <i class="fas fa-download"></i>
-                    </a>
+                        Download
+                    </button>
                 `;
                 downloadItems.appendChild(videoItem);
             }
             
             downloadsSection.style.display = 'block';
+        }
+
+        // ===== FIXED - Download file function =====
+        function downloadFile(url, filename) {
+            showNotification('Preparing download...', 'info');
+            
+            // Create a temporary anchor element for download
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+            
+            // Add to DOM, click, and remove
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Show success notification
+            setTimeout(() => {
+                showNotification(`${filename} download started!`, 'success');
+            }, 500);
         }
 
         function takeScreenshot() {
@@ -1639,20 +1688,7 @@
 
         function showNotification(message, type = 'info') {
             const notification = document.createElement('div');
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: var(--glass-bg);
-                border: 1px solid var(--glass-border);
-                border-radius: 8px;
-                padding: 16px;
-                color: var(--text-primary);
-                z-index: 1000;
-                max-width: 300px;
-                animation: slideInRight 0.3s ease-out;
-                backdrop-filter: blur(10px);
-            `;
+            notification.className = 'download-notification';
             
             const colors = {
                 success: 'var(--success)',
@@ -1687,22 +1723,6 @@
                 }
             }, 5000);
         }
-
-        // Add slideInRight animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideInRight {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-        `;
-        document.head.appendChild(style);
 
         // Cleanup on page unload
         window.addEventListener('beforeunload', function() {
