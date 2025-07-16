@@ -22,22 +22,25 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from io import BytesIO
 import base64
+import tempfile
+import shutil
 
 # Initialize Flask app
 application = Flask(__name__)
 
-# Configuration for Railway deployment - FIXED
-application.config['UPLOAD_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'uploads')
-application.config['DETECTED_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'detected')
-application.config['REPORTS_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'reports')
-application.config['RECORDINGS_FOLDER'] = os.path.join(os.path.realpath('.'), 'static', 'recordings')
+# FIXED - Configuration for Railway deployment with proper directory handling
+application.config['UPLOAD_FOLDER'] = '/tmp/uploads'
+application.config['DETECTED_FOLDER'] = '/tmp/detected'
+application.config['REPORTS_FOLDER'] = '/tmp/reports'
+application.config['RECORDINGS_FOLDER'] = '/tmp/recordings'
 application.config['MAX_CONTENT_PATH'] = 10000000
 
-# Create necessary directories - FIXED
+# FIXED - Create necessary directories with proper permissions
 for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED_FOLDER'], 
                application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
     if not os.path.exists(folder):
         os.makedirs(folder, exist_ok=True)
+        os.chmod(folder, 0o755)
 
 # Global variables for live monitoring
 live_monitoring_active = False
@@ -53,7 +56,8 @@ session_data = {
         'total_persons': 0,
         'total_detections': 0
     },
-    'recording_path': None
+    'recording_path': None,
+    'recording_frames': []  # Store frames for video creation
 }
 
 # Video recording variables
@@ -212,7 +216,7 @@ def detect_drowsiness(frame, landmarks):
     return status, state
 
 def detect_persons_with_attention(image, mode="image"):
-    """FIXED - Detect persons in image with detailed info display like reference"""
+    """Detect persons in image with detailed info display"""
     detector = mp.solutions.face_detection.FaceDetection(
         model_selection=1,
         min_detection_confidence=0.5
@@ -350,10 +354,10 @@ def detect_persons_with_attention(image, mode="image"):
                 # Draw timer text
                 cv.putText(image, timer_text, (x + 5, text_y), font, font_scale, main_color, thickness)
             else:
-                # FIXED - Enhanced info display for static images (LIKE REFERENCE)
+                # Enhanced info display for static images
                 cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 
-                # Draw detailed info like reference code
+                # Draw detailed info
                 info_y_start = y + h + 10
                 box_padding = 10
                 line_height = 20
@@ -373,7 +377,7 @@ def detect_persons_with_attention(image, mode="image"):
                 font_color = (255, 255, 255)
                 thickness = 1
                 
-                # FIXED - Add detailed info like reference
+                # Add detailed info
                 cv.putText(image, f"Person {i+1}", (x, info_y_start), 
                         font, font_scale, (50, 205, 50), thickness+1)
                 cv.putText(image, f"Confidence: {confidence_score*100:.2f}%", 
@@ -553,7 +557,7 @@ def calculate_average_focus_metric(focused_time, total_session_seconds):
         return f"{focused_per_hour:.1f} min focused per hour"
 
 def generate_pdf_report(session_data, output_path):
-    """FIXED - Generate PDF report for session with proper file handling"""
+    """FIXED - Generate PDF report for session with proper error handling"""
     try:
         # Ensure directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -701,15 +705,13 @@ def generate_pdf_report(session_data, output_path):
         )
         story.append(Paragraph(footer_text, footer_style))
         
-        # Build the PDF
-        doc.build(story)
-        
-        # Verify file was created
-        if os.path.exists(output_path):
+        # Build the PDF with error handling
+        try:
+            doc.build(story)
             print(f"PDF report successfully created: {output_path}")
             return output_path
-        else:
-            print(f"Failed to create PDF report: {output_path}")
+        except Exception as pdf_error:
+            print(f"PDF building error: {str(pdf_error)}")
             return None
             
     except Exception as e:
@@ -779,14 +781,12 @@ def generate_upload_pdf_report(detections, file_info, output_path):
         story.append(Paragraph(footer_text, footer_style))
         
         # Build the PDF
-        doc.build(story)
-        
-        # Verify file was created
-        if os.path.exists(output_path):
+        try:
+            doc.build(story)
             print(f"Upload PDF report successfully created: {output_path}")
             return output_path
-        else:
-            print(f"Failed to create upload PDF report: {output_path}")
+        except Exception as pdf_error:
+            print(f"PDF building error: {str(pdf_error)}")
             return None
             
     except Exception as e:
@@ -833,68 +833,125 @@ def process_video_file(video_path):
     
     return output_path, all_detections
 
+def create_session_recording_from_frames(recording_frames, output_path):
+    """FIXED - Create session recording from stored frames"""
+    try:
+        if not recording_frames:
+            print("No frames to create video")
+            return None
+        
+        # Get frame dimensions from first frame
+        height, width = recording_frames[0].shape[:2]
+        
+        # Create video writer
+        fourcc = cv.VideoWriter_fourcc(*'mp4v')
+        out = cv.VideoWriter(output_path, fourcc, 10.0, (width, height))  # 10 FPS
+        
+        # Write all frames
+        for frame in recording_frames:
+            if frame is not None:
+                out.write(frame)
+        
+        out.release()
+        
+        # Check if file was created successfully
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            print(f"Session recording created: {output_path}")
+            return output_path
+        else:
+            print("Failed to create session recording")
+            return None
+            
+    except Exception as e:
+        print(f"Error creating session recording: {str(e)}")
+        return None
+
 def create_demo_recording_file():
-    """FIXED - Create a proper demo recording file for download"""
+    """FIXED - Create a proper demo recording file with session info"""
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         recording_filename = f"session_recording_{timestamp}.mp4"
         recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
         
-        # Create a simple demo video file
+        # Create a demo video with session information
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
         out = cv.VideoWriter(recording_path, fourcc, 30, (640, 480))
         
-        # Create demo frames with session info
-        for i in range(90):  # 3 seconds at 30fps
+        # Create frames with session info
+        for i in range(150):  # 5 seconds at 30fps
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
             
-            # Add session info
-            cv.putText(frame, f"Session Recording - Frame {i+1}", (50, 200), 
+            # Add session information
+            cv.putText(frame, f"Session Recording - Frame {i+1}", (50, 150), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-            cv.putText(frame, "Live monitoring session completed", (50, 240), 
+            cv.putText(frame, "Live monitoring session completed", (50, 200), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-            cv.putText(frame, f"Total alerts: {len(session_data['alerts'])}", (50, 280), 
+            cv.putText(frame, f"Total alerts: {len(session_data['alerts'])}", (50, 250), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-            cv.putText(frame, f"Session duration: {datetime.now().strftime('%H:%M:%S')}", (50, 320), 
-                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+            
+            if session_data['start_time']:
+                duration = (datetime.now() - session_data['start_time']).total_seconds()
+                cv.putText(frame, f"Duration: {int(duration//60)}m {int(duration%60)}s", (50, 300), 
+                          cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+            
+            cv.putText(frame, "Thank you for using Smart Focus Alert", (50, 400), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
             out.write(frame)
         
         out.release()
         
-        if os.path.exists(recording_path):
+        if os.path.exists(recording_path) and os.path.getsize(recording_path) > 0:
+            print(f"Demo recording created: {recording_path}")
             return recording_path
         else:
+            print("Failed to create demo recording")
             return None
             
     except Exception as e:
         print(f"Error creating demo recording: {str(e)}")
         return None
 
-# FIXED - Static file serving routes with better error handling
+# FIXED - Static file serving routes with proper error handling
 @application.route('/static/uploads/<filename>')
 def uploaded_file(filename):
     """Serve uploaded files"""
     try:
-        return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
-    except FileNotFoundError:
-        return jsonify({"error": "File not found"}), 404
+        file_path = os.path.join(application.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_from_directory(application.config['UPLOAD_FOLDER'], filename)
+        else:
+            return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        print(f"Error serving uploaded file: {str(e)}")
+        return jsonify({"error": "File access error"}), 500
 
 @application.route('/static/detected/<filename>')
 def detected_file(filename):
     """Serve detected/processed files"""
     try:
-        return send_from_directory(application.config['DETECTED_FOLDER'], filename)
-    except FileNotFoundError:
-        return jsonify({"error": "File not found"}), 404
+        file_path = os.path.join(application.config['DETECTED_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_from_directory(application.config['DETECTED_FOLDER'], filename)
+        else:
+            return jsonify({"error": "File not found"}), 404
+    except Exception as e:
+        print(f"Error serving detected file: {str(e)}")
+        return jsonify({"error": "File access error"}), 500
 
 @application.route('/static/reports/<filename>')
 def report_file(filename):
-    """FIXED - Serve report files with proper handling"""
+    """FIXED - Serve report files with proper MIME type"""
     try:
         file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
         if os.path.exists(file_path):
-            return send_from_directory(application.config['REPORTS_FOLDER'], filename, as_attachment=True)
+            return send_from_directory(
+                application.config['REPORTS_FOLDER'], 
+                filename,
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name=filename
+            )
         else:
             return jsonify({"error": "Report file not found"}), 404
     except Exception as e:
@@ -903,11 +960,17 @@ def report_file(filename):
 
 @application.route('/static/recordings/<filename>')
 def recording_file(filename):
-    """FIXED - Serve recording files with proper handling"""
+    """FIXED - Serve recording files with proper MIME type"""
     try:
         file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
         if os.path.exists(file_path):
-            return send_from_directory(application.config['RECORDINGS_FOLDER'], filename, as_attachment=True)
+            return send_from_directory(
+                application.config['RECORDINGS_FOLDER'], 
+                filename,
+                mimetype='video/mp4',
+                as_attachment=True,
+                download_name=filename
+            )
         else:
             return jsonify({"error": "Recording file not found"}), 404
     except Exception as e:
@@ -1012,7 +1075,8 @@ def start_monitoring():
             'total_persons': 0,
             'total_detections': 0
         },
-        'recording_path': None
+        'recording_path': None,
+        'recording_frames': []
     }
     
     # Reset person tracking
@@ -1050,11 +1114,22 @@ def stop_monitoring():
     if pdf_result and os.path.exists(pdf_path):
         response_data["pdf_report"] = f"/static/reports/{pdf_filename}"
     
-    # FIXED: Create demo recording file for download
-    demo_recording_path = create_demo_recording_file()
-    if demo_recording_path and os.path.exists(demo_recording_path):
-        response_data["video_file"] = f"/static/recordings/{os.path.basename(demo_recording_path)}"
-        session_data['recording_path'] = demo_recording_path
+    # FIXED: Create session recording from stored frames or demo
+    recording_filename = f"session_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+    recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
+    
+    if session_data.get('recording_frames'):
+        # Create video from stored frames
+        video_result = create_session_recording_from_frames(session_data['recording_frames'], recording_path)
+    else:
+        # Create demo video
+        video_result = create_demo_recording_file()
+        if video_result:
+            recording_path = video_result
+    
+    if video_result and os.path.exists(recording_path):
+        response_data["video_file"] = f"/static/recordings/{os.path.basename(recording_path)}"
+        session_data['recording_path'] = recording_path
     
     return jsonify(response_data)
 
@@ -1123,7 +1198,7 @@ def check_camera():
 
 @application.route('/process_frame', methods=['POST'])
 def process_frame():
-    global recording_frames
+    global session_data
     
     try:
         data = request.get_json()
@@ -1135,12 +1210,12 @@ def process_frame():
         if frame is None:
             return jsonify({"error": "Invalid frame data"}), 400
         
-        # Store frame for recording (client-side recording alternative)
+        # FIXED - Store frame for recording if monitoring is active
         if live_monitoring_active and recording_active:
-            recording_frames.append(frame.copy())
-            # Keep only last 1000 frames to prevent memory overflow
-            if len(recording_frames) > 1000:
-                recording_frames = recording_frames[-1000:]
+            session_data['recording_frames'].append(frame.copy())
+            # Keep only last 300 frames to prevent memory overflow (30 seconds at 10fps)
+            if len(session_data['recording_frames']) > 300:
+                session_data['recording_frames'] = session_data['recording_frames'][-300:]
         
         processed_frame, detections = detect_persons_with_attention(frame, mode="video")
         
@@ -1160,10 +1235,19 @@ def process_frame():
         print(f"Error processing frame: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# Health check for Railway
+# FIXED - Health check for Railway
 @application.route('/health')
 def health_check():
-    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
+    return jsonify({
+        "status": "healthy", 
+        "timestamp": datetime.now().isoformat(),
+        "directories": {
+            "uploads": os.path.exists(application.config['UPLOAD_FOLDER']),
+            "detected": os.path.exists(application.config['DETECTED_FOLDER']),
+            "reports": os.path.exists(application.config['REPORTS_FOLDER']),
+            "recordings": os.path.exists(application.config['RECORDINGS_FOLDER'])
+        }
+    })
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
