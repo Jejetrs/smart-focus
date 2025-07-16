@@ -557,36 +557,69 @@ def calculate_average_focus_metric(focused_time, total_session_seconds):
         return f"{focused_per_hour:.1f} min focused per hour"
 
 def generate_pdf_report(session_data, output_path):
-    """FIXED - Generate PDF report for session with proper error handling"""
+    """Enhanced PDF report generator matching the sample format"""
     try:
         # Ensure directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
-        doc = SimpleDocTemplate(output_path, pagesize=A4)
+        doc = SimpleDocTemplate(output_path, pagesize=A4, 
+                              topMargin=50, bottomMargin=50, 
+                              leftMargin=50, rightMargin=50)
         styles = getSampleStyleSheet()
         story = []
         
+        # Enhanced Color Scheme
+        primary_blue = colors.HexColor('#3B82F6')
+        light_blue = colors.HexColor('#EBF5FF')
+        dark_gray = colors.HexColor('#1F2937')
+        medium_gray = colors.HexColor('#6B7280')
+        success_green = colors.HexColor('#10B981')
+        warning_orange = colors.HexColor('#F59E0B')
+        danger_red = colors.HexColor('#EF4444')
+        light_gray = colors.HexColor('#F9FAFB')
+        
+        # Custom Styles
         title_style = ParagraphStyle(
-            'CustomTitle',
+            'EnhancedTitle',
             parent=styles['Heading1'],
-            fontSize=24,
-            spaceAfter=30,
-            alignment=TA_CENTER,
-            textColor=colors.HexColor('#3B82F6')
-        )
-        
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=16,
-            spaceAfter=12,
+            fontSize=28,
+            spaceAfter=40,
             spaceBefore=20,
-            textColor=colors.HexColor('#1F2937')
+            alignment=TA_CENTER,
+            textColor=primary_blue,
+            fontName='Helvetica-Bold'
         )
         
+        section_heading_style = ParagraphStyle(
+            'SectionHeading',
+            parent=styles['Heading2'],
+            fontSize=18,
+            spaceAfter=20,
+            spaceBefore=30,
+            textColor=dark_gray,
+            fontName='Helvetica-Bold',
+            borderWidth=0,
+            borderColor=colors.white,
+            backColor=light_blue,
+            borderPadding=10,
+            leftIndent=10,
+            rightIndent=10
+        )
+        
+        metric_heading_style = ParagraphStyle(
+            'MetricHeading',
+            parent=styles['Normal'],
+            fontSize=14,
+            spaceAfter=8,
+            textColor=dark_gray,
+            fontName='Helvetica-Bold'
+        )
+        
+        # Title
         story.append(Paragraph("Smart Focus Alert - Session Report", title_style))
         story.append(Spacer(1, 20))
         
+        # Calculate session metrics
         if session_data['start_time'] and session_data['end_time']:
             duration = session_data['end_time'] - session_data['start_time']
             total_session_seconds = duration.total_seconds()
@@ -595,11 +628,11 @@ def generate_pdf_report(session_data, output_path):
             total_session_seconds = 0
             duration_str = "N/A"
         
+        # Calculate distraction times from alerts
         distraction_times = calculate_distraction_time_from_alerts(session_data['alerts'])
         unfocused_time = distraction_times['unfocused_time']
         yawning_time = distraction_times['yawning_time']
         sleeping_time = distraction_times['sleeping_time']
-        
         total_distraction_time = unfocused_time + yawning_time + sleeping_time
         
         if total_session_seconds > 0:
@@ -609,28 +642,31 @@ def generate_pdf_report(session_data, output_path):
             focused_time = 0
             focus_accuracy = 0
         
+        # Determine focus quality rating
         if focus_accuracy >= 90:
             focus_rating = "Excellent"
-            rating_color = colors.HexColor('#10B981')
+            rating_color = success_green
         elif focus_accuracy >= 75:
             focus_rating = "Good"
-            rating_color = colors.HexColor('#3B82F6')
+            rating_color = primary_blue
         elif focus_accuracy >= 60:
             focus_rating = "Fair"
-            rating_color = colors.HexColor('#F59E0B')
+            rating_color = warning_orange
         else:
             focus_rating = "Poor"
-            rating_color = colors.HexColor('#EF4444')
+            rating_color = danger_red
         
         def format_time(seconds):
+            if seconds < 60:
+                return f"0m {int(seconds)}s"
             minutes = int(seconds // 60)
             secs = int(seconds % 60)
             return f"{minutes}m {secs}s"
         
-        # Session Information
-        story.append(Paragraph("Session Information", heading_style))
+        # Session Information Section
+        story.append(Paragraph("Session Information", section_heading_style))
         
-        session_info = [
+        session_data_list = [
             ['Session Start Time', session_data.get('start_time', datetime.now()).strftime('%m/%d/%Y, %I:%M:%S %p')],
             ['Session Duration', duration_str],
             ['Total Detections', str(session_data['focus_statistics']['total_detections'])],
@@ -638,119 +674,304 @@ def generate_pdf_report(session_data, output_path):
             ['Total Alerts Generated', str(len(session_data['alerts']))]
         ]
         
-        session_table = Table(session_info, colWidths=[3*inch, 2*inch])
+        session_table = Table(session_data_list, colWidths=[4*inch, 2.5*inch])
         session_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F3F4F6')),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('BACKGROUND', (0, 0), (0, -1), light_gray),
+            ('BACKGROUND', (1, 0), (1, -1), colors.white),
+            ('TEXTCOLOR', (0, 0), (0, -1), dark_gray),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
             ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 0), (-1, -1), [light_gray, colors.white] * 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
         ]))
         
         story.append(session_table)
-        story.append(Spacer(1, 20))
-        
-        # Focus Summary
-        story.append(Paragraph("Focus Accuracy Summary", heading_style))
-        
-        accuracy_text = f"<para align=center><font size=18 color='{rating_color.hexval()}'><b>{focus_accuracy:.1f}%</b></font></para>"
-        story.append(Paragraph(accuracy_text, styles['Normal']))
-        story.append(Spacer(1, 10))
-        
-        rating_text = f"<para align=center><font size=14 color='{rating_color.hexval()}'><b>Focus Quality: {focus_rating}</b></font></para>"
-        story.append(Paragraph(rating_text, styles['Normal']))
         story.append(Spacer(1, 30))
         
-        # Statistics
-        story.append(Paragraph("Session Statistics", heading_style))
+        # Focus Accuracy Summary Section
+        story.append(Paragraph("Focus Accuracy Summary", section_heading_style))
         
-        stats_text = f"<b>Total Session Time:</b> {format_time(total_session_seconds)}<br/>"
-        stats_text += f"<b>Focused Time:</b> {format_time(focused_time)}<br/>"
-        stats_text += f"<b>Distraction Time:</b> {format_time(total_distraction_time)}<br/>"
-        stats_text += f"<b>Unfocused Time:</b> {format_time(unfocused_time)}<br/>"
-        stats_text += f"<b>Yawning Time:</b> {format_time(yawning_time)}<br/>"
-        stats_text += f"<b>Sleeping Time:</b> {format_time(sleeping_time)}"
+        # Large percentage display
+        percentage_style = ParagraphStyle(
+            'PercentageDisplay',
+            parent=styles['Normal'],
+            fontSize=48,
+            alignment=TA_CENTER,
+            textColor=rating_color,
+            fontName='Helvetica-Bold',
+            spaceAfter=10
+        )
         
-        story.append(Paragraph(stats_text, styles['Normal']))
-        story.append(Spacer(1, 20))
+        quality_style = ParagraphStyle(
+            'QualityDisplay',
+            parent=styles['Normal'],
+            fontSize=18,
+            alignment=TA_CENTER,
+            textColor=rating_color,
+            fontName='Helvetica-Bold',
+            spaceAfter=20
+        )
         
-        # Alert History
-        if session_data['alerts']:
-            story.append(Paragraph("Recent Alerts", heading_style))
+        story.append(Paragraph(f"{focus_accuracy:.1f}%", percentage_style))
+        story.append(Paragraph(f"Focus Quality: {focus_rating}", quality_style))
+        
+        # Metrics Table
+        metrics_data = [
+            ['Metric', 'Time', 'Percentage'],
+            ['Total Focused Time', format_time(focused_time), f"{focus_accuracy:.1f}%"],
+            ['Total Distraction Time', format_time(total_distraction_time), f"{(total_distraction_time/total_session_seconds*100) if total_session_seconds > 0 else 0:.1f}%"],
+            ['- Unfocused Time', format_time(unfocused_time), f"{(unfocused_time/total_session_seconds*100) if total_session_seconds > 0 else 0:.1f}%"],
+            ['- Yawning Time', format_time(yawning_time), f"{(yawning_time/total_session_seconds*100) if total_session_seconds > 0 else 0:.1f}%"],
+            ['- Sleeping Time', format_time(sleeping_time), f"{(sleeping_time/total_session_seconds*100) if total_session_seconds > 0 else 0:.1f}%"]
+        ]
+        
+        metrics_table = Table(metrics_data, colWidths=[2.5*inch, 1.5*inch, 1.5*inch])
+        metrics_table.setStyle(TableStyle([
+            # Header row styling
+            ('BACKGROUND', (0, 0), (-1, 0), primary_blue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
             
-            alert_text = ""
-            for i, alert in enumerate(session_data['alerts'][-10:], 1):
+            # Data rows styling
+            ('BACKGROUND', (0, 1), (-1, 1), success_green),
+            ('TEXTCOLOR', (0, 1), (-1, 1), colors.white),
+            ('BACKGROUND', (0, 2), (-1, 2), danger_red),
+            ('TEXTCOLOR', (0, 2), (-1, 2), colors.white),
+            ('BACKGROUND', (0, 3), (-1, 5), light_gray),
+            ('TEXTCOLOR', (0, 3), (-1, 5), dark_gray),
+            
+            # General styling
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ]))
+        
+        story.append(metrics_table)
+        story.append(Spacer(1, 30))
+        
+        # Detailed Focus Statistics Section
+        story.append(Paragraph("Detailed Focus Statistics", section_heading_style))
+        
+        # Calculate additional statistics
+        most_common_distraction = get_most_common_distraction(session_data['alerts'])
+        
+        detailed_stats = [
+            ['Total Session Duration', duration_str],
+            ['Focus Accuracy Score', f"{focus_accuracy:.2f}%"],
+            ['Focus Quality Rating', focus_rating],
+            ['Distraction Frequency', f"{len(session_data['alerts'])} alerts in {duration_str}"],
+            ['Most Common Distraction', most_common_distraction]
+        ]
+        
+        detailed_table = Table(detailed_stats, colWidths=[4*inch, 2.5*inch])
+        detailed_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), light_gray),
+            ('BACKGROUND', (1, 0), (1, -1), colors.white),
+            ('TEXTCOLOR', (0, 0), (0, -1), dark_gray),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ]))
+        
+        story.append(detailed_table)
+        story.append(Spacer(1, 30))
+        
+        # Alert History Section
+        if session_data['alerts']:
+            story.append(Paragraph("Alert History", section_heading_style))
+            
+            # Prepare alert data for table
+            alert_headers = ['Time', 'Person', 'Detection', 'Duration', 'Message']
+            alert_data = [alert_headers]
+            
+            for alert in session_data['alerts'][-10:]:  # Show last 10 alerts
                 try:
-                    alert_time = datetime.fromisoformat(alert['timestamp']).strftime('%H:%M:%S')
+                    alert_time = datetime.fromisoformat(alert['timestamp']).strftime('%I:%M:%S %p')
                 except:
                     alert_time = alert['timestamp']
                 
-                alert_text += f"<b>{i}.</b> {alert_time} - {alert['person']}: {alert['detection']} "
-                alert_text += f"({alert.get('duration', 0)}s)<br/>"
+                alert_data.append([
+                    alert_time,
+                    alert['person'],
+                    alert['detection'],
+                    f"{alert.get('duration', 0)}s",
+                    alert['message']
+                ])
             
-            story.append(Paragraph(alert_text, styles['Normal']))
+            # Create alert table with dynamic column widths
+            alert_table = Table(alert_data, colWidths=[1*inch, 1*inch, 1.2*inch, 0.8*inch, 2.5*inch])
+            alert_table.setStyle(TableStyle([
+                # Header styling
+                ('BACKGROUND', (0, 0), (-1, 0), primary_blue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                
+                # Data rows
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('ALIGN', (0, 1), (3, -1), 'CENTER'),  # Center align time, person, detection, duration
+                ('ALIGN', (4, 1), (4, -1), 'LEFT'),    # Left align message
+                
+                # Grid and padding
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                
+                # Alternating row colors
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, light_gray])
+            ]))
+            
+            story.append(alert_table)
+            story.append(Spacer(1, 20))
         
         # Footer
         story.append(Spacer(1, 30))
-        footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System"
         footer_style = ParagraphStyle(
             'Footer',
             parent=styles['Normal'],
             fontSize=10,
             alignment=TA_CENTER,
-            textColor=colors.HexColor('#6B7280')
+            textColor=medium_gray,
+            fontName='Helvetica'
         )
+        
+        footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System - Focus Monitoring Report"
         story.append(Paragraph(footer_text, footer_style))
         
-        # Build the PDF with error handling
+        # Build the PDF
         try:
             doc.build(story)
-            print(f"PDF report successfully created: {output_path}")
+            print(f"Enhanced PDF report successfully created: {output_path}")
             return output_path
         except Exception as pdf_error:
             print(f"PDF building error: {str(pdf_error)}")
             return None
             
     except Exception as e:
-        print(f"Error generating PDF report: {str(e)}")
+        print(f"Error generating enhanced PDF report: {str(e)}")
         return None
 
+
 def generate_upload_pdf_report(detections, file_info, output_path):
-    """FIXED - Generate PDF report for uploaded file analysis"""
+    """Enhanced PDF report generator for uploaded file analysis"""
     try:
         # Ensure directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
-        doc = SimpleDocTemplate(output_path, pagesize=A4)
+        doc = SimpleDocTemplate(output_path, pagesize=A4,
+                              topMargin=50, bottomMargin=50,
+                              leftMargin=50, rightMargin=50)
         styles = getSampleStyleSheet()
         story = []
         
+        # Enhanced Color Scheme (same as above)
+        primary_blue = colors.HexColor('#3B82F6')
+        light_blue = colors.HexColor('#EBF5FF')
+        dark_gray = colors.HexColor('#1F2937')
+        medium_gray = colors.HexColor('#6B7280')
+        success_green = colors.HexColor('#10B981')
+        warning_orange = colors.HexColor('#F59E0B')
+        danger_red = colors.HexColor('#EF4444')
+        light_gray = colors.HexColor('#F9FAFB')
+        
+        # Custom Styles (same as above)
         title_style = ParagraphStyle(
-            'CustomTitle',
+            'EnhancedTitle',
             parent=styles['Heading1'],
-            fontSize=24,
-            spaceAfter=30,
+            fontSize=28,
+            spaceAfter=40,
+            spaceBefore=20,
             alignment=TA_CENTER,
-            textColor=colors.HexColor('#3B82F6')
+            textColor=primary_blue,
+            fontName='Helvetica-Bold'
         )
         
+        section_heading_style = ParagraphStyle(
+            'SectionHeading',
+            parent=styles['Heading2'],
+            fontSize=18,
+            spaceAfter=20,
+            spaceBefore=30,
+            textColor=dark_gray,
+            fontName='Helvetica-Bold',
+            backColor=light_blue,
+            borderPadding=10,
+            leftIndent=10,
+            rightIndent=10
+        )
+        
+        # Title
         story.append(Paragraph("Smart Focus Alert - Analysis Report", title_style))
         story.append(Spacer(1, 20))
         
-        # File info and analysis results
-        file_info_text = f"<b>File:</b> {file_info.get('filename', 'Unknown')}<br/>"
-        file_info_text += f"<b>Type:</b> {file_info.get('type', 'Unknown')}<br/>"
-        file_info_text += f"<b>Analysis Date:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>"
-        file_info_text += f"<b>Persons Detected:</b> {len(detections)}"
+        # File Information Section
+        story.append(Paragraph("File Analysis Information", section_heading_style))
         
-        story.append(Paragraph(file_info_text, styles['Normal']))
-        story.append(Spacer(1, 20))
+        file_data = [
+            ['File Name', file_info.get('filename', 'Unknown')],
+            ['File Type', file_info.get('type', 'Unknown')],
+            ['Analysis Date', datetime.now().strftime('%m/%d/%Y, %I:%M:%S %p')],
+            ['Total Persons Detected', str(len(detections))]
+        ]
         
-        # Statistics
+        file_table = Table(file_data, colWidths=[4*inch, 2.5*inch])
+        file_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), light_gray),
+            ('BACKGROUND', (1, 0), (1, -1), colors.white),
+            ('TEXTCOLOR', (0, 0), (0, -1), dark_gray),
+            ('TEXTCOLOR', (1, 0), (1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ]))
+        
+        story.append(file_table)
+        story.append(Spacer(1, 30))
+        
+        # Analysis Results
         if detections:
+            story.append(Paragraph("Detection Results Summary", section_heading_style))
+            
+            # Calculate statistics
             status_counts = {'FOCUSED': 0, 'NOT FOCUSED': 0, 'YAWNING': 0, 'SLEEPING': 0}
             for detection in detections:
                 status = detection.get('status', 'FOCUSED')
@@ -760,37 +981,108 @@ def generate_upload_pdf_report(detections, file_info, output_path):
             total_detections = len(detections)
             focus_accuracy = (status_counts['FOCUSED'] / total_detections * 100) if total_detections > 0 else 0
             
-            stats_text = f"<b>Focus Accuracy:</b> {focus_accuracy:.1f}%<br/>"
-            stats_text += f"<b>Focused Persons:</b> {status_counts['FOCUSED']}<br/>"
-            stats_text += f"<b>Unfocused Persons:</b> {status_counts['NOT FOCUSED']}<br/>"
-            stats_text += f"<b>Yawning Persons:</b> {status_counts['YAWNING']}<br/>"
-            stats_text += f"<b>Sleeping Persons:</b> {status_counts['SLEEPING']}"
+            # Focus accuracy display
+            if focus_accuracy >= 90:
+                rating_color = success_green
+                focus_rating = "Excellent"
+            elif focus_accuracy >= 75:
+                rating_color = primary_blue
+                focus_rating = "Good"
+            elif focus_accuracy >= 60:
+                rating_color = warning_orange
+                focus_rating = "Fair"
+            else:
+                rating_color = danger_red
+                focus_rating = "Poor"
             
-            story.append(Paragraph(stats_text, styles['Normal']))
+            # Large percentage display
+            percentage_style = ParagraphStyle(
+                'PercentageDisplay',
+                parent=styles['Normal'],
+                fontSize=48,
+                alignment=TA_CENTER,
+                textColor=rating_color,
+                fontName='Helvetica-Bold',
+                spaceAfter=10
+            )
+            
+            quality_style = ParagraphStyle(
+                'QualityDisplay',
+                parent=styles['Normal'],
+                fontSize=18,
+                alignment=TA_CENTER,
+                textColor=rating_color,
+                fontName='Helvetica-Bold',
+                spaceAfter=20
+            )
+            
+            story.append(Paragraph(f"{focus_accuracy:.1f}%", percentage_style))
+            story.append(Paragraph(f"Focus Quality: {focus_rating}", quality_style))
+            
+            # Statistics table
+            stats_data = [
+                ['Detection Type', 'Count', 'Percentage'],
+                ['Focused Persons', str(status_counts['FOCUSED']), f"{(status_counts['FOCUSED']/total_detections*100):.1f}%"],
+                ['Unfocused Persons', str(status_counts['NOT FOCUSED']), f"{(status_counts['NOT FOCUSED']/total_detections*100):.1f}%"],
+                ['Yawning Persons', str(status_counts['YAWNING']), f"{(status_counts['YAWNING']/total_detections*100):.1f}%"],
+                ['Sleeping Persons', str(status_counts['SLEEPING']), f"{(status_counts['SLEEPING']/total_detections*100):.1f}%"]
+            ]
+            
+            stats_table = Table(stats_data, colWidths=[2.5*inch, 1.5*inch, 1.5*inch])
+            stats_table.setStyle(TableStyle([
+                # Header styling
+                ('BACKGROUND', (0, 0), (-1, 0), primary_blue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                
+                # Data rows with color coding
+                ('BACKGROUND', (0, 1), (-1, 1), success_green),
+                ('TEXTCOLOR', (0, 1), (-1, 1), colors.white),
+                ('BACKGROUND', (0, 2), (-1, 4), light_gray),
+                ('TEXTCOLOR', (0, 2), (-1, 4), dark_gray),
+                
+                # General styling
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+                ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('LEFTPADDING', (0, 0), (-1, -1), 12),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+            ]))
+            
+            story.append(stats_table)
         
         # Footer
         story.append(Spacer(1, 30))
-        footer_text = f"Report generated by Smart Focus Alert System<br/>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         footer_style = ParagraphStyle(
             'Footer',
             parent=styles['Normal'],
             fontSize=10,
             alignment=TA_CENTER,
-            textColor=colors.HexColor('#6B7280')
+            textColor=medium_gray,
+            fontName='Helvetica'
         )
+        
+        footer_text = f"Report generated by Smart Focus Alert System<br/>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         story.append(Paragraph(footer_text, footer_style))
         
         # Build the PDF
         try:
             doc.build(story)
-            print(f"Upload PDF report successfully created: {output_path}")
+            print(f"Enhanced upload PDF report successfully created: {output_path}")
             return output_path
         except Exception as pdf_error:
             print(f"PDF building error: {str(pdf_error)}")
             return None
             
     except Exception as e:
-        print(f"Error generating upload PDF report: {str(e)}")
+        print(f"Error generating enhanced upload PDF report: {str(e)}")
         return None
 
 def process_video_file(video_path):
