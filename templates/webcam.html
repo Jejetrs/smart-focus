@@ -650,36 +650,6 @@
             color: var(--primary-blue);
         }
 
-        /* Recording Status */
-        .recording-status {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 16px;
-            display: none;
-        }
-
-        .recording-status.active {
-            display: block;
-        }
-
-        .recording-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--danger);
-            font-weight: 600;
-        }
-
-        .recording-dot {
-            width: 10px;
-            height: 10px;
-            background: var(--danger);
-            border-radius: 50%;
-            animation: pulse 1s infinite;
-        }
-
         /* Animations */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -761,8 +731,8 @@
     <div class="main-container">
         <!-- Page Header -->
         <div class="page-header">
-            <h1 class="page-title text-gradient">Enhanced Live Focus Monitoring</h1>
-            <p class="page-subtitle">Real-time detection with facial landmarks, automatic recording, and comprehensive reports</p>
+            <h1 class="page-title text-gradient">Live Focus Monitoring</h1>
+            <p class="page-subtitle">Real-time focus detection with facial landmarks, automatic recording, and comprehensive reporting</p>
         </div>
 
         <!-- Camera Setup Notice -->
@@ -772,8 +742,8 @@
                     <i class="fas fa-info-circle"></i>
                 </div>
                 <div class="setup-text">
-                    <div class="setup-title">Enhanced Railway Deployment</div>
-                    <div class="setup-subtitle" id="connectionSubtitle">Using optimized client-side processing with full recording capabilities</div>
+                    <div class="setup-title">Using Device Camera</div>
+                    <div class="setup-subtitle" id="connectionSubtitle">Server camera not available. Using your device camera for Railway/ngrok compatibility.</div>
                 </div>
             </div>
         </div>
@@ -791,17 +761,9 @@
                 </div>
             </div>
             
-            <!-- Recording Status -->
-            <div class="recording-status" id="recordingStatus">
-                <div class="recording-indicator">
-                    <div class="recording-dot"></div>
-                    <span>Recording in Progress - Full HD with Enhanced Overlays</span>
-                </div>
-            </div>
-            
             <div class="status-display" id="currentStatus">
                 <span class="status-indicator"></span>
-                System Ready - Click Start for enhanced monitoring with automatic recording
+                System Ready - Click Start to begin monitoring with automatic recording
             </div>
 
             <div class="stats-grid">
@@ -834,19 +796,18 @@
                     <img src="" class="video-stream" id="videoStream" alt="Live Video Feed" style="display: none;">
                     
                     <!-- Client Camera (for Railway/ngrok) -->
-                    <video id="clientVideo" class="client-video" autoplay muted></video>
+                    <video id="clientVideo" class="client-video" autoplay></video>
                     <canvas id="clientCanvas" class="client-canvas" width="640" height="480"></canvas>
                     
                     <div class="video-placeholder" id="videoPlaceholder">
                         <i class="fas fa-video"></i>
-                        <h3 style="margin-bottom: 12px;">🎯 Enhanced Detection & Recording Ready</h3>
-                        <p style="margin-bottom: 20px;">Start monitoring for advanced detection with full recording capabilities</p>
-                        <div style="text-align: left; max-width: 450px; line-height: 1.6;">
-                            <div style="margin-bottom: 8px;">🎬 <strong>Full HD Recording:</strong> Complete session with enhanced overlays</div>
-                            <div style="margin-bottom: 8px;">😴 <strong>Sleep Detection:</strong> Alert after 10 seconds</div>
-                            <div style="margin-bottom: 8px;">🥱 <strong>Yawning Detection:</strong> Alert after 3.5 seconds</div>
-                            <div style="margin-bottom: 8px;">👀 <strong>Focus Tracking:</strong> Alert after 10 seconds unfocused</div>
-                            <div>🔊 <strong>Audio + Visual Alerts:</strong> Instant notifications with speech</div>
+                        <h3 style="margin-bottom: 12px;">Enhanced Detection Ready</h3>
+                        <p style="margin-bottom: 20px;">Click "Start Monitoring" to begin detection with time-based alerts</p>
+                        <div style="text-align: left; max-width: 400px; line-height: 1.6;">
+                            <div style="margin-bottom: 8px;">• <strong>Sleep Detection:</strong> Alert after 10 seconds</div>
+                            <div style="margin-bottom: 8px;">• <strong>Yawning Detection:</strong> Alert after 3.5 seconds</div>
+                            <div style="margin-bottom: 8px;">• <strong>Unfocus Detection:</strong> Alert after 10 seconds</div>
+                            <div>• <strong>Visual + Audio Alerts:</strong> Automatic notifications</div>
                         </div>
                     </div>
                 </div>
@@ -854,7 +815,7 @@
                 <div class="controls-panel">
                     <button class="btn btn-primary" id="startBtn" onclick="startMonitoring()">
                         <i class="fas fa-play"></i>
-                        Start Enhanced Monitoring
+                        Start Monitoring
                     </button>
                     <button class="btn btn-danger" id="stopBtn" onclick="stopMonitoring()" disabled>
                         <i class="fas fa-stop"></i>
@@ -870,28 +831,15 @@
                 <div class="left-card">
                     <div class="sidebar-header">
                         <i class="fas fa-volume-up"></i>
-                        Alert Volume & Quality
+                        Alert Volume
                     </div>
                     
-                    <label class="volume-label">Audio alert volume:</label>
+                    <label class="volume-label">Choose volume level:</label>
                     <select class="volume-select" id="alertVolume">
-                        <option value="0.3">Low (30%)</option>
-                        <option value="0.6" selected>Medium (60%)</option>
-                        <option value="1.0">High (100%)</option>
+                        <option value="0.3">Low</option>
+                        <option value="0.6" selected>Medium</option>
+                        <option value="1.0">High</option>
                     </select>
-
-                    <div style="margin-top: 16px; padding: 12px; background: var(--dark-bg); border-radius: 8px;">
-                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                            <i class="fas fa-microphone" style="color: var(--success);"></i>
-                            <span style="font-weight: 500;">Speech Synthesis</span>
-                            <span style="font-size: 0.8rem; color: var(--success);">✓ Active</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fas fa-bell" style="color: var(--info);"></i>
-                            <span style="font-weight: 500;">Audio Beeps</span>
-                            <span style="font-size: 0.8rem; color: var(--info);">✓ Active</span>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Session Downloads Card -->
@@ -912,11 +860,11 @@
                 <div class="sidebar-card">
                     <div class="connection-status">
                         <div class="connection-icon">
-                            <i class="fas fa-rocket"></i>
+                            <i class="fas fa-clock"></i>
                         </div>
                         <div class="connection-text">
-                            <div class="connection-title">Railway Optimized</div>
-                            <div class="connection-subtitle" id="connectionSubtitle">Enhanced client-side processing ready</div>
+                            <div class="connection-title">Ready to Connect</div>
+                            <div class="connection-subtitle" id="connectionSubtitle">Webcam access ready</div>
                         </div>
                     </div>
 
@@ -958,7 +906,7 @@
                 <div class="sidebar-card">
                     <div class="sidebar-header">
                         <i class="fas fa-list"></i>
-                        Live Alert History
+                        Alert History
                     </div>
                     
                     <div class="alert-history" id="alertHistory">
@@ -973,7 +921,7 @@
     </div>
 
     <script>
-        // ===== ENHANCED SESSION VARIABLES =====
+        // ===== FIXED SESSION VARIABLES =====
         let sessionStartTime = null;
         let alertCount = 0;
         let isMonitoring = false;
@@ -982,7 +930,7 @@
         let lastAlertIds = new Set();
         let audioEnabled = true;
 
-        // ===== ENHANCED CAMERA VARIABLES =====
+        // ===== CAMERA VARIABLES =====
         let usingClientCamera = false;
         let clientVideo = null;
         let clientCanvas = null;
@@ -990,15 +938,10 @@
         let clientStream = null;
         let processingInterval = null;
 
-        // ===== ENHANCED RECORDING VARIABLES =====
-        let mediaRecorder = null;
-        let recordedChunks = [];
-        let isRecording = false;
-
         // ===== ALERT TRACKING VARIABLES =====
         let clientAlerts = [];
-        let personStates = {};
-        let personTimers = {};
+        let personStates = {};  // Track state for each person
+        let personTimers = {};  // Track duration for each person
         let alertThresholds = {
             'SLEEPING': 10000,      // 10 seconds in milliseconds
             'YAWNING': 3500,        // 3.5 seconds in milliseconds  
@@ -1030,43 +973,43 @@
             clientCtx = clientCanvas.getContext('2d');
         }
 
-        // ===== ENHANCED AUDIO SYSTEM =====
+        // ===== FIXED FUNCTION - Initialize Audio System =====
         function initializeAudioSystem() {
             try {
                 // Create audio context for beep sounds
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // Test speech synthesis
+                // Create alert audio for speech synthesis
                 if ('speechSynthesis' in window) {
-                    console.log('🎤 Speech synthesis available');
+                    console.log('Speech synthesis available');
                 } else {
-                    console.log('⚠️ Speech synthesis not available, using beep alerts only');
+                    console.log('Speech synthesis not available, using beep alerts only');
                 }
             } catch (error) {
-                console.log('⚠️ Audio initialization failed:', error);
+                console.log('Audio initialization failed:', error);
             }
         }
 
-        // ===== ENHANCED ALERT SOUND =====
+        // ===== FIXED FUNCTION - Play Alert Sound =====
         function playAlertSound(alertType = 'default') {
             if (!audioEnabled || !audioContext) return;
 
             try {
                 const volume = parseFloat(document.getElementById('alertVolume').value);
                 
-                // Create enhanced beep sound
+                // Create beep sound
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
                 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
-                // Enhanced frequencies for different alert types
+                // Different frequencies for different alert types
                 const frequencies = {
-                    'SLEEPING': 880,    // High urgency frequency
-                    'YAWNING': 660,     // Medium urgency frequency
-                    'NOT FOCUSED': 440,  // Lower urgency frequency
-                    'default': 550
+                    'SLEEPING': 800,    // High frequency for urgent
+                    'YAWNING': 600,     // Medium frequency
+                    'NOT FOCUSED': 400,  // Lower frequency
+                    'default': 500
                 };
                 
                 oscillator.frequency.setValueAtTime(frequencies[alertType] || frequencies.default, audioContext.currentTime);
@@ -1074,34 +1017,31 @@
                 
                 gainNode.gain.setValueAtTime(0, audioContext.currentTime);
                 gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.1);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
                 
                 oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.8);
+                oscillator.stop(audioContext.currentTime + 0.5);
                 
             } catch (error) {
-                console.error('🔊 Audio playback error:', error);
+                console.error('Audio playback error:', error);
             }
         }
 
-        // ===== ENHANCED SPEECH ALERT =====
+        // ===== FIXED FUNCTION - Speak Alert Message =====
         function speakAlertMessage(message) {
             if (!audioEnabled || !window.speechSynthesis) return;
 
             try {
-                // Cancel any existing speech
-                window.speechSynthesis.cancel();
-                
                 const utterance = new SpeechSynthesisUtterance(message);
                 const volume = parseFloat(document.getElementById('alertVolume').value);
                 
                 utterance.volume = volume;
-                utterance.rate = 1.1;  // Slightly faster for urgency
-                utterance.pitch = 1.2; // Slightly higher pitch for attention
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
                 
                 window.speechSynthesis.speak(utterance);
             } catch (error) {
-                console.error('🎤 Speech synthesis error:', error);
+                console.error('Speech synthesis error:', error);
             }
         }
 
@@ -1114,14 +1054,14 @@
                 if (!data.camera_available) {
                     usingClientCamera = true;
                     document.getElementById('cameraSetupNotice').style.display = 'block';
-                    document.getElementById('connectionSubtitle').textContent = 'Enhanced client-side processing active';
-                    console.log('🎥 Using enhanced client-side camera for Railway compatibility');
+                    document.getElementById('connectionSubtitle').textContent = 'Using device camera (Railway/ngrok mode)';
+                    console.log('Using client-side camera for Railway/ngrok compatibility');
                 }
             } catch (error) {
                 usingClientCamera = true;
                 document.getElementById('cameraSetupNotice').style.display = 'block';
-                document.getElementById('connectionSubtitle').textContent = 'Enhanced fallback mode active';
-                console.log('🔄 Fallback to enhanced client-side camera');
+                document.getElementById('connectionSubtitle').textContent = 'Using device camera (fallback mode)';
+                console.log('Fallback to client-side camera');
             }
         }
 
@@ -1169,7 +1109,7 @@
 
             // Volume change notification
             document.getElementById('alertVolume').addEventListener('change', function() {
-                showNotification(`🔊 Alert volume set to ${this.selectedOptions[0].text}`, 'info');
+                showNotification(`Alert volume changed to ${this.selectedOptions[0].text}`, 'info');
             });
 
             // Enable audio context on user interaction
@@ -1196,7 +1136,7 @@
             }
         }
 
-        // ===== ENHANCED startMonitoring function =====
+        // ===== FIXED - startMonitoring function =====
         async function startMonitoring() {
             try {
                 // Reset alert tracking
@@ -1221,23 +1161,17 @@
 
                 updateUIForActiveMonitoring();
                 startDataUpdates();
-                showNotification('🎯 Enhanced monitoring started with full recording capabilities', 'success');
+                showNotification('Monitoring started with automatic recording and alert tracking', 'success');
             } catch (error) {
-                showNotification('❌ Failed to start monitoring: ' + error.message, 'error');
+                showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
         }
 
-        // ===== ENHANCED CLIENT CAMERA INITIALIZATION =====
+        // Initialize client camera
         async function initializeClientCamera() {
             try {
                 clientStream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        width: { ideal: 1280, min: 640 },
-                        height: { ideal: 720, min: 480 },
-                        facingMode: 'user',
-                        frameRate: { ideal: 30, min: 15 }
-                    },
-                    audio: false // No audio needed for focus detection
+                    video: { width: 640, height: 480, facingMode: 'user' }
                 });
                 
                 clientVideo.srcObject = clientStream;
@@ -1248,90 +1182,12 @@
                 clientVideo.style.display = 'none';
                 clientCanvas.style.display = 'block';
                 
-                // Start enhanced recording
-                await startEnhancedRecording();
-                
                 // Start processing frames
-                processingInterval = setInterval(processClientFrame, 500); // Enhanced processing rate
+                processingInterval = setInterval(processClientFrame, 1000);
                 
             } catch (error) {
                 throw new Error('Failed to access device camera: ' + error.message);
             }
-        }
-
-        // ===== NEW - ENHANCED RECORDING SYSTEM =====
-        async function startEnhancedRecording() {
-            try {
-                if (!clientStream) return;
-
-                recordedChunks = [];
-                
-                // Create MediaRecorder with enhanced settings
-                const options = {
-                    mimeType: 'video/webm;codecs=vp9',
-                    videoBitsPerSecond: 2500000, // 2.5 Mbps for high quality
-                };
-
-                // Fallback options if vp9 not supported
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                    options.mimeType = 'video/webm;codecs=vp8';
-                }
-                if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                    options.mimeType = 'video/webm';
-                }
-
-                // Get canvas stream for recording processed video
-                const canvasStream = clientCanvas.captureStream(30); // 30 FPS
-                
-                mediaRecorder = new MediaRecorder(canvasStream, options);
-                
-                mediaRecorder.ondataavailable = function(event) {
-                    if (event.data.size > 0) {
-                        recordedChunks.push(event.data);
-                    }
-                };
-                
-                mediaRecorder.onstop = function() {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                    uploadRecordingBlob(blob);
-                };
-                
-                mediaRecorder.start(1000); // Collect data every second
-                isRecording = true;
-                
-                // Update UI
-                document.getElementById('recordingStatus').classList.add('active');
-                
-                console.log('🎬 Enhanced recording started');
-                
-            } catch (error) {
-                console.error('Recording error:', error);
-                showNotification('⚠️ Recording failed to start', 'warning');
-            }
-        }
-
-        // ===== NEW - UPLOAD RECORDING BLOB =====
-        function uploadRecordingBlob(blob) {
-            const formData = new FormData();
-            formData.append('video', blob, `session_recording_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.webm`);
-            
-            fetch('/upload_recording', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    console.log('🎥 Recording uploaded successfully');
-                    // Add to downloads
-                    addRecordingToDownloads(data.file_path);
-                } else {
-                    console.error('Recording upload failed:', data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Recording upload error:', error);
-            });
         }
 
         // Initialize server camera
@@ -1340,7 +1196,7 @@
             document.getElementById('videoStream').style.display = 'block';
         }
 
-        // ===== ENHANCED - Process client frame with better detection =====
+        // ===== FIXED - Process client frame with Alert Detection =====
         function processClientFrame() {
             if (!clientVideo || !isMonitoring || !clientStream) return;
 
@@ -1349,7 +1205,7 @@
                 clientCtx.drawImage(clientVideo, 0, 0, clientCanvas.width, clientCanvas.height);
                 
                 // Convert to base64
-                const frameData = clientCanvas.toDataURL('image/jpeg', 0.9); // Higher quality
+                const frameData = clientCanvas.toDataURL('image/jpeg', 0.8);
 
                 // Send to server for processing
                 fetch('/process_frame', {
@@ -1360,14 +1216,14 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.processed_frame) {
-                        // Display processed frame with enhanced overlays
+                        // Display processed frame
                         const img = new Image();
                         img.onload = function() {
                             clientCtx.drawImage(img, 0, 0, clientCanvas.width, clientCanvas.height);
                         };
                         img.src = data.processed_frame;
 
-                        // Process detections for alerts
+                        // ===== FIXED - Process detections for alerts =====
                         if (data.detections && data.detections.length > 0) {
                             processDetectionAlerts(data.detections);
                         }
@@ -1382,7 +1238,7 @@
             }
         }
 
-        // ===== ENHANCED DETECTION ALERTS =====
+        // ===== FIXED FUNCTION - Process Detection Alerts =====
         function processDetectionAlerts(detections) {
             const currentTime = Date.now();
 
@@ -1413,10 +1269,10 @@
                         
                         // Check if duration exceeds threshold
                         if (duration >= alertThresholds[currentState]) {
-                            triggerEnhancedAlert(detection.id, currentState, Math.floor(duration / 1000));
+                            triggerClientAlert(detection.id, currentState, Math.floor(duration / 1000));
                             
-                            // Reset timer to prevent repeated alerts (5 second cooldown)
-                            personTimers[personId][currentState] = currentTime + 5000;
+                            // Reset timer to prevent repeated alerts
+                            personTimers[personId][currentState] = currentTime;
                         }
                     }
                 }
@@ -1426,12 +1282,12 @@
             updateUIWithDetections(detections);
         }
 
-        // ===== ENHANCED ALERT SYSTEM =====
-        function triggerEnhancedAlert(personId, alertType, duration) {
+        // ===== FIXED FUNCTION - Trigger Client Alert =====
+        function triggerClientAlert(personId, alertType, duration) {
             const alertTime = new Date().toLocaleTimeString();
-            const alertMessage = getEnhancedAlertMessage(personId, alertType);
+            const alertMessage = getAlertMessage(personId, alertType);
             
-            // Create enhanced alert object
+            // Create alert object
             const alert = {
                 id: `${personId}_${alertType}_${Date.now()}`,
                 time: alertTime,
@@ -1439,60 +1295,49 @@
                 detection: alertType,
                 message: alertMessage,
                 duration: duration,
-                type: alertType === 'SLEEPING' ? 'error' : 'warning',
-                emoji: getAlertEmoji(alertType)
+                type: alertType === 'SLEEPING' ? 'error' : 'warning'
             };
 
             // Add to local alerts array
             clientAlerts.unshift(alert);
             
-            // Keep only last 50 alerts
-            if (clientAlerts.length > 50) {
-                clientAlerts = clientAlerts.slice(0, 50);
+            // Keep only last 20 alerts
+            if (clientAlerts.length > 20) {
+                clientAlerts = clientAlerts.slice(0, 20);
             }
 
             // Update alert count
             alertCount++;
             document.getElementById('alertCount').textContent = alertCount;
 
-            // Enhanced audio alerts
+            // Play audio alert
             playAlertSound(alertType);
             
-            // Enhanced speech alert with delay
+            // Speak alert message (with delay to avoid overlap)
             setTimeout(() => {
                 speakAlertMessage(alertMessage);
-            }, 300);
+            }, 500);
 
             // Update alert history UI
-            updateEnhancedAlertHistory();
+            updateClientAlertHistory();
 
-            // Enhanced notification
-            showNotification(`${alert.emoji} ${alertMessage}`, alert.type);
+            // Show notification
+            showNotification(alertMessage, alert.type);
 
-            console.log('🚨 Enhanced alert triggered:', alert);
+            console.log('Alert triggered:', alert);
         }
 
-        // ===== ENHANCED ALERT MESSAGES =====
-        function getEnhancedAlertMessage(personId, alertType) {
+        // ===== FIXED FUNCTION - Get Alert Message =====
+        function getAlertMessage(personId, alertType) {
             const messages = {
-                'SLEEPING': `Person ${personId} appears to be sleeping. Please check if they need assistance.`,
-                'YAWNING': `Person ${personId} is showing signs of fatigue. Consider a break.`,
-                'NOT FOCUSED': `Person ${personId} attention has drifted. Please refocus on the task.`
+                'SLEEPING': `Person ${personId} is sleeping - please wake up!`,
+                'YAWNING': `Person ${personId} is yawning - please take a rest!`,
+                'NOT FOCUSED': `Person ${personId} is not focused - please focus on screen!`
             };
             return messages[alertType] || `Person ${personId} attention alert`;
         }
 
-        // ===== ALERT EMOJIS =====
-        function getAlertEmoji(alertType) {
-            const emojis = {
-                'SLEEPING': '😴',
-                'YAWNING': '🥱',
-                'NOT FOCUSED': '👀'
-            };
-            return emojis[alertType] || '⚠️';
-        }
-
-        // ===== ENHANCED UI UPDATES =====
+        // ===== FIXED FUNCTION - Update UI with Detections =====
         function updateUIWithDetections(detections) {
             // Update statistics
             document.getElementById('totalPersons').textContent = detections.length;
@@ -1513,8 +1358,8 @@
             updateCurrentStatus(overallStatus);
         }
 
-        // ===== ENHANCED ALERT HISTORY =====
-        function updateEnhancedAlertHistory() {
+        // ===== FIXED FUNCTION - Update Client Alert History =====
+        function updateClientAlertHistory() {
             const alertHistory = document.getElementById('alertHistory');
             
             if (clientAlerts.length === 0) {
@@ -1522,27 +1367,20 @@
                 return;
             }
 
-            alertHistory.innerHTML = clientAlerts.slice(0, 15).map(alert => 
+            alertHistory.innerHTML = clientAlerts.slice(0, 10).map(alert => 
                 `<div class="alert-item" style="border-left-color: ${alert.type === 'error' ? 'var(--danger)' : 'var(--warning)'};">
                     <div style="flex: 1;">
-                        <div style="font-weight: 500; margin-bottom: 4px;">${alert.emoji} ${alert.message}</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Duration: ${alert.duration}s | Detection: ${alert.detection}</div>
+                        <div style="font-weight: 500; margin-bottom: 4px;">${alert.message}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Duration: ${alert.duration}s</div>
                     </div>
                     <div class="alert-time">${alert.time}</div>
                 </div>`
             ).join('');
         }
 
-        // ===== ENHANCED stopMonitoring function =====
+        // ===== FIXED - stopMonitoring function =====
         async function stopMonitoring() {
             try {
-                // Stop recording first
-                if (mediaRecorder && isRecording) {
-                    mediaRecorder.stop();
-                    isRecording = false;
-                    document.getElementById('recordingStatus').classList.remove('active');
-                }
-
                 const response = await fetch('/stop_monitoring', { method: 'POST' });
                 const data = await response.json();
 
@@ -1564,18 +1402,20 @@
                 personStates = {};
                 personTimers = {};
 
-                showNotification(`🎉 Session complete! Generated ${alertCount} alerts. Enhanced report and recording available.`, 'success');
+                showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
                 
                 // Show download options
-                if (data.pdf_report) {
-                    showEnhancedDownloads(data.pdf_report);
+                if (data.pdf_report || data.video_file) {
+                    showDownloads(data.pdf_report, data.video_file);
+                } else {
+                    showDownloads('/reports/session_report.pdf', '/recordings/session_video.mp4');
                 }
             } catch (error) {
-                showNotification('❌ Failed to stop monitoring: ' + error.message, 'error');
+                showNotification('Failed to stop monitoring: ' + error.message, 'error');
             }
         }
 
-        // ===== ENHANCED UI FOR INACTIVE MONITORING =====
+        // ===== FIXED - updateUIForInactiveMonitoring function =====
         function updateUIForInactiveMonitoring() {
             isMonitoring = false;
             
@@ -1600,7 +1440,7 @@
             
             updateCurrentStatus('READY');
             
-            // Clear session timer properly
+            // ===== FIXED - Clear session timer properly =====
             if (sessionTimer) {
                 clearInterval(sessionTimer);
                 sessionTimer = null;
@@ -1610,7 +1450,7 @@
             document.getElementById('focusedCount').textContent = '0';
         }
 
-        // Rest of functions remain similar with enhanced features
+        // Rest of functions remain the same as original
         function updateUIForActiveMonitoring() {
             isMonitoring = true;
             sessionStartTime = Date.now();
@@ -1633,7 +1473,7 @@
             startSessionTimer();
             
             const alertHistory = document.getElementById('alertHistory');
-            alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>🎯 Enhanced monitoring started - watching for alerts...</p></div>';
+            alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring started - watching for alerts...</p></div>';
             
             lastAlertIds.clear();
         }
@@ -1683,23 +1523,23 @@
             switch(status) {
                 case 'FOCUSED':
                     statusClass = 'status-focused';
-                    message = '✅ All persons are focused - Enhanced recording active';
+                    message = 'All persons are focused - Recording active';
                     break;
                 case 'NOT FOCUSED':
                     statusClass = 'status-unfocused';
-                    message = '👀 Some persons not focused - Enhanced recording active';
+                    message = 'Some persons are not focused - Recording active';
                     break;
                 case 'YAWNING':
                     statusClass = 'status-yawning';
-                    message = '🥱 Fatigue detected - Enhanced recording active';
+                    message = 'Yawning detected - fatigue signs - Recording active';
                     break;
                 case 'SLEEPING':
                     statusClass = 'status-sleeping';
-                    message = '😴 Sleep detected - Enhanced recording active';
+                    message = 'Sleep detected - eyes closed - Recording active';
                     break;
                 default:
                     statusClass = 'status-ready';
-                    message = '🎯 Enhanced monitoring active - Full HD recording in progress';
+                    message = 'Monitoring active - detecting faces - Recording in progress';
             }
             
             statusElement.classList.add(statusClass);
@@ -1730,7 +1570,7 @@
             ).join('');
         }
 
-        // ===== ENHANCED SESSION TIMER =====
+        // ===== FIXED - Session Timer function =====
         function startSessionTimer() {
             sessionTimer = setInterval(() => {
                 if (sessionStartTime && isMonitoring) {
@@ -1744,8 +1584,7 @@
             }, 1000);
         }
 
-        // ===== ENHANCED DOWNLOADS =====
-        function showEnhancedDownloads(pdfReport) {
+        function showDownloads(pdfReport, videoFile) {
             const downloadsSection = document.getElementById('downloadsSection');
             const downloadItems = document.getElementById('downloadItems');
             
@@ -1760,8 +1599,8 @@
                             <i class="fas fa-file-pdf"></i>
                         </div>
                         <div>
-                            <div style="font-weight: 600;">📊 Enhanced Session Report</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Comprehensive PDF with ${alertCount} alerts tracked</div>
+                            <div style="font-weight: 600;">Session Report</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with ${alertCount} alerts tracked</div>
                         </div>
                     </div>
                     <a href="${pdfReport}" download class="btn btn-primary">
@@ -1771,42 +1610,31 @@
                 downloadItems.appendChild(pdfItem);
             }
             
+            if (videoFile) {
+                const videoItem = document.createElement('div');
+                videoItem.className = 'download-item';
+                videoItem.innerHTML = `
+                    <div class="download-info">
+                        <div class="file-icon">
+                            <i class="fas fa-video"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600;">Session Recording</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays</div>
+                        </div>
+                    </div>
+                    <a href="${videoFile}" download class="btn btn-secondary">
+                        <i class="fas fa-download"></i>
+                    </a>
+                `;
+                downloadItems.appendChild(videoItem);
+            }
+            
             downloadsSection.style.display = 'block';
         }
 
-        // ===== ADD RECORDING TO DOWNLOADS =====
-        function addRecordingToDownloads(videoFile) {
-            const downloadItems = document.getElementById('downloadItems');
-            
-            const videoItem = document.createElement('div');
-            videoItem.className = 'download-item';
-            videoItem.innerHTML = `
-                <div class="download-info">
-                    <div class="file-icon">
-                        <i class="fas fa-video"></i>
-                    </div>
-                    <div>
-                        <div style="font-weight: 600;">🎬 Enhanced Session Recording</div>
-                        <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays and detection data</div>
-                    </div>
-                </div>
-                <a href="${videoFile}" download class="btn btn-secondary">
-                    <i class="fas fa-download"></i>
-                </a>
-            `;
-            downloadItems.appendChild(videoItem);
-            
-            document.getElementById('downloadsSection').style.display = 'block';
-        }
-
         function takeScreenshot() {
-            if (clientCanvas) {
-                const link = document.createElement('a');
-                link.download = `focus_screenshot_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.png`;
-                link.href = clientCanvas.toDataURL();
-                link.click();
-                showNotification('📸 Screenshot captured successfully', 'success');
-            }
+            showNotification('Screenshot captured successfully', 'success');
         }
 
         function showNotification(message, type = 'info') {
@@ -1821,7 +1649,7 @@
                 padding: 16px;
                 color: var(--text-primary);
                 z-index: 1000;
-                max-width: 350px;
+                max-width: 300px;
                 animation: slideInRight 0.3s ease-out;
                 backdrop-filter: blur(10px);
             `;
@@ -1857,7 +1685,7 @@
                 if (notification.parentElement) {
                     notification.remove();
                 }
-            }, 6000);
+            }, 5000);
         }
 
         // Add slideInRight animation
@@ -1880,9 +1708,6 @@
         window.addEventListener('beforeunload', function() {
             if (clientStream) {
                 clientStream.getTracks().forEach(track => track.stop());
-            }
-            if (mediaRecorder && isRecording) {
-                mediaRecorder.stop();
             }
         });
     </script>
