@@ -633,6 +633,18 @@
             color: var(--primary-blue);
         }
 
+        .session-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(96, 165, 250, 0.1);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            color: var(--primary-blue);
+        }
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -736,6 +748,11 @@
                     <div class="live-dot" id="liveDot"></div>
                     <span id="liveText">READY</span>
                 </div>
+            </div>
+            
+            <div class="session-info" id="sessionInfo" style="display: none;">
+                <i class="fas fa-clock"></i>
+                <span id="sessionIdText">Session: Ready</span>
             </div>
             
             <div class="status-display" id="currentStatus">
@@ -893,6 +910,7 @@
         let dataUpdateTimer = null;
         let lastAlertIds = new Set();
         let audioEnabled = true;
+        let currentSessionId = null;
 
         let usingClientCamera = false;
         let clientVideo = null;
@@ -930,6 +948,16 @@
             clientVideo = document.getElementById('clientVideo');
             clientCanvas = document.getElementById('clientCanvas');
             clientCtx = clientCanvas.getContext('2d');
+            
+            // Reset any existing session display
+            resetSessionDisplay();
+        }
+
+        function resetSessionDisplay() {
+            document.getElementById('sessionInfo').style.display = 'none';
+            document.getElementById('downloadsSection').style.display = 'none';
+            document.getElementById('sessionIdText').textContent = 'Session: Ready';
+            currentSessionId = null;
         }
 
         function initializeAudioSystem() {
@@ -1084,8 +1112,14 @@
 
         async function startMonitoring() {
             try {
-                // Reset session data - CRITICAL FIX
-                resetSessionData();
+                // Reset client-side tracking
+                clientAlerts = [];
+                personStates = {};
+                personTimers = {};
+                alertCount = 0;
+                
+                // Hide previous session downloads
+                document.getElementById('downloadsSection').style.display = 'none';
 
                 const response = await fetch('/start_monitoring', { method: 'POST' });
                 const data = await response.json();
@@ -1093,6 +1127,13 @@
                 if (data.status !== 'success') {
                     throw new Error(data.message);
                 }
+
+                // Store new session ID
+                currentSessionId = data.session_id;
+                
+                // Update session display
+                document.getElementById('sessionInfo').style.display = 'block';
+                document.getElementById('sessionIdText').textContent = `Session: ${currentSessionId.substring(0, 12)}...`;
 
                 if (usingClientCamera) {
                     await initializeClientCamera();
@@ -1102,31 +1143,11 @@
 
                 updateUIForActiveMonitoring();
                 startDataUpdates();
-                showNotification('Monitoring started with automatic recording and alert tracking', 'success');
+                showNotification(`New monitoring session started: ${currentSessionId.substring(0, 12)}`, 'success');
+                
             } catch (error) {
                 showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
-        }
-
-        // CRITICAL FIX: Reset all session data when starting new monitoring
-        function resetSessionData() {
-            clientAlerts = [];
-            personStates = {};
-            personTimers = {};
-            alertCount = 0;
-            sessionStartTime = null;
-            
-            // Clear UI counters
-            document.getElementById('alertCount').textContent = '0';
-            document.getElementById('totalPersons').textContent = '0';
-            document.getElementById('focusedCount').textContent = '0';
-            document.getElementById('sessionTime').textContent = '00:00:00';
-            
-            // Hide downloads section from previous session
-            document.getElementById('downloadsSection').style.display = 'none';
-            document.getElementById('downloadItems').innerHTML = '';
-            
-            console.log('Session data reset for new monitoring session');
         }
 
         async function initializeClientCamera() {
@@ -1329,25 +1350,14 @@
                 personStates = {};
                 personTimers = {};
 
-                showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
+                showNotification(`Session ${currentSessionId?.substring(0, 12) || 'Unknown'} complete! Generated ${alertCount} alerts.`, 'success');
                 
-                // CRITICAL FIX: Only show downloads if server returns valid file paths
-                if (data.status === 'success') {
-                    console.log('Server response:', data);
-                    
-                    if (data.pdf_report || data.video_file) {
-                        showDownloads(data.pdf_report, data.video_file);
-                        console.log('Downloads section updated with server files');
-                    } else {
-                        console.log('No file paths returned from server');
-                        showNotification('Session completed successfully, but download files are not available yet.', 'warning');
-                    }
-                } else {
-                    console.error('Server error:', data.message);
-                    showNotification('Error stopping session: ' + data.message, 'error');
+                // Show downloads with current session files
+                if (data.pdf_report || data.video_file) {
+                    showDownloads(data.pdf_report, data.video_file);
                 }
+
             } catch (error) {
-                console.error('Stop monitoring error:', error);
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
             }
         }
@@ -1379,6 +1389,14 @@
                 clearInterval(sessionTimer);
                 sessionTimer = null;
             }
+            
+            document.getElementById('totalPersons').textContent = '0';
+            document.getElementById('focusedCount').textContent = '0';
+            
+            // Keep session info visible to show completed session
+            if (currentSessionId) {
+                document.getElementById('sessionIdText').textContent = `Last Session: ${currentSessionId.substring(0, 12)}...`;
+            }
         }
 
         function updateUIForActiveMonitoring() {
@@ -1406,6 +1424,10 @@
             alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring started - watching for alerts...</p></div>';
             
             lastAlertIds.clear();
+            
+            // Reset alert count for new session
+            alertCount = 0;
+            document.getElementById('alertCount').textContent = alertCount;
         }
 
         function startDataUpdates() {
@@ -1468,7 +1490,7 @@
                     break;
                 default:
                     statusClass = 'status-ready';
-                    message = 'Monitoring active - detecting faces - Recording in progress';
+                    message = isMonitoring ? 'Monitoring active - detecting faces - Recording in progress' : 'System Ready - Click Start to begin monitoring with automatic recording';
             }
             
             statusElement.classList.add(statusClass);
@@ -1511,19 +1533,13 @@
             }, 1000);
         }
 
-        // CRITICAL FIX: Only show downloads if valid file paths are provided
         function showDownloads(pdfReport, videoFile) {
             const downloadsSection = document.getElementById('downloadsSection');
             const downloadItems = document.getElementById('downloadItems');
             
-            // Clear previous downloads
             downloadItems.innerHTML = '';
             
-            let hasValidFiles = false;
-            
-            // Only add PDF download if valid path is provided
-            if (pdfReport && pdfReport.trim() !== '') {
-                hasValidFiles = true;
+            if (pdfReport) {
                 const pdfItem = document.createElement('div');
                 pdfItem.className = 'download-item';
                 pdfItem.innerHTML = `
@@ -1541,12 +1557,9 @@
                     </a>
                 `;
                 downloadItems.appendChild(pdfItem);
-                console.log('PDF download added:', pdfReport);
             }
             
-            // Only add video download if valid path is provided
-            if (videoFile && videoFile.trim() !== '') {
-                hasValidFiles = true;
+            if (videoFile) {
                 const videoItem = document.createElement('div');
                 videoItem.className = 'download-item';
                 videoItem.innerHTML = `
@@ -1556,7 +1569,7 @@
                         </div>
                         <div>
                             <div style="font-weight: 600;">Session Recording</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with face landmarks</div>
                         </div>
                     </div>
                     <a href="${videoFile}" download class="btn btn-secondary">
@@ -1564,16 +1577,13 @@
                     </a>
                 `;
                 downloadItems.appendChild(videoItem);
-                console.log('Video download added:', videoFile);
             }
             
-            // Only show downloads section if there are valid files
-            if (hasValidFiles) {
-                downloadsSection.style.display = 'block';
-                console.log('Downloads section shown with valid files');
-            } else {
-                downloadsSection.style.display = 'none';
-                console.log('No valid download files available');
+            downloadsSection.style.display = 'block';
+            
+            // Add notification about new files
+            if (currentSessionId) {
+                showNotification(`Files ready for session ${currentSessionId.substring(0, 12)}`, 'success');
             }
         }
 
@@ -1632,6 +1642,75 @@
             }, 5000);
         }
 
+        // Add cleanup function for page unload
+        function cleanupResources() {
+            if (clientStream) {
+                clientStream.getTracks().forEach(track => track.stop());
+                clientStream = null;
+            }
+            
+            if (processingInterval) {
+                clearInterval(processingInterval);
+                processingInterval = null;
+            }
+            
+            if (sessionTimer) {
+                clearInterval(sessionTimer);
+                sessionTimer = null;
+            }
+            
+            if (dataUpdateTimer) {
+                clearInterval(dataUpdateTimer);
+                dataUpdateTimer = null;
+            }
+        }
+
+        // Enhanced page visibility handling
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // Page is hidden - pause processing to save resources
+                if (processingInterval && !isMonitoring) {
+                    clearInterval(processingInterval);
+                    processingInterval = null;
+                }
+            } else {
+                // Page is visible - resume processing if monitoring
+                if (isMonitoring && usingClientCamera && !processingInterval) {
+                    processingInterval = setInterval(processClientFrame, 1000);
+                }
+            }
+        });
+
+        // Add proper cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            cleanupResources();
+        });
+
+        // Add keyboard shortcuts info
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'h') {
+                e.preventDefault();
+                showNotification('Keyboard shortcuts: ESC=Stop, SPACE=Screenshot, CTRL+H=Help', 'info');
+            }
+        });
+
+        // Add session status check on page load
+        window.addEventListener('load', function() {
+            fetch('/monitoring_status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.is_active) {
+                        showNotification('Previous session was active - please refresh if needed', 'warning');
+                    }
+                    if (data.session_id) {
+                        console.log('Previous session ID:', data.session_id);
+                    }
+                })
+                .catch(error => {
+                    console.log('Could not check monitoring status:', error);
+                });
+        });
+
         const style = document.createElement('style');
         style.textContent = `
             @keyframes slideInRight {
@@ -1644,14 +1723,122 @@
                     opacity: 1;
                 }
             }
+            
+            @keyframes slideInLeft {
+                from {
+                    transform: translateX(-100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            
+            .download-item {
+                animation: slideInLeft 0.3s ease-out;
+            }
+            
+            .session-info {
+                animation: fadeIn 0.5s ease-out;
+            }
+            
+            .alert-item {
+                animation: slideInRight 0.2s ease-out;
+            }
+            
+            /* Enhanced button hover effects */
+            .btn:hover:not(:disabled) {
+                transform: translateY(-2px) scale(1.02);
+                box-shadow: 0 8px 25px rgba(96, 165, 250, 0.4);
+            }
+            
+            .btn-primary:hover:not(:disabled) {
+                box-shadow: 0 8px 25px rgba(96, 165, 250, 0.5);
+            }
+            
+            .btn-secondary:hover:not(:disabled) {
+                box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+            }
+            
+            .btn-danger:hover:not(:disabled) {
+                box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4);
+            }
+            
+            /* Enhanced card hover effects */
+            .card:hover {
+                border-color: rgba(96, 165, 250, 0.3);
+                transform: translateY(-3px);
+                box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+            }
+            
+            .stat-card:hover {
+                border-color: rgba(96, 165, 250, 0.2);
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            }
+            
+            /* Enhanced loading states */
+            .loading {
+                opacity: 0.6;
+                pointer-events: none;
+                position: relative;
+            }
+            
+            .loading::after {
+                content: '';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 20px;
+                height: 20px;
+                margin: -10px 0 0 -10px;
+                border: 2px solid var(--primary-blue);
+                border-radius: 50%;
+                border-top-color: transparent;
+                animation: spin 1s linear infinite;
+            }
+            
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            
+            /* Enhanced focus indicators */
+            .btn:focus,
+            .volume-select:focus,
+            .toggle-switch:focus {
+                outline: 2px solid var(--primary-blue);
+                outline-offset: 2px;
+            }
+            
+            /* Enhanced responsive design */
+            @media (max-width: 480px) {
+                .stats-grid {
+                    grid-template-columns: 1fr;
+                    gap: 8px;
+                }
+                
+                .stat-card {
+                    padding: 16px;
+                }
+                
+                .stat-value {
+                    font-size: 1.5rem;
+                }
+                
+                .controls-panel {
+                    flex-direction: column;
+                    gap: 12px;
+                }
+                
+                .btn {
+                    width: 100%;
+                    max-width: 300px;
+                }
+            }
         `;
         document.head.appendChild(style);
-
-        window.addEventListener('beforeunload', function() {
-            if (clientStream) {
-                clientStream.getTracks().forEach(track => track.stop());
-            }
-        });
     </script>
 </body>
 </html>
