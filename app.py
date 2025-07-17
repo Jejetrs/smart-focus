@@ -879,17 +879,30 @@ def create_session_recording_from_frames(recording_frames, output_path):
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
         out = cv.VideoWriter(output_path, fourcc, 10.0, (width, height))
         
+        if not out.isOpened():
+            print(f"Failed to open VideoWriter for {output_path}")
+            return None
+        
+        frames_written = 0
         for frame in recording_frames:
             if frame is not None:
                 out.write(frame)
+                frames_written += 1
         
         out.release()
         
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            print(f"Session recording successfully created: {output_path}")
+        # Wait a bit for file to be fully written
+        import time
+        time.sleep(0.5)
+        
+        # Verify file exists and has content
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:  # At least 1KB
+            print(f"Session recording successfully created: {output_path} ({frames_written} frames)")
             return output_path
         else:
             print(f"Session recording creation failed: {output_path}")
+            if os.path.exists(output_path):
+                print(f"File exists but size is only {os.path.getsize(output_path)} bytes")
             return None
             
     except Exception as e:
@@ -904,6 +917,11 @@ def create_demo_recording_file(output_path):
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
         out = cv.VideoWriter(output_path, fourcc, 30, (640, 480))
         
+        if not out.isOpened():
+            print(f"Failed to open VideoWriter for demo recording: {output_path}")
+            return None
+        
+        frames_written = 0
         for i in range(150):
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
             
@@ -923,14 +941,22 @@ def create_demo_recording_file(output_path):
                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
             out.write(frame)
+            frames_written += 1
         
         out.release()
         
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            print(f"Demo recording successfully created: {output_path}")
+        # Wait a bit for file to be fully written
+        import time
+        time.sleep(0.5)
+        
+        # Verify file exists and has reasonable size
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 10000:  # At least 10KB
+            print(f"Demo recording successfully created: {output_path} ({frames_written} frames)")
             return output_path
         else:
             print(f"Demo recording creation failed: {output_path}")
+            if os.path.exists(output_path):
+                print(f"File exists but size is only {os.path.getsize(output_path)} bytes")
             return None
             
     except Exception as e:
@@ -1128,22 +1154,51 @@ def stop_monitoring():
     else:
         print("PDF report generation failed")
     
-    # Generate video recording
+    # Generate video recording with improved error handling
     recording_filename = f"session_recording_{timestamp}_{session_uuid}.mp4"
     recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
     
     video_result = None
-    if session_data.get('recording_frames') and len(session_data['recording_frames']) > 0:
-        video_result = create_session_recording_from_frames(session_data['recording_frames'], recording_path)
-    else:
-        video_result = create_demo_recording_file(recording_path)
+    max_retries = 3
     
+    for attempt in range(max_retries):
+        try:
+            if session_data.get('recording_frames') and len(session_data['recording_frames']) > 0:
+                print(f"Creating video from {len(session_data['recording_frames'])} frames (attempt {attempt + 1})")
+                video_result = create_session_recording_from_frames(session_data['recording_frames'], recording_path)
+            else:
+                print(f"No frames available, creating demo recording (attempt {attempt + 1})")
+                video_result = create_demo_recording_file(recording_path)
+            
+            if video_result:
+                break
+            else:
+                print(f"Video creation failed on attempt {attempt + 1}")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(1)  # Wait 1 second before retry
+                    
+        except Exception as e:
+            print(f"Video creation error on attempt {attempt + 1}: {str(e)}")
+            if attempt < max_retries - 1:
+                import time
+                time.sleep(1)
+    
+    # Final verification
     if video_result and os.path.exists(recording_path):
-        response_data["video_file"] = f"/download_recording/{recording_filename}"
-        session_data['current_recording_path'] = recording_path
-        print(f"Video recording generated: {recording_path}")
+        # Double check file is accessible and has content
+        try:
+            file_size = os.path.getsize(recording_path)
+            if file_size > 1000:  # At least 1KB
+                response_data["video_file"] = f"/download_recording/{recording_filename}"
+                session_data['current_recording_path'] = recording_path
+                print(f"Video recording successfully generated: {recording_path} ({file_size} bytes)")
+            else:
+                print(f"Video file too small: {file_size} bytes")
+        except Exception as e:
+            print(f"Error checking video file: {str(e)}")
     else:
-        print("Video recording generation failed")
+        print("Video recording generation failed after all retries")
     
     return jsonify(response_data)
 
@@ -1264,16 +1319,42 @@ def process_frame():
 def download_report(filename):
     try:
         file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
+        
+        # Wait a bit if file is being created
+        max_wait = 5  # Maximum 5 seconds wait
+        wait_count = 0
+        
+        while wait_count < max_wait:
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                if file_size > 1000:  # At least 1KB
+                    break
+                else:
+                    print(f"PDF exists but size is only {file_size} bytes, waiting...")
+            else:
+                print(f"PDF {file_path} does not exist yet, waiting...")
+            
+            import time
+            time.sleep(1)
+            wait_count += 1
+        
         if os.path.exists(file_path):
-            return send_file(
-                file_path,
-                mimetype='application/pdf',
-                as_attachment=True,
-                download_name=filename
-            )
+            file_size = os.path.getsize(file_path)
+            if file_size > 1000:  # At least 1KB
+                print(f"Serving PDF report: {file_path} ({file_size} bytes)")
+                return send_file(
+                    file_path,
+                    mimetype='application/pdf',
+                    as_attachment=True,
+                    download_name=filename
+                )
+            else:
+                print(f"PDF file too small: {file_path} ({file_size} bytes)")
+                return jsonify({"error": "Report file is corrupted or incomplete"}), 500
         else:
-            print(f"Report file not found: {file_path}")
+            print(f"Report file not found after waiting: {file_path}")
             return jsonify({"error": "Report file not found"}), 404
+            
     except Exception as e:
         print(f"Error downloading report: {str(e)}")
         return jsonify({"error": "Error downloading report file"}), 500
@@ -1282,16 +1363,42 @@ def download_report(filename):
 def download_recording(filename):
     try:
         file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
+        
+        # Wait a bit if file is being created
+        max_wait = 10  # Maximum 10 seconds wait
+        wait_count = 0
+        
+        while wait_count < max_wait:
+            if os.path.exists(file_path):
+                file_size = os.path.getsize(file_path)
+                if file_size > 1000:  # At least 1KB
+                    break
+                else:
+                    print(f"File exists but size is only {file_size} bytes, waiting...")
+            else:
+                print(f"File {file_path} does not exist yet, waiting...")
+            
+            import time
+            time.sleep(1)
+            wait_count += 1
+        
         if os.path.exists(file_path):
-            return send_file(
-                file_path,
-                mimetype='video/mp4',
-                as_attachment=True,
-                download_name=filename
-            )
+            file_size = os.path.getsize(file_path)
+            if file_size > 1000:  # At least 1KB
+                print(f"Serving recording file: {file_path} ({file_size} bytes)")
+                return send_file(
+                    file_path,
+                    mimetype='video/mp4',
+                    as_attachment=True,
+                    download_name=filename
+                )
+            else:
+                print(f"Recording file too small: {file_path} ({file_size} bytes)")
+                return jsonify({"error": "Recording file is corrupted or incomplete"}), 500
         else:
-            print(f"Recording file not found: {file_path}")
+            print(f"Recording file not found after waiting: {file_path}")
             return jsonify({"error": "Recording file not found"}), 404
+            
     except Exception as e:
         print(f"Error downloading recording: {str(e)}")
         return jsonify({"error": "Error downloading recording file"}), 500
