@@ -985,8 +985,10 @@ def create_session_recording_from_frames(recording_frames, output_path):
             print("No frames to create video")
             return None
         
+        print(f"Creating session recording from {len(recording_frames)} processed frames")
         height, width = recording_frames[0].shape[:2]
         
+        # Use frame rate of 10 fps for smooth playback of recorded frames
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
         out = cv.VideoWriter(output_path, fourcc, 10.0, (width, height))
         
@@ -994,17 +996,27 @@ def create_session_recording_from_frames(recording_frames, output_path):
             print(f"Error: Could not open video writer for {output_path}")
             return None
         
+        frames_written = 0
         for frame in recording_frames:
             if frame is not None and frame.size > 0:
-                out.write(frame)
+                # Ensure frame has correct dimensions
+                if frame.shape[:2] == (height, width):
+                    out.write(frame)
+                    frames_written += 1
+                else:
+                    # Resize frame if dimensions don't match
+                    resized_frame = cv.resize(frame, (width, height))
+                    out.write(resized_frame)
+                    frames_written += 1
         
         out.release()
         
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            print(f"Session recording created: {output_path}")
+            print(f"Session recording created successfully: {output_path}")
+            print(f"Total frames written: {frames_written}")
             return output_path
         else:
-            print("Failed to create session recording")
+            print("Failed to create session recording - file not created or empty")
             return None
             
     except Exception as e:
@@ -1013,31 +1025,84 @@ def create_session_recording_from_frames(recording_frames, output_path):
         return None
 
 def create_demo_recording_file():
+    """Create a proper demo recording file using actual recorded frames with face landmarks"""
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        recording_filename = f"session_recording_{timestamp}.mp4"
+        recording_filename = f"session_recording_{timestamp}_{uuid.uuid4().hex[:8]}.mp4"
         recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
         
-        fourcc = cv.VideoWriter_fourcc(*'mp4v')
-        out = cv.VideoWriter(recording_path, fourcc, 30, (640, 480))
+        # Use recorded frames if available, otherwise create a meaningful demo
+        if session_data.get('recording_frames') and len(session_data['recording_frames']) > 0:
+            print("Using actual recorded frames for demo video")
+            return create_session_recording_from_frames(session_data['recording_frames'], recording_path)
         
-        for i in range(150):
+        # If no recorded frames, create a demo with simulated detection
+        print("Creating demo recording with simulated detection")
+        
+        fourcc = cv.VideoWriter_fourcc(*'mp4v')
+        out = cv.VideoWriter(recording_path, fourcc, 15, (640, 480))
+        
+        if not out.isOpened():
+            print(f"Error: Could not open demo video writer for {recording_path}")
+            return None
+        
+        # Create frames with session summary and visual elements
+        for i in range(90):  # 6 seconds at 15 fps
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
             
-            cv.putText(frame, f"Session Recording - Frame {i+1}", (50, 150), 
+            # Add background gradient
+            for y in range(480):
+                intensity = int(30 + (y / 480) * 50)
+                frame[y, :] = [intensity//3, intensity//2, intensity]
+            
+            # Main title
+            cv.putText(frame, "Smart Focus Alert - Session Complete", (50, 80), 
                       cv.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-            cv.putText(frame, "Live monitoring session completed", (50, 200), 
-                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-            cv.putText(frame, f"Total alerts: {len(session_data['alerts'])}", (50, 250), 
-                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
             
-            if session_data['start_time']:
-                duration = (datetime.now() - session_data['start_time']).total_seconds()
-                cv.putText(frame, f"Duration: {int(duration//60)}m {int(duration%60)}s", (50, 300), 
-                          cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+            # Session stats
+            y_offset = 140
+            stats = [
+                f"Session Duration: {format_session_duration()}",
+                f"Total Alerts Generated: {len(session_data['alerts'])}",
+                f"Persons Detected: {session_data['focus_statistics']['total_persons']}",
+                f"Total Detections: {session_data['focus_statistics']['total_detections']}"
+            ]
             
-            cv.putText(frame, "Thank you for using Smart Focus Alert", (50, 400), 
-                      cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            for j, stat in enumerate(stats):
+                color = (100, 255, 100) if j == 0 else (200, 200, 255)
+                cv.putText(frame, stat, (50, y_offset + j*30), 
+                          cv.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            
+            # Add alert summary if any alerts exist
+            if session_data['alerts']:
+                cv.putText(frame, "Recent Alerts:", (50, 300), 
+                          cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 100), 2)
+                
+                recent_alerts = session_data['alerts'][-3:]  # Show last 3 alerts
+                for k, alert in enumerate(recent_alerts):
+                    try:
+                        alert_time = datetime.fromisoformat(alert['timestamp']).strftime('%H:%M:%S')
+                        alert_text = f"{alert_time} - {alert['detection']} ({alert['person']})"
+                    except:
+                        alert_text = f"{alert.get('detection', 'Alert')} - {alert.get('person', 'Unknown')}"
+                    
+                    alert_color = (100, 100, 255) if alert.get('detection') == 'SLEEPING' else (100, 255, 255)
+                    cv.putText(frame, alert_text, (70, 330 + k*25), 
+                              cv.FONT_HERSHEY_SIMPLEX, 0.5, alert_color, 1)
+            
+            # Add animated elements
+            pulse = int(50 + 30 * np.sin(i * 0.3))
+            cv.circle(frame, (580, 50), 20, (pulse, pulse, 255), -1)
+            cv.putText(frame, "REC", (560, 58), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            
+            # Thank you message
+            cv.putText(frame, "Thank you for using Smart Focus Alert!", (80, 430), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            
+            # Progress bar
+            progress_width = int((i / 89) * 540)
+            cv.rectangle(frame, (50, 450), (50 + progress_width, 460), (100, 255, 100), -1)
+            cv.rectangle(frame, (50, 450), (590, 460), (100, 100, 100), 2)
             
             out.write(frame)
         
@@ -1052,7 +1117,28 @@ def create_demo_recording_file():
             
     except Exception as e:
         print(f"Error creating demo recording: {str(e)}")
+        traceback.print_exc()
         return None
+
+def format_session_duration():
+    """Format session duration for display"""
+    try:
+        if session_data.get('start_time') and session_data.get('end_time'):
+            duration = session_data['end_time'] - session_data['start_time']
+            total_seconds = int(duration.total_seconds())
+            minutes = total_seconds // 60
+            seconds = total_seconds % 60
+            return f"{minutes}m {seconds}s"
+        elif session_data.get('start_time'):
+            duration = datetime.now() - session_data['start_time']
+            total_seconds = int(duration.total_seconds())
+            minutes = total_seconds // 60
+            seconds = total_seconds % 60
+            return f"{minutes}m {seconds}s"
+        else:
+            return "Unknown"
+    except:
+        return "N/A"
 
 @application.route('/static/uploads/<filename>')
 def uploaded_file(filename):
@@ -1395,22 +1481,27 @@ def process_frame():
         if frame is None:
             return jsonify({"error": "Invalid frame data"}), 400
         
-        # Store frame for recording if monitoring is active
+        # Process frame for detection FIRST to get face landmarks and overlays
+        processed_frame, detections = detect_persons_with_attention(frame, mode="video")
+        
+        # Store PROCESSED frame (with face landmarks) for recording if monitoring is active
         if live_monitoring_active and recording_active:
-            session_data['recording_frames'].append(frame.copy())
-            # Keep only last 300 frames to prevent memory issues
+            # Store the processed frame that includes face landmarks, bounding boxes, and detection info
+            session_data['recording_frames'].append(processed_frame.copy())
+            # Keep only last 300 frames to prevent memory issues (about 5 minutes at 1 fps)
             if len(session_data['recording_frames']) > 300:
                 session_data['recording_frames'] = session_data['recording_frames'][-300:]
-        
-        # Process frame for detection
-        processed_frame, detections = detect_persons_with_attention(frame, mode="video")
+            
+            # Debug log
+            if len(session_data['recording_frames']) % 10 == 0:  # Log every 10th frame
+                print(f"Recording frames stored: {len(session_data['recording_frames'])}, Current detections: {len(detections)}")
         
         # Update session statistics if monitoring is active
         if live_monitoring_active and detections:
             update_session_statistics(detections)
         
         # Encode processed frame back to base64
-        _, buffer = cv.imencode('.jpg', processed_frame)
+        _, buffer = cv.imencode('.jpg', processed_frame, [cv.IMWRITE_JPEG_QUALITY, 90])
         processed_frame_b64 = base64.b64encode(buffer).decode('utf-8')
         
         return jsonify({
