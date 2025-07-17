@@ -9,7 +9,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
         :root {
-            --primary-blue: #3B82F6;
+            --primary-blue: #60a5fa;
             --primary-purple: #a78bfa;
             --dark-bg: #0f172a;
             --dark-secondary: #1e293b;
@@ -20,7 +20,7 @@
             --text-secondary: #cbd5e1;
             --text-muted: #94a3b8;
             --success: #10b981;
-            --warning: #F59E0B;
+            --warning: #f59e0b;
             --danger: #ef4444;
             --info: #06b6d4;
             --sidebar-bg: #334155;
@@ -108,7 +108,7 @@
         }
 
         .card:hover {
-            border-color: rgba(59, 130, 246, 0.2);
+            border-color: rgba(96, 165, 250, 0.2);
             transform: translateY(-2px);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
@@ -165,7 +165,7 @@
 
         .btn:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+            box-shadow: 0 8px 25px rgba(96, 165, 250, 0.4);
         }
 
         .btn:disabled {
@@ -625,7 +625,7 @@
         .file-icon {
             width: 40px;
             height: 40px;
-            background: rgba(59, 130, 246, 0.2);
+            background: rgba(96, 165, 250, 0.2);
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -768,13 +768,13 @@
                 <div class="video-container">
                     <img src="" class="video-stream" id="videoStream" alt="Live Video Feed" style="display: none;">
                     
-                    <video id="clientVideo" class="client-video" autoplay muted></video>
+                    <video id="clientVideo" class="client-video" autoplay></video>
                     <canvas id="clientCanvas" class="client-canvas" width="640" height="480"></canvas>
                     
                     <div class="video-placeholder" id="videoPlaceholder">
                         <i class="fas fa-video"></i>
-                        <h3 style="margin-bottom: 12px;">Face Detection Ready</h3>
-                        <p style="margin-bottom: 20px;">Click "Start Monitoring" to begin detection with landmarks and time-based alerts</p>
+                        <h3 style="margin-bottom: 12px;">Detection Ready</h3>
+                        <p style="margin-bottom: 20px;">Click "Start Monitoring" to begin detection with time-based alerts</p>
                         <div style="text-align: left; max-width: 400px; line-height: 1.6;">
                             <div style="margin-bottom: 8px;">• <strong>Sleep Detection:</strong> Alert after 10 seconds</div>
                             <div style="margin-bottom: 8px;">• <strong>Yawning Detection:</strong> Alert after 3.5 seconds</div>
@@ -911,7 +911,7 @@
         };
 
         let audioContext = null;
-        let lastDownloadUrls = {}; // Track last download URLs
+        let alertAudio = null;
 
         document.addEventListener('DOMContentLoaded', function() {
             initializePage();
@@ -937,12 +937,12 @@
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
                 if ('speechSynthesis' in window) {
-                    console.log('✓ Speech synthesis available');
+                    console.log('Speech synthesis available');
                 } else {
-                    console.log('⚠ Speech synthesis not available, using beep alerts only');
+                    console.log('Speech synthesis not available, using beep alerts only');
                 }
             } catch (error) {
-                console.log('⚠ Audio initialization failed:', error);
+                console.log('Audio initialization failed:', error);
             }
         }
 
@@ -1006,13 +1006,13 @@
                     usingClientCamera = true;
                     document.getElementById('cameraSetupNotice').style.display = 'block';
                     document.getElementById('connectionSubtitle').textContent = 'Using device camera (Railway/ngrok mode)';
-                    console.log('✓ Using client-side camera for Railway/ngrok compatibility');
+                    console.log('Using client-side camera for Railway/ngrok compatibility');
                 }
             } catch (error) {
                 usingClientCamera = true;
                 document.getElementById('cameraSetupNotice').style.display = 'block';
                 document.getElementById('connectionSubtitle').textContent = 'Using device camera (fallback mode)';
-                console.log('✓ Fallback to client-side camera');
+                console.log('Fallback to client-side camera');
             }
         }
 
@@ -1084,8 +1084,10 @@
 
         async function startMonitoring() {
             try {
-                // Reset semua state untuk sesi baru
-                resetSessionState();
+                clientAlerts = [];
+                personStates = {};
+                personTimers = {};
+                alertCount = 0;
 
                 const response = await fetch('/start_monitoring', { method: 'POST' });
                 const data = await response.json();
@@ -1102,36 +1104,14 @@
 
                 updateUIForActiveMonitoring();
                 startDataUpdates();
-                showNotification('✓ Monitoring started with automatic recording and alert tracking', 'success');
+                showNotification('Monitoring started with automatic recording and alert tracking', 'success');
             } catch (error) {
-                showNotification('❌ Failed to start monitoring: ' + error.message, 'error');
-                console.error('Start monitoring error:', error);
+                showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
-        }
-
-        function resetSessionState() {
-            // Reset semua state client
-            clientAlerts = [];
-            personStates = {};
-            personTimers = {};
-            alertCount = 0;
-            lastAlertIds.clear();
-            lastDownloadUrls = {};
-            
-            // Hide downloads dari sesi sebelumnya
-            document.getElementById('downloadsSection').style.display = 'none';
-            document.getElementById('downloadItems').innerHTML = '';
-            
-            console.log('✓ Session state reset');
         }
 
         async function initializeClientCamera() {
             try {
-                // Stop existing stream jika ada
-                if (clientStream) {
-                    clientStream.getTracks().forEach(track => track.stop());
-                }
-
                 clientStream = await navigator.mediaDevices.getUserMedia({
                     video: { width: 640, height: 480, facingMode: 'user' }
                 });
@@ -1144,13 +1124,7 @@
                 clientVideo.style.display = 'none';
                 clientCanvas.style.display = 'block';
                 
-                // Clear existing interval
-                if (processingInterval) {
-                    clearInterval(processingInterval);
-                }
-                
                 processingInterval = setInterval(processClientFrame, 1000);
-                console.log('✓ Client camera initialized');
                 
             } catch (error) {
                 throw new Error('Failed to access device camera: ' + error.message);
@@ -1336,19 +1310,15 @@
                 personStates = {};
                 personTimers = {};
 
-                showNotification(`✓ Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
+                showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
                 
-                // Show downloads dengan URL yang fresh
                 if (data.pdf_report || data.video_file) {
                     showDownloads(data.pdf_report, data.video_file);
                 } else {
-                    // Fallback URLs dengan timestamp untuk menghindari cache
-                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_');
-                    showDownloads(`/static/reports/session_report_${timestamp}.pdf`, `/static/recordings/session_recording_${timestamp}.mp4`);
+                    showDownloads('/reports/session_report.pdf', '/recordings/session_video.mp4');
                 }
             } catch (error) {
-                showNotification('❌ Failed to stop monitoring: ' + error.message, 'error');
-                console.error('Stop monitoring error:', error);
+                showNotification('Failed to stop monitoring: ' + error.message, 'error');
             }
         }
 
@@ -1471,7 +1441,7 @@
                     break;
                 default:
                     statusClass = 'status-ready';
-                    message = isMonitoring ? 'Monitoring active - detecting faces - Recording in progress' : 'System Ready - Click Start to begin monitoring with automatic recording';
+                    message = 'Monitoring active - detecting faces - Recording in progress';
             }
             
             statusElement.classList.add(statusClass);
@@ -1521,8 +1491,6 @@
             downloadItems.innerHTML = '';
             
             if (pdfReport) {
-                // Add cache busting parameter untuk memastikan fresh download
-                const pdfUrl = pdfReport + '?t=' + Date.now();
                 const pdfItem = document.createElement('div');
                 pdfItem.className = 'download-item';
                 pdfItem.innerHTML = `
@@ -1535,17 +1503,14 @@
                             <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with ${alertCount} alerts tracked</div>
                         </div>
                     </div>
-                    <a href="${pdfUrl}" class="btn btn-primary" download>
+                    <a href="${pdfReport}" download class="btn btn-primary">
                         <i class="fas fa-download"></i>
                     </a>
                 `;
                 downloadItems.appendChild(pdfItem);
-                lastDownloadUrls.pdf = pdfUrl;
             }
             
             if (videoFile) {
-                // Add cache busting parameter untuk memastikan fresh download
-                const videoUrl = videoFile + '?t=' + Date.now();
                 const videoItem = document.createElement('div');
                 videoItem.className = 'download-item';
                 videoItem.innerHTML = `
@@ -1555,23 +1520,21 @@
                         </div>
                         <div>
                             <div style="font-weight: 600;">Session Recording</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">HD video with landmarks</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays</div>
                         </div>
                     </div>
-                    <a href="${videoUrl}" class="btn btn-secondary" download>
+                    <a href="${videoFile}" download class="btn btn-secondary">
                         <i class="fas fa-download"></i>
                     </a>
                 `;
                 downloadItems.appendChild(videoItem);
-                lastDownloadUrls.video = videoUrl;
             }
             
             downloadsSection.style.display = 'block';
-            console.log('✓ Downloads available:', lastDownloadUrls);
         }
 
         function takeScreenshot() {
-            showNotification('📸 Screenshot captured successfully', 'success');
+            showNotification('Screenshot captured successfully', 'success');
         }
 
         function showNotification(message, type = 'info') {
@@ -1586,10 +1549,9 @@
                 padding: 16px;
                 color: var(--text-primary);
                 z-index: 1000;
-                max-width: 350px;
+                max-width: 300px;
                 animation: slideInRight 0.3s ease-out;
                 backdrop-filter: blur(10px);
-                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             `;
             
             const colors = {
@@ -1609,9 +1571,9 @@
             notification.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <i class="fas ${icons[type] || icons.info}" style="color: ${colors[type] || colors.info};"></i>
-                    <span style="flex: 1;">${message}</span>
+                    <span>${message}</span>
                     <button onclick="this.parentElement.parentElement.remove()" 
-                            style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-left: 8px; padding: 4px;">
+                            style="background: none; border: none; color: var(--text-secondary); cursor: pointer; margin-left: auto;">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -1621,8 +1583,7 @@
             
             setTimeout(() => {
                 if (notification.parentElement) {
-                    notification.style.animation = 'slideOutRight 0.3s ease-in';
-                    setTimeout(() => notification.remove(), 300);
+                    notification.remove();
                 }
             }, 5000);
         }
@@ -1639,16 +1600,6 @@
                     opacity: 1;
                 }
             }
-            @keyframes slideOutRight {
-                from {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-                to {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-            }
         `;
         document.head.appendChild(style);
 
@@ -1657,20 +1608,6 @@
                 clientStream.getTracks().forEach(track => track.stop());
             }
         });
-
-        // Health check untuk memastikan koneksi server
-        setInterval(() => {
-            if (!isMonitoring) {
-                fetch('/health')
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Server health:', data.status);
-                    })
-                    .catch(() => {
-                        console.log('Server connection lost');
-                    });
-            }
-        }, 30000);
     </script>
 </body>
 </html>
