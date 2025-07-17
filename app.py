@@ -660,7 +660,7 @@ def generate_pdf_report(session_data, output_path):
         
         rating_text = f"<para align=center><font size=14 color='{rating_color.hexval()}'><b>Focus Quality: {focus_rating}</b></font></para>"
         story.append(Paragraph(rating_text, styles['Normal']))
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 15))
         
         # Detailed time breakdown
         focus_breakdown = [
@@ -764,7 +764,7 @@ def generate_pdf_report(session_data, output_path):
             story.append(alert_table)
         
         # Footer
-        story.append(Spacer(1, 30))
+        story.append(Spacer(1, 20))
         footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System - Focus Monitoring Report"
         footer_style = ParagraphStyle(
             'Footer',
