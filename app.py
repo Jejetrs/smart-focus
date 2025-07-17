@@ -1515,19 +1515,63 @@ def process_frame():
         traceback.print_exc()
         return jsonify({"error": f"Frame processing failed: {str(e)}"}), 500
 
+@application.route('/reset_monitoring', methods=['POST'])
+def reset_monitoring():
+    """Reset monitoring status - useful for debugging or when status gets inconsistent"""
+    global live_monitoring_active, session_data, recording_active, person_state_timers, person_current_state, last_alert_time
+    
+    try:
+        print("Monitoring reset requested")
+        
+        # Force reset all monitoring states
+        live_monitoring_active = False
+        recording_active = False
+        
+        # Reset session data
+        session_data = {
+            'start_time': None,
+            'end_time': None,
+            'detections': [],
+            'alerts': [],
+            'focus_statistics': {
+                'unfocused_time': 0,
+                'yawning_time': 0,
+                'sleeping_time': 0,
+                'total_persons': 0,
+                'total_detections': 0
+            },
+            'recording_path': None,
+            'recording_frames': []
+        }
+        
+        person_state_timers = {}
+        person_current_state = {}
+        last_alert_time = {}
+        
+        print("Monitoring reset completed")
+        return jsonify({"status": "success", "message": "Monitoring reset successfully"})
+        
+    except Exception as e:
+        print(f"Error resetting monitoring: {str(e)}")
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": f"Failed to reset monitoring: {str(e)}"})
+
 @application.route('/health')
 def health_check():
     try:
         return jsonify({
             "status": "healthy", 
             "timestamp": datetime.now().isoformat(),
+            "monitoring_active": live_monitoring_active,
+            "session_active": session_data.get('start_time') is not None if session_data else False,
+            "session_alerts": len(session_data.get('alerts', [])) if session_data else 0,
+            "recording_frames": len(session_data.get('recording_frames', [])) if session_data else 0,
             "directories": {
                 "uploads": os.path.exists(application.config['UPLOAD_FOLDER']),
                 "detected": os.path.exists(application.config['DETECTED_FOLDER']),
                 "reports": os.path.exists(application.config['REPORTS_FOLDER']),
                 "recordings": os.path.exists(application.config['RECORDINGS_FOLDER'])
-            },
-            "monitoring_active": live_monitoring_active
+            }
         })
     except Exception as e:
         print(f"Health check error: {str(e)}")
