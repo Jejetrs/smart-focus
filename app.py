@@ -1162,12 +1162,12 @@ def process_frame():
         if frame is None:
             return jsonify({"error": "Invalid frame data"}), 400
         
+        processed_frame, detections = detect_persons_with_attention(frame, mode="video")
+        
         if live_monitoring_active and recording_active:
-            session_data['recording_frames'].append(frame.copy())
+            session_data['recording_frames'].append(processed_frame.copy())
             if len(session_data['recording_frames']) > 300:
                 session_data['recording_frames'] = session_data['recording_frames'][-300:]
-        
-        processed_frame, detections = detect_persons_with_attention(frame, mode="video")
         
         if live_monitoring_active and detections:
             update_session_statistics(detections)
