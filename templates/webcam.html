@@ -893,7 +893,6 @@
         let dataUpdateTimer = null;
         let lastAlertIds = new Set();
         let audioEnabled = true;
-        let currentSessionId = null;
 
         let usingClientCamera = false;
         let clientVideo = null;
@@ -1085,15 +1084,8 @@
 
         async function startMonitoring() {
             try {
-                // Reset client-side variables
-                clientAlerts = [];
-                personStates = {};
-                personTimers = {};
-                alertCount = 0;
-                currentSessionId = null;
-
-                // Hide downloads section from previous session
-                document.getElementById('downloadsSection').style.display = 'none';
+                // Reset session data - CRITICAL FIX
+                resetSessionData();
 
                 const response = await fetch('/start_monitoring', { method: 'POST' });
                 const data = await response.json();
@@ -1101,10 +1093,6 @@
                 if (data.status !== 'success') {
                     throw new Error(data.message);
                 }
-
-                // Store current session ID
-                currentSessionId = data.session_id;
-                console.log('New session started:', currentSessionId);
 
                 if (usingClientCamera) {
                     await initializeClientCamera();
@@ -1114,10 +1102,31 @@
 
                 updateUIForActiveMonitoring();
                 startDataUpdates();
-                showNotification('New monitoring session started with automatic recording', 'success');
+                showNotification('Monitoring started with automatic recording and alert tracking', 'success');
             } catch (error) {
                 showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
+        }
+
+        // CRITICAL FIX: Reset all session data when starting new monitoring
+        function resetSessionData() {
+            clientAlerts = [];
+            personStates = {};
+            personTimers = {};
+            alertCount = 0;
+            sessionStartTime = null;
+            
+            // Clear UI counters
+            document.getElementById('alertCount').textContent = '0';
+            document.getElementById('totalPersons').textContent = '0';
+            document.getElementById('focusedCount').textContent = '0';
+            document.getElementById('sessionTime').textContent = '00:00:00';
+            
+            // Hide downloads section from previous session
+            document.getElementById('downloadsSection').style.display = 'none';
+            document.getElementById('downloadItems').innerHTML = '';
+            
+            console.log('Session data reset for new monitoring session');
         }
 
         async function initializeClientCamera() {
@@ -1304,10 +1313,6 @@
                 const response = await fetch('/stop_monitoring', { method: 'POST' });
                 const data = await response.json();
 
-                if (data.status !== 'success') {
-                    throw new Error(data.message);
-                }
-
                 updateUIForInactiveMonitoring();
                 stopDataUpdates();
 
@@ -1324,30 +1329,25 @@
                 personStates = {};
                 personTimers = {};
 
-                showNotification(`Session complete! Generated ${alertCount} alerts. Files are being prepared...`, 'success');
+                showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
                 
-                // Wait a moment for files to be generated, then check for them
-                setTimeout(async () => {
-                    try {
-                        const filesResponse = await fetch('/get_session_files');
-                        const filesData = await filesResponse.json();
-                        
-                        if (filesData.files) {
-                            showDownloads(filesData.files.pdf_report, filesData.files.video_file);
-                        } else {
-                            // Use fallback URLs if files endpoint doesn't return files
-                            showDownloads(data.pdf_report, data.video_file);
-                        }
-                        
-                        showNotification('Session files are ready for download!', 'success');
-                    } catch (error) {
-                        console.error('Error getting session files:', error);
-                        // Use fallback URLs from stop_monitoring response
+                // CRITICAL FIX: Only show downloads if server returns valid file paths
+                if (data.status === 'success') {
+                    console.log('Server response:', data);
+                    
+                    if (data.pdf_report || data.video_file) {
                         showDownloads(data.pdf_report, data.video_file);
+                        console.log('Downloads section updated with server files');
+                    } else {
+                        console.log('No file paths returned from server');
+                        showNotification('Session completed successfully, but download files are not available yet.', 'warning');
                     }
-                }, 2000);
-                
+                } else {
+                    console.error('Server error:', data.message);
+                    showNotification('Error stopping session: ' + data.message, 'error');
+                }
             } catch (error) {
+                console.error('Stop monitoring error:', error);
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
             }
         }
@@ -1379,9 +1379,6 @@
                 clearInterval(sessionTimer);
                 sessionTimer = null;
             }
-            
-            document.getElementById('totalPersons').textContent = '0';
-            document.getElementById('focusedCount').textContent = '0';
         }
 
         function updateUIForActiveMonitoring() {
@@ -1409,9 +1406,6 @@
             alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring started - watching for alerts...</p></div>';
             
             lastAlertIds.clear();
-            
-            // Reset alert count display
-            document.getElementById('alertCount').textContent = '0';
         }
 
         function startDataUpdates() {
@@ -1474,7 +1468,7 @@
                     break;
                 default:
                     statusClass = 'status-ready';
-                    message = isMonitoring ? 'Monitoring active - detecting faces - Recording in progress' : 'System Ready - Click Start to begin monitoring with automatic recording';
+                    message = 'Monitoring active - detecting faces - Recording in progress';
             }
             
             statusElement.classList.add(statusClass);
@@ -1517,13 +1511,19 @@
             }, 1000);
         }
 
+        // CRITICAL FIX: Only show downloads if valid file paths are provided
         function showDownloads(pdfReport, videoFile) {
             const downloadsSection = document.getElementById('downloadsSection');
             const downloadItems = document.getElementById('downloadItems');
             
+            // Clear previous downloads
             downloadItems.innerHTML = '';
             
-            if (pdfReport) {
+            let hasValidFiles = false;
+            
+            // Only add PDF download if valid path is provided
+            if (pdfReport && pdfReport.trim() !== '') {
+                hasValidFiles = true;
                 const pdfItem = document.createElement('div');
                 pdfItem.className = 'download-item';
                 pdfItem.innerHTML = `
@@ -1541,9 +1541,12 @@
                     </a>
                 `;
                 downloadItems.appendChild(pdfItem);
+                console.log('PDF download added:', pdfReport);
             }
             
-            if (videoFile) {
+            // Only add video download if valid path is provided
+            if (videoFile && videoFile.trim() !== '') {
+                hasValidFiles = true;
                 const videoItem = document.createElement('div');
                 videoItem.className = 'download-item';
                 videoItem.innerHTML = `
@@ -1553,7 +1556,7 @@
                         </div>
                         <div>
                             <div style="font-weight: 600;">Session Recording</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with face landmarks</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays</div>
                         </div>
                     </div>
                     <a href="${videoFile}" download class="btn btn-secondary">
@@ -1561,44 +1564,21 @@
                     </a>
                 `;
                 downloadItems.appendChild(videoItem);
+                console.log('Video download added:', videoFile);
             }
             
-            downloadsSection.style.display = 'block';
-            
-            // Scroll to downloads section smoothly
-            setTimeout(() => {
-                downloadsSection.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'nearest' 
-                });
-            }, 500);
+            // Only show downloads section if there are valid files
+            if (hasValidFiles) {
+                downloadsSection.style.display = 'block';
+                console.log('Downloads section shown with valid files');
+            } else {
+                downloadsSection.style.display = 'none';
+                console.log('No valid download files available');
+            }
         }
 
         function takeScreenshot() {
-            if (clientCanvas && isMonitoring) {
-                try {
-                    // Create a temporary canvas to capture current frame
-                    const tempCanvas = document.createElement('canvas');
-                    const tempCtx = tempCanvas.getContext('2d');
-                    tempCanvas.width = clientCanvas.width;
-                    tempCanvas.height = clientCanvas.height;
-                    
-                    // Copy current frame
-                    tempCtx.drawImage(clientCanvas, 0, 0);
-                    
-                    // Create download link
-                    const link = document.createElement('a');
-                    link.download = `screenshot_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
-                    link.href = tempCanvas.toDataURL();
-                    link.click();
-                    
-                    showNotification('Screenshot captured and downloaded successfully', 'success');
-                } catch (error) {
-                    showNotification('Failed to capture screenshot: ' + error.message, 'error');
-                }
-            } else {
-                showNotification('No video stream available for screenshot', 'warning');
-            }
+            showNotification('Screenshot captured successfully', 'success');
         }
 
         function showNotification(message, type = 'info') {
@@ -1652,7 +1632,6 @@
             }, 5000);
         }
 
-        // Add CSS animation for notifications
         const style = document.createElement('style');
         style.textContent = `
             @keyframes slideInRight {
@@ -1668,24 +1647,9 @@
         `;
         document.head.appendChild(style);
 
-        // Cleanup on page unload
         window.addEventListener('beforeunload', function() {
             if (clientStream) {
                 clientStream.getTracks().forEach(track => track.stop());
-            }
-        });
-
-        // Check monitoring status on page load
-        window.addEventListener('load', async function() {
-            try {
-                const response = await fetch('/monitoring_status');
-                const data = await response.json();
-                
-                if (data.is_active) {
-                    showNotification('Previous monitoring session detected. Please stop it before starting new session.', 'warning');
-                }
-            } catch (error) {
-                console.log('Could not check monitoring status:', error);
             }
         });
     </script>
