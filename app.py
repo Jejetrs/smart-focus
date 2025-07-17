@@ -472,14 +472,21 @@ def generate_pdf_report(session_data, output_path):
         styles = getSampleStyleSheet()
         story = []
         
+        # Define custom colors
+        header_blue = colors.HexColor('#2563EB')
+        light_blue = colors.HexColor('#EBF5FF')
+        dark_gray = colors.HexColor('#374151')
+        medium_gray = colors.HexColor('#6B7280')
+        light_gray = colors.HexColor('#F3F4F6')
+        
         title_style = ParagraphStyle(
             'Title',
             parent=styles['Heading1'],
-            fontSize=18,
+            fontSize=20,
             spaceAfter=30,
             alignment=TA_CENTER,
             fontName='Helvetica-Bold',
-            textColor=colors.black
+            textColor=header_blue
         )
         
         heading_style = ParagraphStyle(
@@ -489,7 +496,7 @@ def generate_pdf_report(session_data, output_path):
             spaceAfter=15,
             spaceBefore=20,
             fontName='Helvetica-Bold',
-            textColor=colors.black
+            textColor=dark_gray
         )
         
         normal_style = ParagraphStyle(
@@ -538,14 +545,15 @@ def generate_pdf_report(session_data, output_path):
         
         session_table = Table(session_info, colWidths=[3*inch, 2*inch])
         session_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('BACKGROUND', (0, 0), (0, -1), light_blue),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
             ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('GRID', (0, 0), (-1, -1), 1, medium_gray),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 0), (-1, -1), [light_blue, colors.white]),
         ]))
         
         story.append(session_table)
@@ -553,21 +561,42 @@ def generate_pdf_report(session_data, output_path):
         
         story.append(Paragraph("Focus Accuracy Summary", heading_style))
         
-        accuracy_para = Paragraph(f"<para align=center><font size=24><b>{focus_accuracy:.1f}%</b></font></para>", normal_style)
-        story.append(accuracy_para)
-        story.append(Spacer(1, 10))
-        
+        # Colored accuracy percentage
         if focus_accuracy >= 90:
+            accuracy_color = colors.HexColor('#10B981')  # Green
             focus_rating = "Excellent"
         elif focus_accuracy >= 75:
+            accuracy_color = header_blue  # Blue
             focus_rating = "Good"
         elif focus_accuracy >= 60:
+            accuracy_color = colors.HexColor('#F59E0B')  # Yellow
             focus_rating = "Fair"
         else:
+            accuracy_color = colors.HexColor('#EF4444')  # Red
             focus_rating = "Poor"
         
-        rating_para = Paragraph(f"<para align=center><font size=16><b>Focus Quality: {focus_rating}</b></font></para>", normal_style)
-        story.append(rating_para)
+        accuracy_style = ParagraphStyle(
+            'AccuracyStyle',
+            parent=normal_style,
+            fontSize=28,
+            fontName='Helvetica-Bold',
+            textColor=accuracy_color,
+            alignment=TA_CENTER
+        )
+        
+        story.append(Paragraph(f"{focus_accuracy:.1f}%", accuracy_style))
+        story.append(Spacer(1, 10))
+        
+        rating_style = ParagraphStyle(
+            'RatingStyle',
+            parent=normal_style,
+            fontSize=16,
+            fontName='Helvetica-Bold',
+            textColor=accuracy_color,
+            alignment=TA_CENTER
+        )
+        
+        story.append(Paragraph(f"Focus Quality: {focus_rating}", rating_style))
         story.append(Spacer(1, 30))
         
         def format_time(seconds):
@@ -591,14 +620,16 @@ def generate_pdf_report(session_data, output_path):
         
         metric_table = Table(metric_data, colWidths=[2*inch, 1.5*inch, 1.5*inch])
         metric_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('BACKGROUND', (0, 0), (-1, 0), header_blue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('GRID', (0, 0), (-1, -1), 1, medium_gray),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [light_gray, colors.white]),
         ]))
         
         story.append(metric_table)
@@ -629,14 +660,15 @@ def generate_pdf_report(session_data, output_path):
         
         detail_table = Table(detail_data, colWidths=[2.5*inch, 2.5*inch])
         detail_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('BACKGROUND', (0, 0), (0, -1), light_blue),
             ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
             ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('GRID', (0, 0), (-1, -1), 1, medium_gray),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 0), (-1, -1), [light_blue, colors.white]),
         ]))
         
         story.append(detail_table)
@@ -662,16 +694,19 @@ def generate_pdf_report(session_data, output_path):
                     alert['message']
                 ])
             
-            alert_table = Table(alert_data, colWidths=[1*inch, 1*inch, 1.2*inch, 0.8*inch, 2*inch])
+            # Adjusted column widths - made message column wider
+            alert_table = Table(alert_data, colWidths=[0.8*inch, 0.8*inch, 1*inch, 0.6*inch, 2.8*inch])
             alert_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('BACKGROUND', (0, 0), (-1, 0), header_blue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('GRID', (0, 0), (-1, -1), 1, medium_gray),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [light_gray, colors.white]),
             ]))
             
             story.append(alert_table)
@@ -683,7 +718,7 @@ def generate_pdf_report(session_data, output_path):
             fontSize=10,
             alignment=TA_CENTER,
             fontName='Helvetica',
-            textColor=colors.grey
+            textColor=medium_gray
         )
         
         footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System - Focus Monitoring Report"
@@ -842,6 +877,9 @@ def create_demo_recording_file():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         recording_filename = f"session_recording_{timestamp}.mp4"
         recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(recording_path), exist_ok=True)
         
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
         out = cv.VideoWriter(recording_path, fourcc, 30, (640, 480))
@@ -1053,6 +1091,7 @@ def stop_monitoring():
     recording_active = False
     session_data['end_time'] = datetime.now()
     
+    # Generate PDF report
     pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
     
@@ -1065,20 +1104,25 @@ def stop_monitoring():
     
     if pdf_result and os.path.exists(pdf_path):
         response_data["pdf_report"] = f"/download_report/{pdf_filename}"
+        print(f"PDF report created: {pdf_path}")
     
+    # Generate video recording
     recording_filename = f"session_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
     recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
     
-    if session_data.get('recording_frames'):
+    if session_data.get('recording_frames') and len(session_data['recording_frames']) > 0:
         video_result = create_session_recording_from_frames(session_data['recording_frames'], recording_path)
+        print(f"Created recording from {len(session_data['recording_frames'])} frames")
     else:
         video_result = create_demo_recording_file()
         if video_result:
             recording_path = video_result
+        print("Created demo recording file")
     
     if video_result and os.path.exists(recording_path):
         response_data["video_file"] = f"/download_recording/{os.path.basename(recording_path)}"
         session_data['recording_path'] = recording_path
+        print(f"Video recording created: {recording_path}")
     
     return jsonify(response_data)
 
@@ -1226,6 +1270,19 @@ def download_recording(filename):
     except Exception as e:
         print(f"Error downloading recording: {str(e)}")
         return jsonify({"error": "Error downloading recording file"}), 500
+
+@application.route('/health')
+def health_check():
+    return jsonify({
+        "status": "healthy", 
+        "timestamp": datetime.now().isoformat(),
+        "directories": {
+            "uploads": os.path.exists(application.config['UPLOAD_FOLDER']),
+            "detected": os.path.exists(application.config['DETECTED_FOLDER']),
+            "reports": os.path.exists(application.config['REPORTS_FOLDER']),
+            "recordings": os.path.exists(application.config['RECORDINGS_FOLDER'])
+        }
+    })
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
