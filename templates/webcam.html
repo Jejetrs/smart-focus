@@ -886,14 +886,16 @@
     </div>
 
     <script>
+        // CRITICAL FIX: Enhanced global variables with better session management
         let sessionStartTime = null;
         let alertCount = 0;
         let isMonitoring = false;
         let sessionTimer = null;
         let dataUpdateTimer = null;
-        let lastAlertIds = new Set();
         let audioEnabled = true;
+        let currentSessionId = null;
 
+        // Client camera variables
         let usingClientCamera = false;
         let clientVideo = null;
         let clientCanvas = null;
@@ -901,6 +903,7 @@
         let clientStream = null;
         let processingInterval = null;
 
+        // CRITICAL FIX: Enhanced client-side alert tracking
         let clientAlerts = [];
         let personStates = {};
         let personTimers = {};
@@ -910,14 +913,16 @@
             'NOT FOCUSED': 10000
         };
 
+        // Audio system variables
         let audioContext = null;
-        let alertAudio = null;
+        let lastAlertTime = {};
 
         document.addEventListener('DOMContentLoaded', function() {
             initializePage();
             setupEventListeners();
             checkCameraSetup();
             initializeAudioSystem();
+            checkExistingSession();
         });
 
         function initializePage() {
@@ -932,189 +937,38 @@
             clientCtx = clientCanvas.getContext('2d');
         }
 
-        function initializeAudioSystem() {
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
-                if ('speechSynthesis' in window) {
-                    console.log('Speech synthesis available');
-                } else {
-                    console.log('Speech synthesis not available, using beep alerts only');
-                }
-            } catch (error) {
-                console.log('Audio initialization failed:', error);
+        // CRITICAL FIX: Check for existing session on page load
+        function checkExistingSession() {
+            fetch('/monitoring_status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.is_active && data.session_id) {
+                        console.log('Found existing active session:', data.session_id);
+                        currentSessionId = data.session_id;
+                        
+                        // Update UI to show monitoring is active
+                        updateUIForActiveMonitoring();
+                        startDataUpdates();
+                        
+                        // Try to resume camera if using client camera
+                        if (usingClientCamera) {
+                            initializeClientCamera().catch(err => {
+                                console.error('Failed to resume camera:', err);
+                            });
+                        }
+                        
+                        showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
         }
 
-        function playAlertSound(alertType = 'default') {
-            if (!audioEnabled || !audioContext) return;
-
-            try {
-                const volume = parseFloat(document.getElementById('alertVolume').value);
-                
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-                
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                const frequencies = {
-                    'SLEEPING': 800,
-                    'YAWNING': 600,
-                    'NOT FOCUSED': 400,
-                    'default': 500
-                };
-                
-                oscillator.frequency.setValueAtTime(frequencies[alertType] || frequencies.default, audioContext.currentTime);
-                oscillator.type = 'sine';
-                
-                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.1);
-                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
-                
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.5);
-                
-            } catch (error) {
-                console.error('Audio playback error:', error);
-            }
-        }
-
-        function speakAlertMessage(message) {
-            if (!audioEnabled || !window.speechSynthesis) return;
-
-            try {
-                const utterance = new SpeechSynthesisUtterance(message);
-                const volume = parseFloat(document.getElementById('alertVolume').value);
-                
-                utterance.volume = volume;
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
-                
-                window.speechSynthesis.speak(utterance);
-            } catch (error) {
-                console.error('Speech synthesis error:', error);
-            }
-        }
-
-        async function checkCameraSetup() {
-            try {
-                const response = await fetch('/check_camera');
-                const data = await response.json();
-                
-                if (!data.camera_available) {
-                    usingClientCamera = true;
-                    document.getElementById('cameraSetupNotice').style.display = 'block';
-                    document.getElementById('connectionSubtitle').textContent = 'Using device camera (Railway/ngrok mode)';
-                    console.log('Using client-side camera for Railway/ngrok compatibility');
-                }
-            } catch (error) {
-                usingClientCamera = true;
-                document.getElementById('cameraSetupNotice').style.display = 'block';
-                document.getElementById('connectionSubtitle').textContent = 'Using device camera (fallback mode)';
-                console.log('Fallback to client-side camera');
-            }
-        }
-
-        function setupEventListeners() {
-            document.querySelectorAll('.nav-link').forEach(link => {
-                link.addEventListener('click', function(e) {
-                    if (this.getAttribute('href').startsWith('/')) {
-                        e.preventDefault();
-                        document.body.style.opacity = "0";
-                        setTimeout(() => {
-                            window.location.href = this.getAttribute('href');
-                        }, 300);
-                    }
-                });
-            });
-
-            document.querySelectorAll('.btn').forEach(button => {
-                button.addEventListener('mouseenter', function() {
-                    if (!this.disabled) {
-                        this.style.transform = 'translateY(-3px) scale(1.05)';
-                    }
-                });
-                
-                button.addEventListener('mouseleave', function() {
-                    this.style.transform = 'translateY(0) scale(1)';
-                });
-            });
-
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    if (isMonitoring) {
-                        stopMonitoring();
-                    }
-                }
-                if (e.key === ' ') {
-                    e.preventDefault();
-                    if (isMonitoring) {
-                        takeScreenshot();
-                    }
-                }
-            });
-
-            document.getElementById('alertVolume').addEventListener('change', function() {
-                showNotification(`Alert volume changed to ${this.selectedOptions[0].text}`, 'info');
-            });
-
-            document.addEventListener('click', function() {
-                if (audioContext && audioContext.state === 'suspended') {
-                    audioContext.resume();
-                }
-            }, { once: true });
-        }
-
-        function toggleAudioAlert() {
-            audioEnabled = !audioEnabled;
-            const toggle = document.querySelector('.toggle-switch');
-            const statusText = document.getElementById('audioStatus');
-            
-            if (audioEnabled) {
-                toggle.classList.remove('off');
-                statusText.textContent = 'Sound Alerts Enabled';
-                statusText.style.color = 'var(--success)';
-            } else {
-                toggle.classList.add('off');
-                statusText.textContent = 'Sound Alerts Disabled';
-                statusText.style.color = 'var(--text-muted)';
-            }
-        }
-
-        async function startMonitoring() {
-            try {
-                // Reset session data - CRITICAL FIX
-                resetSessionData();
-
-                const response = await fetch('/start_monitoring', { method: 'POST' });
-                const data = await response.json();
-                
-                if (data.status !== 'success') {
-                    throw new Error(data.message);
-                }
-
-                if (usingClientCamera) {
-                    await initializeClientCamera();
-                } else {
-                    initializeServerCamera();
-                }
-
-                updateUIForActiveMonitoring();
-                startDataUpdates();
-                showNotification('Monitoring started with automatic recording and alert tracking', 'success');
-            } catch (error) {
-                showNotification('Failed to start monitoring: ' + error.message, 'error');
-            }
-        }
-
-        // CRITICAL FIX: Reset all session data when starting new monitoring
-        function resetSessionData() {
+        // CRITICAL FIX: Reset all client-side session data
+        function resetClientSessionData() {
             clientAlerts = [];
             personStates = {};
             personTimers = {};
             alertCount = 0;
             sessionStartTime = null;
+            lastAlertTime = {};
             
             // Clear UI counters
             document.getElementById('alertCount').textContent = '0';
@@ -1126,7 +980,7 @@
             document.getElementById('downloadsSection').style.display = 'none';
             document.getElementById('downloadItems').innerHTML = '';
             
-            console.log('Session data reset for new monitoring session');
+            console.log('Client session data reset for new monitoring session');
         }
 
         async function initializeClientCamera() {
@@ -1156,7 +1010,7 @@
         }
 
         function processClientFrame() {
-            if (!clientVideo || !isMonitoring || !clientStream) return;
+            if (!clientVideo || !isMonitoring || !clientStream || !currentSessionId) return;
 
             try {
                 clientCtx.drawImage(clientVideo, 0, 0, clientCanvas.width, clientCanvas.height);
@@ -1176,6 +1030,12 @@
                             clientCtx.drawImage(img, 0, 0, clientCanvas.width, clientCanvas.height);
                         };
                         img.src = data.processed_frame;
+
+                        // CRITICAL FIX: Validate session ID matches
+                        if (data.session_id && data.session_id !== currentSessionId) {
+                            console.warn('Session ID mismatch:', data.session_id, 'vs', currentSessionId);
+                            return;
+                        }
 
                         if (data.detections && data.detections.length > 0) {
                             processDetectionAlerts(data.detections);
@@ -1217,6 +1077,7 @@
                         if (duration >= alertThresholds[currentState]) {
                             triggerClientAlert(detection.id, currentState, Math.floor(duration / 1000));
                             
+                            // Reset timer to prevent spam
                             personTimers[personId][currentState] = currentTime;
                         }
                     }
@@ -1230,14 +1091,25 @@
             const alertTime = new Date().toLocaleTimeString();
             const alertMessage = getAlertMessage(personId, alertType);
             
+            // CRITICAL FIX: Check for duplicate alerts to prevent spam
+            const alertKey = `${personId}_${alertType}`;
+            const now = Date.now();
+            
+            if (lastAlertTime[alertKey] && (now - lastAlertTime[alertKey]) < 5000) {
+                return; // Skip duplicate alert within 5 seconds
+            }
+            
+            lastAlertTime[alertKey] = now;
+            
             const alert = {
-                id: `${personId}_${alertType}_${Date.now()}`,
+                id: `${personId}_${alertType}_${now}`,
                 time: alertTime,
                 person: `Person ${personId}`,
                 detection: alertType,
                 message: alertMessage,
                 duration: duration,
-                type: alertType === 'SLEEPING' ? 'error' : 'warning'
+                type: alertType === 'SLEEPING' ? 'error' : 'warning',
+                session_id: currentSessionId
             };
 
             clientAlerts.unshift(alert);
@@ -1256,10 +1128,9 @@
             }, 500);
 
             updateClientAlertHistory();
-
             showNotification(alertMessage, alert.type);
 
-            console.log('Alert triggered:', alert);
+            console.log('Alert triggered for session', currentSessionId, ':', alert);
         }
 
         function getAlertMessage(personId, alertType) {
@@ -1308,10 +1179,16 @@
             ).join('');
         }
 
+        // CRITICAL FIX: Enhanced stopMonitoring with better error handling
         async function stopMonitoring() {
             try {
+                console.log('=== STOPPING MONITORING ===');
+                console.log('Current session ID:', currentSessionId);
+                
                 const response = await fetch('/stop_monitoring', { method: 'POST' });
                 const data = await response.json();
+
+                console.log('Stop monitoring response:', data);
 
                 updateUIForInactiveMonitoring();
                 stopDataUpdates();
@@ -1326,26 +1203,29 @@
                     processingInterval = null;
                 }
 
+                // Reset tracking data
                 personStates = {};
                 personTimers = {};
+                lastAlertTime = {};
 
-                showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
-                
-                // CRITICAL FIX: Only show downloads if server returns valid file paths
                 if (data.status === 'success') {
-                    console.log('Server response:', data);
+                    showNotification(`Session complete! Generated ${alertCount} alerts. Session: ${data.session_id}`, 'success');
                     
+                    // CRITICAL FIX: Only show downloads if server returns valid file paths
                     if (data.pdf_report || data.video_file) {
                         showDownloads(data.pdf_report, data.video_file);
-                        console.log('Downloads section updated with server files');
+                        console.log('Downloads section updated with files');
                     } else {
-                        console.log('No file paths returned from server');
+                        console.log('No download files returned from server');
                         showNotification('Session completed successfully, but download files are not available yet.', 'warning');
                     }
                 } else {
                     console.error('Server error:', data.message);
                     showNotification('Error stopping session: ' + data.message, 'error');
                 }
+
+                currentSessionId = null;
+                
             } catch (error) {
                 console.error('Stop monitoring error:', error);
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
@@ -1404,8 +1284,6 @@
             
             const alertHistory = document.getElementById('alertHistory');
             alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring started - watching for alerts...</p></div>';
-            
-            lastAlertIds.clear();
         }
 
         function startDataUpdates() {
@@ -1647,11 +1525,213 @@
         `;
         document.head.appendChild(style);
 
+        // CRITICAL FIX: Enhanced cleanup on page unload
         window.addEventListener('beforeunload', function() {
             if (clientStream) {
                 clientStream.getTracks().forEach(track => track.stop());
             }
+            if (processingInterval) {
+                clearInterval(processingInterval);
+            }
+            if (sessionTimer) {
+                clearInterval(sessionTimer);
+            }
+            if (dataUpdateTimer) {
+                clearInterval(dataUpdateTimer);
+            }
         });
     </script>
 </body>
-</html>
+</html>Resumed existing monitoring session: ' + data.session_id, 'info');
+                    } else {
+                        console.log('No active session found');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking session status:', error);
+                });
+        }
+
+        function initializeAudioSystem() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                if ('speechSynthesis' in window) {
+                    console.log('Speech synthesis available');
+                } else {
+                    console.log('Speech synthesis not available, using beep alerts only');
+                }
+            } catch (error) {
+                console.log('Audio initialization failed:', error);
+            }
+        }
+
+        function playAlertSound(alertType = 'default') {
+            if (!audioEnabled || !audioContext) return;
+
+            try {
+                const volume = parseFloat(document.getElementById('alertVolume').value);
+                
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                const frequencies = {
+                    'SLEEPING': 800,
+                    'YAWNING': 600,
+                    'NOT FOCUSED': 400,
+                    'default': 500
+                };
+                
+                oscillator.frequency.setValueAtTime(frequencies[alertType] || frequencies.default, audioContext.currentTime);
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.1);
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+                
+            } catch (error) {
+                console.error('Audio playback error:', error);
+            }
+        }
+
+        function speakAlertMessage(message) {
+            if (!audioEnabled || !window.speechSynthesis) return;
+
+            try {
+                const utterance = new SpeechSynthesisUtterance(message);
+                const volume = parseFloat(document.getElementById('alertVolume').value);
+                
+                utterance.volume = volume;
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                
+                window.speechSynthesis.speak(utterance);
+            } catch (error) {
+                console.error('Speech synthesis error:', error);
+            }
+        }
+
+        async function checkCameraSetup() {
+            try {
+                const response = await fetch('/check_camera');
+                const data = await response.json();
+                
+                if (!data.camera_available) {
+                    usingClientCamera = true;
+                    document.getElementById('cameraSetupNotice').style.display = 'block';
+                    document.getElementById('connectionSubtitle').textContent = 'Using device camera (Railway/ngrok mode)';
+                    console.log('Using client-side camera for Railway/ngrok compatibility');
+                }
+            } catch (error) {
+                usingClientCamera = true;
+                document.getElementById('cameraSetupNotice').style.display = 'block';
+                document.getElementById('connectionSubtitle').textContent = 'Using device camera (fallback mode)';
+                console.log('Fallback to client-side camera');
+            }
+        }
+
+        function setupEventListeners() {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    if (this.getAttribute('href').startsWith('/')) {
+                        e.preventDefault();
+                        document.body.style.opacity = "0";
+                        setTimeout(() => {
+                            window.location.href = this.getAttribute('href');
+                        }, 300);
+                    }
+                });
+            });
+
+            document.querySelectorAll('.btn').forEach(button => {
+                button.addEventListener('mouseenter', function() {
+                    if (!this.disabled) {
+                        this.style.transform = 'translateY(-3px) scale(1.05)';
+                    }
+                });
+                
+                button.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    if (isMonitoring) {
+                        stopMonitoring();
+                    }
+                }
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    if (isMonitoring) {
+                        takeScreenshot();
+                    }
+                }
+            });
+
+            document.getElementById('alertVolume').addEventListener('change', function() {
+                showNotification(`Alert volume changed to ${this.selectedOptions[0].text}`, 'info');
+            });
+
+            document.addEventListener('click', function() {
+                if (audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+            }, { once: true });
+        }
+
+        function toggleAudioAlert() {
+            audioEnabled = !audioEnabled;
+            const toggle = document.querySelector('.toggle-switch');
+            const statusText = document.getElementById('audioStatus');
+            
+            if (audioEnabled) {
+                toggle.classList.remove('off');
+                statusText.textContent = 'Sound Alerts Enabled';
+                statusText.style.color = 'var(--success)';
+            } else {
+                toggle.classList.add('off');
+                statusText.textContent = 'Sound Alerts Disabled';
+                statusText.style.color = 'var(--text-muted)';
+            }
+        }
+
+        // CRITICAL FIX: Enhanced startMonitoring with better session management
+        async function startMonitoring() {
+            try {
+                console.log('=== STARTING MONITORING ===');
+                
+                // Reset all client-side session data
+                resetClientSessionData();
+
+                const response = await fetch('/start_monitoring', { method: 'POST' });
+                const data = await response.json();
+                
+                console.log('Server response:', data);
+                
+                if (data.status !== 'success') {
+                    throw new Error(data.message || 'Failed to start monitoring');
+                }
+
+                // CRITICAL FIX: Store session ID from server
+                currentSessionId = data.session_id;
+                console.log('New session started:', currentSessionId);
+
+                if (usingClientCamera) {
+                    await initializeClientCamera();
+                } else {
+                    initializeServerCamera();
+                }
+
+                updateUIForActiveMonitoring();
+                startDataUpdates();
+                showNotification(`Monitoring started with session: ${currentSessionId}`, 'success');
+            } catch (error) {
+                console.error('Failed to start monitoring:', error);
+                showNotification('
