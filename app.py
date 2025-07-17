@@ -224,10 +224,43 @@ def detect_persons_with_attention(image, mode="image"):
     ih, iw, _ = image.shape
     current_time = time.time()
     
-    # Check monitoring status at the start of detection
+    # PERBAIKAN: Snapshot status monitoring di awal untuk konsistensi
     with monitoring_lock:
         is_monitoring_active = live_monitoring_active
-        current_session_data = session_data.copy() if session_data else None
+        current_session_exists = session_data is not None and session_data.get('start_time') is not None
+    
+    # Jika tidak monitoring, return early tanpa alert processing
+    if not is_monitoring_active or not current_session_exists:
+        # Tetap lakukan detection tapi tanpa alert processing
+        if detection_results.detections:
+            for i, detection in enumerate(detection_results.detections):
+                bboxC = detection.location_data.relative_bounding_box
+                x, y, w, h = int(bboxC.xmin * iw), int(bboxC.ymin * ih), \
+                             int(bboxC.width * iw), int(bboxC.height * ih)
+                
+                x = max(0, x)
+                y = max(0, y)
+                w = min(w, iw - x)
+                h = min(h, ih - y)
+                
+                confidence_score = detection.score[0]
+                
+                # Basic detection tanpa drowsiness analysis
+                cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv.putText(image, f"Person {i+1}", (x, y-10), 
+                          cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                
+                detections.append({
+                    "id": i+1,
+                    "confidence": float(confidence_score),
+                    "bbox": [x, y, w, h],
+                    "image_path": "",
+                    "status": "FOCUSED",
+                    "timestamp": datetime.now().isoformat(),
+                    "duration": 0
+                })
+        
+        return image, detections
     
     if detection_results.detections:
         for i, detection in enumerate(detection_results.detections):
@@ -249,6 +282,7 @@ def detect_persons_with_attention(image, mode="image"):
                 "state": "FOCUSED"
             }
             
+            # Face mesh matching (sama seperti sebelumnya)
             matched_face_idx = -1
             if mesh_results.multi_face_landmarks:
                 for face_idx, face_landmarks in enumerate(mesh_results.multi_face_landmarks):
@@ -282,8 +316,15 @@ def detect_persons_with_attention(image, mode="image"):
             person_key = f"person_{i+1}"
             
             duration = 0
+            
+            # PERBAIKAN: Alert processing dengan double-check monitoring status
             if mode == "video" and is_monitoring_active:
                 with monitoring_lock:
+                    # Double check apakah masih monitoring
+                    if not live_monitoring_active:
+                        print(f"WARNING: Monitoring stopped mid-processing for {person_key}")
+                        break
+                    
                     if person_key not in person_state_timers:
                         person_state_timers[person_key] = {}
                         person_current_state[person_key] = None
@@ -300,6 +341,7 @@ def detect_persons_with_attention(image, mode="image"):
                     if status_text in person_state_timers[person_key]:
                         duration = current_time - person_state_timers[person_key][status_text]
             
+            # Visualisasi (sama seperti sebelumnya)
             if mode == "video" and is_monitoring_active:
                 status_colors = {
                     "FOCUSED": (0, 255, 0),
@@ -332,57 +374,30 @@ def detect_persons_with_attention(image, mode="image"):
                 
                 cv.putText(image, timer_text, (x + 5, text_y), font, font_scale, main_color, thickness)
             else:
+                # Static image mode visualization
                 cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                
-                info_y_start = y + h + 10
-                box_padding = 10
-                line_height = 20
-                box_height = 4 * line_height
-                
-                overlay = image.copy()
-                cv.rectangle(overlay, 
-                            (x - box_padding, info_y_start - box_padding), 
-                            (x + w + box_padding, info_y_start + box_height), 
-                            (0, 0, 0), -1)
-                cv.addWeighted(overlay, 0.6, image, 0.4, 0, image)
-                
-                font = cv.FONT_HERSHEY_SIMPLEX
-                font_scale = 0.5
-                font_color = (255, 255, 255)
-                thickness = 1
-                
-                cv.putText(image, f"Person {i+1}", (x, info_y_start), 
-                        font, font_scale, (50, 205, 50), thickness+1)
-                cv.putText(image, f"Confidence: {confidence_score*100:.2f}%", 
-                        (x, info_y_start + line_height), font, font_scale, font_color, thickness)
-                cv.putText(image, f"Position: x:{x}, y:{y} Size: w:{w}, h:{h}", 
-                        (x, info_y_start + 2*line_height), font, font_scale, font_color, thickness)
-                
-                status_color = {
-                    "FOCUSED": (0, 255, 0),
-                    "NOT FOCUSED": (255, 165, 0),
-                    "YAWNING": (255, 255, 0),
-                    "SLEEPING": (0, 0, 255)
-                }
-                color = status_color.get(status_text, (0, 255, 0))
-                
-                cv.putText(image, f"Status: {status_text}", 
-                        (x, info_y_start + 3*line_height), font, font_scale, color, thickness)
+                cv.putText(image, f"Person {i+1}: {status_text}", (x, y-10), 
+                          cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-            # Handle alerts with proper locking
-            should_alert = False
-            alert_message = ""
-            
-            if (mode == "video" and is_monitoring_active and status_text in DISTRACTION_THRESHOLDS and 
-                person_key in person_state_timers and status_text in person_state_timers[person_key]):
+            # PERBAIKAN: Alert handling dengan safeguard yang lebih ketat
+            if (mode == "video" and is_monitoring_active and 
+                status_text in DISTRACTION_THRESHOLDS and 
+                person_key in person_state_timers and 
+                status_text in person_state_timers[person_key]):
                 
                 if duration >= DISTRACTION_THRESHOLDS[status_text]:
                     alert_cooldown = 5
+                    
+                    # CRITICAL: Triple check sebelum menambah alert
                     with monitoring_lock:
-                        if current_time - last_alert_time.get(person_key, 0) >= alert_cooldown:
-                            should_alert = True
+                        if (live_monitoring_active and 
+                            session_data is not None and 
+                            session_data.get('start_time') is not None and 
+                            current_time - last_alert_time.get(person_key, 0) >= alert_cooldown):
+                            
                             last_alert_time[person_key] = current_time
                             
+                            alert_message = ""
                             if status_text == 'SLEEPING':
                                 alert_message = f'Person {i+1} is sleeping - please wake up!'
                             elif status_text == 'YAWNING':
@@ -390,17 +405,21 @@ def detect_persons_with_attention(image, mode="image"):
                             elif status_text == 'NOT FOCUSED':
                                 alert_message = f'Person {i+1} is not focused - please focus on screen!'
                             
-                            # Only add alert if still monitoring (double check)
-                            if live_monitoring_active and session_data:
-                                session_data['alerts'].append({
+                            # FINAL CHECK: Tambahkan alert hanya jika kondisi masih valid
+                            if live_monitoring_active and session_data and alert_message:
+                                new_alert = {
                                     'timestamp': datetime.now().isoformat(),
                                     'person': f"Person {i+1}",
                                     'detection': status_text,
                                     'message': alert_message,
                                     'duration': int(duration)
-                                })
-                                print(f"Alert added: {alert_message} (Total alerts: {len(session_data['alerts'])})")
+                                }
+                                session_data['alerts'].append(new_alert)
+                                print(f"ALERT ADDED: {alert_message} (Total: {len(session_data['alerts'])})")
+                            else:
+                                print(f"ALERT SKIPPED: Monitoring stopped during alert processing")
             
+            # Save face image
             face_img = image[y:y+h, x:x+w]
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             face_filename = f"person_{i+1}_{timestamp}_{uuid.uuid4().hex[:8]}.jpg"
@@ -422,6 +441,7 @@ def detect_persons_with_attention(image, mode="image"):
                 "duration": duration if mode == "video" else 0
             })
     
+    # Status display
     if detections:
         cv.putText(image, f"Persons detected: {len(detections)}", 
                   (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
@@ -1358,57 +1378,60 @@ def stop_monitoring():
             print(f"=== STOP MONITORING REQUEST ===")
             print(f"Current status: live_monitoring_active={live_monitoring_active}")
             print(f"Session data exists: {session_data is not None}")
+            
             if session_data:
                 print(f"Session start time: {session_data.get('start_time')}")
                 print(f"Total alerts: {len(session_data.get('alerts', []))}")
                 print(f"Total frames: {len(session_data.get('recording_frames', []))}")
             
-            # More flexible check - allow stopping even if status inconsistent
-            if not live_monitoring_active and (not session_data or not session_data.get('start_time')):
-                print("ERROR: No active monitoring session found")
-                return jsonify({"status": "error", "message": "Monitoring not active"})
+            # PERBAIKAN: Lebih fleksibel dalam checking
+            has_valid_session = (session_data is not None and 
+                               session_data.get('start_time') is not None)
             
-            # Ensure session_data exists
-            if not session_data:
-                print("WARNING: Creating minimal session data")
-                session_data = {
-                    'start_time': datetime.now() - timedelta(minutes=1),
-                    'end_time': None,
-                    'detections': [],
-                    'alerts': [],
-                    'focus_statistics': {
-                        'unfocused_time': 0,
-                        'yawning_time': 0,
-                        'sleeping_time': 0,
-                        'total_persons': 0,
-                        'total_detections': 0
-                    },
-                    'recording_path': None,
-                    'recording_frames': []
-                }
+            if not has_valid_session:
+                print("ERROR: No valid session found")
+                return jsonify({
+                    "status": "error", 
+                    "message": "No active session found or session already ended"
+                })
             
-            if not session_data.get('start_time'):
-                session_data['start_time'] = datetime.now() - timedelta(minutes=1)
+            # PERBAIKAN: Pastikan session data minimal ada
+            if not session_data.get('alerts'):
+                session_data['alerts'] = []
+            if not session_data.get('recording_frames'):
+                session_data['recording_frames'] = []
+            if not session_data.get('detections'):
+                session_data['detections'] = []
             
-            # Stop monitoring
+            # Stop monitoring dengan safeguard
             live_monitoring_active = False
             recording_active = False
             session_data['end_time'] = datetime.now()
             
             print(f"Monitoring stopped at {session_data['end_time']}")
+            print(f"Final alert count: {len(session_data.get('alerts', []))}")
             
             response_data = {
                 "status": "success", 
-                "message": "Monitoring stopped"
+                "message": "Monitoring stopped successfully"
             }
             
-            # Generate PDF report
+            # Generate PDF report dengan error handling yang lebih baik
             print("=== GENERATING PDF REPORT ===")
             try:
                 pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.pdf"
                 pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                 
-                print(f"PDF path: {pdf_path}")
+                # Pastikan session_data lengkap sebelum generate PDF
+                if not session_data.get('focus_statistics'):
+                    session_data['focus_statistics'] = {
+                        'unfocused_time': 0,
+                        'yawning_time': 0,
+                        'sleeping_time': 0,
+                        'total_persons': 0,
+                        'total_detections': 0
+                    }
+                
                 pdf_result = generate_pdf_report(session_data, pdf_path)
                 
                 if pdf_result and os.path.exists(pdf_path):
@@ -1421,21 +1444,25 @@ def stop_monitoring():
                 print(f"PDF ERROR: {str(pdf_error)}")
                 traceback.print_exc()
             
-            # Generate video recording
+            # Generate video recording dengan fallback
             print("=== GENERATING VIDEO RECORDING ===")
             try:
                 recording_filename = f"session_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.mp4"
                 recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
                 
-                print(f"Video path: {recording_path}")
                 frame_count = len(session_data.get('recording_frames', []))
                 print(f"Available frames: {frame_count}")
                 
-                if frame_count > 0:
+                video_result = None
+                if frame_count > 5:  # Minimal 5 frames untuk video
                     print(f"Creating video from {frame_count} recorded frames")
-                    video_result = create_session_recording_from_frames(session_data['recording_frames'], recording_path)
-                else:
-                    print("No recorded frames, creating demo video")
+                    video_result = create_session_recording_from_frames(
+                        session_data['recording_frames'], recording_path
+                    )
+                
+                # Fallback ke demo video jika tidak ada frames atau gagal
+                if not video_result:
+                    print("Creating demo video as fallback")
                     video_result = create_demo_recording_file()
                     if video_result:
                         recording_path = video_result
@@ -1458,7 +1485,10 @@ def stop_monitoring():
     except Exception as e:
         print(f"FATAL ERROR stopping monitoring: {str(e)}")
         traceback.print_exc()
-        return jsonify({"status": "error", "message": f"Failed to stop monitoring: {str(e)}"})
+        return jsonify({
+            "status": "error", 
+            "message": f"Failed to stop monitoring: {str(e)}"
+        })
 
 @application.route('/get_monitoring_data')
 def get_monitoring_data():
@@ -1557,27 +1587,52 @@ def process_frame():
         if frame is None:
             return jsonify({"error": "Invalid frame data"}), 400
         
-        # Process frame for detection FIRST to get face landmarks and overlays
+        # PERBAIKAN: Check monitoring status sebelum processing
+        with monitoring_lock:
+            is_monitoring = live_monitoring_active
+            session_exists = session_data is not None
+        
+        if not is_monitoring or not session_exists:
+            # Jika tidak monitoring, lakukan basic detection saja
+            basic_frame = frame.copy()
+            cv.putText(basic_frame, "Monitoring not active", (10, 30), 
+                      cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            
+            _, buffer = cv.imencode('.jpg', basic_frame, [cv.IMWRITE_JPEG_QUALITY, 90])
+            frame_b64 = base64.b64encode(buffer).decode('utf-8')
+            
+            return jsonify({
+                "success": True,
+                "processed_frame": f"data:image/jpeg;base64,{frame_b64}",
+                "detections": []
+            })
+        
+        # Process frame untuk detection
         processed_frame, detections = detect_persons_with_attention(frame, mode="video")
         
-        # Store PROCESSED frame (with face landmarks) for recording if monitoring is active
+        # PERBAIKAN: Simpan frame hanya jika masih monitoring
         with monitoring_lock:
             if live_monitoring_active and recording_active and session_data:
-                session_data['recording_frames'].append(processed_frame.copy())
-                # Keep only last 300 frames to prevent memory issues (about 5 minutes at 1 fps)
-                if len(session_data['recording_frames']) > 300:
-                    session_data['recording_frames'] = session_data['recording_frames'][-300:]
-                
-                # Debug log every 10th frame
-                frame_count = len(session_data['recording_frames'])
-                if frame_count % 10 == 0:
-                    print(f"FRAME STORAGE: {frame_count} frames stored, {len(detections)} detections, active={live_monitoring_active}")
+                try:
+                    session_data['recording_frames'].append(processed_frame.copy())
+                    # Keep only last 300 frames to prevent memory issues
+                    if len(session_data['recording_frames']) > 300:
+                        session_data['recording_frames'] = session_data['recording_frames'][-300:]
+                    
+                    frame_count = len(session_data['recording_frames'])
+                    if frame_count % 20 == 0:  # Log every 20 frames
+                        print(f"FRAMES: {frame_count} stored, {len(detections)} detections")
+                except Exception as storage_error:
+                    print(f"Frame storage error: {str(storage_error)}")
         
-        # Update session statistics if monitoring is active
+        # Update statistics jika ada detections
         if live_monitoring_active and detections:
-            update_session_statistics(detections)
+            try:
+                update_session_statistics(detections)
+            except Exception as stats_error:
+                print(f"Statistics update error: {str(stats_error)}")
         
-        # Encode processed frame back to base64
+        # Encode processed frame
         _, buffer = cv.imencode('.jpg', processed_frame, [cv.IMWRITE_JPEG_QUALITY, 90])
         processed_frame_b64 = base64.b64encode(buffer).decode('utf-8')
         
@@ -1591,7 +1646,7 @@ def process_frame():
         print(f"Error processing frame: {str(e)}")
         traceback.print_exc()
         return jsonify({"error": f"Frame processing failed: {str(e)}"}), 500
-
+    
 @application.route('/debug_status')
 def debug_status():
     """Debug endpoint to check detailed system status"""
