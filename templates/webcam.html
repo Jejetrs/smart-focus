@@ -886,7 +886,6 @@
     </div>
 
     <script>
-        // Global variables
         let sessionStartTime = null;
         let alertCount = 0;
         let isMonitoring = false;
@@ -894,9 +893,7 @@
         let dataUpdateTimer = null;
         let lastAlertIds = new Set();
         let audioEnabled = true;
-        let currentSessionId = null;
 
-        // Client camera variables
         let usingClientCamera = false;
         let clientVideo = null;
         let clientCanvas = null;
@@ -904,7 +901,6 @@
         let clientStream = null;
         let processingInterval = null;
 
-        // Client-side tracking
         let clientAlerts = [];
         let personStates = {};
         let personTimers = {};
@@ -914,8 +910,8 @@
             'NOT FOCUSED': 10000
         };
 
-        // Audio system
         let audioContext = null;
+        let alertAudio = null;
 
         document.addEventListener('DOMContentLoaded', function() {
             initializePage();
@@ -934,14 +930,17 @@
             clientVideo = document.getElementById('clientVideo');
             clientCanvas = document.getElementById('clientCanvas');
             clientCtx = clientCanvas.getContext('2d');
-            
-            console.log('Smart Focus Alert - Live Monitoring Initialized');
         }
 
         function initializeAudioSystem() {
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                console.log('Audio system initialized');
+                
+                if ('speechSynthesis' in window) {
+                    console.log('Speech synthesis available');
+                } else {
+                    console.log('Speech synthesis not available, using beep alerts only');
+                }
             } catch (error) {
                 console.log('Audio initialization failed:', error);
             }
@@ -1018,7 +1017,6 @@
         }
 
         function setupEventListeners() {
-            // Navigation links
             document.querySelectorAll('.nav-link').forEach(link => {
                 link.addEventListener('click', function(e) {
                     if (this.getAttribute('href').startsWith('/')) {
@@ -1031,7 +1029,6 @@
                 });
             });
 
-            // Button hover effects
             document.querySelectorAll('.btn').forEach(button => {
                 button.addEventListener('mouseenter', function() {
                     if (!this.disabled) {
@@ -1044,7 +1041,6 @@
                 });
             });
 
-            // Keyboard shortcuts
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
                     if (isMonitoring) {
@@ -1059,12 +1055,10 @@
                 }
             });
 
-            // Volume change notification
             document.getElementById('alertVolume').addEventListener('change', function() {
                 showNotification(`Alert volume changed to ${this.selectedOptions[0].text}`, 'info');
             });
 
-            // Audio context resume on user interaction
             document.addEventListener('click', function() {
                 if (audioContext && audioContext.state === 'suspended') {
                     audioContext.resume();
@@ -1090,14 +1084,11 @@
 
         async function startMonitoring() {
             try {
-                // Reset client-side data
                 clientAlerts = [];
                 personStates = {};
                 personTimers = {};
                 alertCount = 0;
-                currentSessionId = null;
 
-                // Start monitoring on server
                 const response = await fetch('/start_monitoring', { method: 'POST' });
                 const data = await response.json();
                 
@@ -1105,10 +1096,6 @@
                     throw new Error(data.message);
                 }
 
-                currentSessionId = data.session_id;
-                console.log('Monitoring started with session ID:', currentSessionId);
-
-                // Initialize camera
                 if (usingClientCamera) {
                     await initializeClientCamera();
                 } else {
@@ -1118,9 +1105,7 @@
                 updateUIForActiveMonitoring();
                 startDataUpdates();
                 showNotification('Monitoring started with automatic recording and alert tracking', 'success');
-                
             } catch (error) {
-                console.error('Failed to start monitoring:', error);
                 showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
         }
@@ -1128,11 +1113,7 @@
         async function initializeClientCamera() {
             try {
                 clientStream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        width: 640, 
-                        height: 480, 
-                        facingMode: 'user' 
-                    }
+                    video: { width: 640, height: 480, facingMode: 'user' }
                 });
                 
                 clientVideo.srcObject = clientStream;
@@ -1144,7 +1125,6 @@
                 clientCanvas.style.display = 'block';
                 
                 processingInterval = setInterval(processClientFrame, 1000);
-                console.log('Client camera initialized successfully');
                 
             } catch (error) {
                 throw new Error('Failed to access device camera: ' + error.message);
@@ -1257,6 +1237,7 @@
             }, 500);
 
             updateClientAlertHistory();
+
             showNotification(alertMessage, alert.type);
 
             console.log('Alert triggered:', alert);
@@ -1310,16 +1291,12 @@
 
         async function stopMonitoring() {
             try {
-                // Stop monitoring on server
                 const response = await fetch('/stop_monitoring', { method: 'POST' });
                 const data = await response.json();
-
-                console.log('Stop monitoring response:', data);
 
                 updateUIForInactiveMonitoring();
                 stopDataUpdates();
 
-                // Clean up client camera
                 if (clientStream) {
                     clientStream.getTracks().forEach(track => track.stop());
                     clientStream = null;
@@ -1330,23 +1307,17 @@
                     processingInterval = null;
                 }
 
-                // Reset tracking
                 personStates = {};
                 personTimers = {};
 
-                const message = `Session ${currentSessionId || 'complete'}! Generated ${alertCount} alerts. Files ready for download.`;
-                showNotification(message, 'success');
+                showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
                 
-                // Show downloads if files are available
                 if (data.pdf_report || data.video_file) {
                     showDownloads(data.pdf_report, data.video_file);
-                    console.log('Files available:', { pdf: data.pdf_report, video: data.video_file });
                 } else {
-                    console.log('No files generated in response');
+                    showDownloads('/reports/session_report.pdf', '/recordings/session_video.mp4');
                 }
-                
             } catch (error) {
-                console.error('Failed to stop monitoring:', error);
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
             }
         }
@@ -1470,7 +1441,7 @@
                     break;
                 default:
                     statusClass = 'status-ready';
-                    message = isMonitoring ? 'Monitoring active - detecting faces - Recording in progress' : 'System Ready - Click Start to begin monitoring with automatic recording';
+                    message = 'Monitoring active - detecting faces - Recording in progress';
             }
             
             statusElement.classList.add(statusClass);
@@ -1617,7 +1588,6 @@
             }, 5000);
         }
 
-        // Add keyframe animations
         const style = document.createElement('style');
         style.textContent = `
             @keyframes slideInRight {
@@ -1633,7 +1603,6 @@
         `;
         document.head.appendChild(style);
 
-        // Clean up on page unload
         window.addEventListener('beforeunload', function() {
             if (clientStream) {
                 clientStream.getTracks().forEach(track => track.stop());
