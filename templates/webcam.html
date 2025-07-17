@@ -893,6 +893,7 @@
         let dataUpdateTimer = null;
         let lastAlertIds = new Set();
         let audioEnabled = true;
+        let currentSessionId = null;
 
         let usingClientCamera = false;
         let clientVideo = null;
@@ -1084,10 +1085,15 @@
 
         async function startMonitoring() {
             try {
+                // Reset client-side variables
                 clientAlerts = [];
                 personStates = {};
                 personTimers = {};
                 alertCount = 0;
+                currentSessionId = null;
+
+                // Hide downloads section from previous session
+                document.getElementById('downloadsSection').style.display = 'none';
 
                 const response = await fetch('/start_monitoring', { method: 'POST' });
                 const data = await response.json();
@@ -1095,6 +1101,10 @@
                 if (data.status !== 'success') {
                     throw new Error(data.message);
                 }
+
+                // Store current session ID
+                currentSessionId = data.session_id;
+                console.log('New session started:', currentSessionId);
 
                 if (usingClientCamera) {
                     await initializeClientCamera();
@@ -1104,7 +1114,7 @@
 
                 updateUIForActiveMonitoring();
                 startDataUpdates();
-                showNotification('Monitoring started with automatic recording and alert tracking', 'success');
+                showNotification('New monitoring session started with automatic recording', 'success');
             } catch (error) {
                 showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
@@ -1294,6 +1304,10 @@
                 const response = await fetch('/stop_monitoring', { method: 'POST' });
                 const data = await response.json();
 
+                if (data.status !== 'success') {
+                    throw new Error(data.message);
+                }
+
                 updateUIForInactiveMonitoring();
                 stopDataUpdates();
 
@@ -1310,13 +1324,29 @@
                 personStates = {};
                 personTimers = {};
 
-                showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
+                showNotification(`Session complete! Generated ${alertCount} alerts. Files are being prepared...`, 'success');
                 
-                if (data.pdf_report || data.video_file) {
-                    showDownloads(data.pdf_report, data.video_file);
-                } else {
-                    showDownloads('/reports/session_report.pdf', '/recordings/session_video.mp4');
-                }
+                // Wait a moment for files to be generated, then check for them
+                setTimeout(async () => {
+                    try {
+                        const filesResponse = await fetch('/get_session_files');
+                        const filesData = await filesResponse.json();
+                        
+                        if (filesData.files) {
+                            showDownloads(filesData.files.pdf_report, filesData.files.video_file);
+                        } else {
+                            // Use fallback URLs if files endpoint doesn't return files
+                            showDownloads(data.pdf_report, data.video_file);
+                        }
+                        
+                        showNotification('Session files are ready for download!', 'success');
+                    } catch (error) {
+                        console.error('Error getting session files:', error);
+                        // Use fallback URLs from stop_monitoring response
+                        showDownloads(data.pdf_report, data.video_file);
+                    }
+                }, 2000);
+                
             } catch (error) {
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
             }
@@ -1379,6 +1409,9 @@
             alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring started - watching for alerts...</p></div>';
             
             lastAlertIds.clear();
+            
+            // Reset alert count display
+            document.getElementById('alertCount').textContent = '0';
         }
 
         function startDataUpdates() {
@@ -1441,7 +1474,7 @@
                     break;
                 default:
                     statusClass = 'status-ready';
-                    message = 'Monitoring active - detecting faces - Recording in progress';
+                    message = isMonitoring ? 'Monitoring active - detecting faces - Recording in progress' : 'System Ready - Click Start to begin monitoring with automatic recording';
             }
             
             statusElement.classList.add(statusClass);
@@ -1520,7 +1553,7 @@
                         </div>
                         <div>
                             <div style="font-weight: 600;">Session Recording</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with face landmarks</div>
                         </div>
                     </div>
                     <a href="${videoFile}" download class="btn btn-secondary">
@@ -1531,10 +1564,41 @@
             }
             
             downloadsSection.style.display = 'block';
+            
+            // Scroll to downloads section smoothly
+            setTimeout(() => {
+                downloadsSection.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'nearest' 
+                });
+            }, 500);
         }
 
         function takeScreenshot() {
-            showNotification('Screenshot captured successfully', 'success');
+            if (clientCanvas && isMonitoring) {
+                try {
+                    // Create a temporary canvas to capture current frame
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCanvas.width = clientCanvas.width;
+                    tempCanvas.height = clientCanvas.height;
+                    
+                    // Copy current frame
+                    tempCtx.drawImage(clientCanvas, 0, 0);
+                    
+                    // Create download link
+                    const link = document.createElement('a');
+                    link.download = `screenshot_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+                    link.href = tempCanvas.toDataURL();
+                    link.click();
+                    
+                    showNotification('Screenshot captured and downloaded successfully', 'success');
+                } catch (error) {
+                    showNotification('Failed to capture screenshot: ' + error.message, 'error');
+                }
+            } else {
+                showNotification('No video stream available for screenshot', 'warning');
+            }
         }
 
         function showNotification(message, type = 'info') {
@@ -1588,6 +1652,7 @@
             }, 5000);
         }
 
+        // Add CSS animation for notifications
         const style = document.createElement('style');
         style.textContent = `
             @keyframes slideInRight {
@@ -1603,9 +1668,24 @@
         `;
         document.head.appendChild(style);
 
+        // Cleanup on page unload
         window.addEventListener('beforeunload', function() {
             if (clientStream) {
                 clientStream.getTracks().forEach(track => track.stop());
+            }
+        });
+
+        // Check monitoring status on page load
+        window.addEventListener('load', async function() {
+            try {
+                const response = await fetch('/monitoring_status');
+                const data = await response.json();
+                
+                if (data.is_active) {
+                    showNotification('Previous monitoring session detected. Please stop it before starting new session.', 'warning');
+                }
+            } catch (error) {
+                console.log('Could not check monitoring status:', error);
             }
         });
     </script>
