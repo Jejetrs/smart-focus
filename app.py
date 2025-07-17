@@ -1013,7 +1013,26 @@ def create_demo_recording_file(output_path):
         print(f"Error creating demo recording: {str(e)}")
         return None
 
-def cleanup_old_session_files():
+def ensure_session_data():
+    """Ensure session_data is properly initialized"""
+    global session_data
+    if not session_data or not session_data.get('start_time'):
+        session_data = {
+            'start_time': datetime.now() - timedelta(minutes=1),  # Default to 1 minute ago
+            'end_time': None,
+            'detections': [],
+            'alerts': [],
+            'focus_statistics': {
+                'unfocused_time': 0,
+                'yawning_time': 0,
+                'sleeping_time': 0,
+                'total_persons': 0,
+                'total_detections': 0
+            },
+            'recording_path': None,
+            'recording_frames': []
+        }
+    return session_data
     """Clean up old session files to avoid conflicts"""
     global current_session_files
     
@@ -1227,16 +1246,75 @@ def start_monitoring():
     print("New monitoring session started")
     return jsonify({"status": "success", "message": "Monitoring started"})
 
+@application.route('/force_stop_monitoring', methods=['POST'])
+def force_stop_monitoring():
+    """Force stop monitoring - even if not active"""
+    global live_monitoring_active, session_data, recording_active, current_session_files
+    
+    print("Force stopping monitoring...")
+    
+    # Force stop everything
+    live_monitoring_active = False
+    recording_active = False
+    
+    # Ensure we have session data
+    ensure_session_data()
+    session_data['end_time'] = datetime.now()
+    
+    # Generate files regardless of previous state
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    session_id = uuid.uuid4().hex[:8]
+    
+    response_data = {"status": "success", "message": "Monitoring force stopped"}
+    
+    # Try to generate PDF
+    try:
+        pdf_filename = f"session_report_{timestamp}_{session_id}.pdf"
+        pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
+        
+        if generate_pdf_report(session_data, pdf_path) and os.path.exists(pdf_path):
+            current_session_files['pdf_path'] = pdf_path
+            current_session_files['pdf_filename'] = pdf_filename
+            response_data["pdf_report"] = f"/reports/{pdf_filename}"
+            print(f"Force generated PDF: {pdf_path}")
+    except Exception as e:
+        print(f"Error force generating PDF: {str(e)}")
+    
+    # Try to generate video
+    try:
+        video_filename = f"session_recording_{timestamp}_{session_id}.mp4"
+        video_path = os.path.join(application.config['RECORDINGS_FOLDER'], video_filename)
+        
+        if create_demo_recording_file(video_path) and os.path.exists(video_path):
+            current_session_files['video_path'] = video_path
+            current_session_files['video_filename'] = video_filename
+            response_data["video_file"] = f"/recordings/{video_filename}"
+            print(f"Force generated video: {video_path}")
+    except Exception as e:
+        print(f"Error force generating video: {str(e)}")
+    
+    return jsonify(response_data)
+
 @application.route('/stop_monitoring', methods=['POST'])
 def stop_monitoring():
     global live_monitoring_active, session_data, recording_active, current_session_files
     
+    # Allow stopping even if monitoring appears inactive (safety check)
     if not live_monitoring_active:
-        return jsonify({"status": "error", "message": "Monitoring not active"})
+        print("Warning: stop_monitoring called but monitoring not active, proceeding anyway...")
+        # Don't return error, proceed with cleanup
     
     live_monitoring_active = False
     recording_active = False
-    session_data['end_time'] = datetime.now()
+    
+    # Ensure session_data has end_time
+    if not session_data.get('end_time'):
+        session_data['end_time'] = datetime.now()
+    
+    # Ensure we have valid session data
+    ensure_session_data()
+    
+    print(f"Stopping monitoring session. Start: {session_data.get('start_time')}, Alerts: {len(session_data.get('alerts', []))}")
     
     # Generate new unique filenames for this session
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
