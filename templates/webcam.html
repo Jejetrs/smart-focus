@@ -1084,8 +1084,11 @@
 
         async function startMonitoring() {
             try {
-                // Reset session data - CRITICAL FIX
-                resetSessionData();
+                // Reset client alerts and states
+                clientAlerts = [];
+                personStates = {};
+                personTimers = {};
+                alertCount = 0;
 
                 const response = await fetch('/start_monitoring', { method: 'POST' });
                 const data = await response.json();
@@ -1106,27 +1109,6 @@
             } catch (error) {
                 showNotification('Failed to start monitoring: ' + error.message, 'error');
             }
-        }
-
-        // CRITICAL FIX: Reset all session data when starting new monitoring
-        function resetSessionData() {
-            clientAlerts = [];
-            personStates = {};
-            personTimers = {};
-            alertCount = 0;
-            sessionStartTime = null;
-            
-            // Clear UI counters
-            document.getElementById('alertCount').textContent = '0';
-            document.getElementById('totalPersons').textContent = '0';
-            document.getElementById('focusedCount').textContent = '0';
-            document.getElementById('sessionTime').textContent = '00:00:00';
-            
-            // Hide downloads section from previous session
-            document.getElementById('downloadsSection').style.display = 'none';
-            document.getElementById('downloadItems').innerHTML = '';
-            
-            console.log('Session data reset for new monitoring session');
         }
 
         async function initializeClientCamera() {
@@ -1329,26 +1311,37 @@
                 personStates = {};
                 personTimers = {};
 
-                showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
-                
-                // CRITICAL FIX: Only show downloads if server returns valid file paths
                 if (data.status === 'success') {
-                    console.log('Server response:', data);
+                    showNotification(`Session complete! Generated ${alertCount} alerts. Files are being prepared...`, 'success');
                     
+                    // Show download section immediately with available files
                     if (data.pdf_report || data.video_file) {
                         showDownloads(data.pdf_report, data.video_file);
-                        console.log('Downloads section updated with server files');
                     } else {
-                        console.log('No file paths returned from server');
-                        showNotification('Session completed successfully, but download files are not available yet.', 'warning');
+                        // Wait a moment and check for files
+                        setTimeout(() => {
+                            checkForSessionFiles();
+                        }, 2000);
                     }
                 } else {
-                    console.error('Server error:', data.message);
-                    showNotification('Error stopping session: ' + data.message, 'error');
+                    showNotification('Session stopped but there was an issue generating files: ' + data.message, 'warning');
                 }
             } catch (error) {
-                console.error('Stop monitoring error:', error);
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
+            }
+        }
+
+        // Function to check for session files
+        async function checkForSessionFiles() {
+            try {
+                const response = await fetch('/get_current_session_files');
+                const data = await response.json();
+                
+                if (data.pdf_report || data.video_file) {
+                    showDownloads(data.pdf_report, data.video_file);
+                }
+            } catch (error) {
+                console.error('Error checking for session files:', error);
             }
         }
 
@@ -1379,6 +1372,9 @@
                 clearInterval(sessionTimer);
                 sessionTimer = null;
             }
+            
+            document.getElementById('totalPersons').textContent = '0';
+            document.getElementById('focusedCount').textContent = '0';
         }
 
         function updateUIForActiveMonitoring() {
@@ -1511,19 +1507,13 @@
             }, 1000);
         }
 
-        // CRITICAL FIX: Only show downloads if valid file paths are provided
         function showDownloads(pdfReport, videoFile) {
             const downloadsSection = document.getElementById('downloadsSection');
             const downloadItems = document.getElementById('downloadItems');
             
-            // Clear previous downloads
             downloadItems.innerHTML = '';
             
-            let hasValidFiles = false;
-            
-            // Only add PDF download if valid path is provided
-            if (pdfReport && pdfReport.trim() !== '') {
-                hasValidFiles = true;
+            if (pdfReport) {
                 const pdfItem = document.createElement('div');
                 pdfItem.className = 'download-item';
                 pdfItem.innerHTML = `
@@ -1541,12 +1531,9 @@
                     </a>
                 `;
                 downloadItems.appendChild(pdfItem);
-                console.log('PDF download added:', pdfReport);
             }
             
-            // Only add video download if valid path is provided
-            if (videoFile && videoFile.trim() !== '') {
-                hasValidFiles = true;
+            if (videoFile) {
                 const videoItem = document.createElement('div');
                 videoItem.className = 'download-item';
                 videoItem.innerHTML = `
@@ -1564,17 +1551,9 @@
                     </a>
                 `;
                 downloadItems.appendChild(videoItem);
-                console.log('Video download added:', videoFile);
             }
             
-            // Only show downloads section if there are valid files
-            if (hasValidFiles) {
-                downloadsSection.style.display = 'block';
-                console.log('Downloads section shown with valid files');
-            } else {
-                downloadsSection.style.display = 'none';
-                console.log('No valid download files available');
-            }
+            downloadsSection.style.display = 'block';
         }
 
         function takeScreenshot() {
