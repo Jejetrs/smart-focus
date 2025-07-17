@@ -1015,15 +1015,11 @@ def create_session_recording_from_frames(recording_frames, output_path):
 def create_demo_recording_file():
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        recording_filename = f"session_recording_{timestamp}_{uuid.uuid4().hex[:8]}.mp4"
+        recording_filename = f"session_recording_{timestamp}.mp4"
         recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
         
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
         out = cv.VideoWriter(recording_path, fourcc, 30, (640, 480))
-        
-        if not out.isOpened():
-            print(f"Error: Could not open demo video writer for {recording_path}")
-            return None
         
         for i in range(150):
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -1056,7 +1052,6 @@ def create_demo_recording_file():
             
     except Exception as e:
         print(f"Error creating demo recording: {str(e)}")
-        traceback.print_exc()
         return None
 
 @application.route('/static/uploads/<filename>')
