@@ -764,7 +764,7 @@ def generate_pdf_report(session_data, output_path):
             story.append(alert_table)
         
         # Footer
-        story.append(Spacer(1, 30))
+        story.append(Spacer(1, 15))
         footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System - Focus Monitoring Report"
         footer_style = ParagraphStyle(
             'Footer',
