@@ -911,9 +911,7 @@ def report_file(filename):
             return send_from_directory(
                 application.config['REPORTS_FOLDER'], 
                 filename,
-                mimetype='application/pdf',
-                as_attachment=True,
-                download_name=filename
+                mimetype='application/pdf'
             )
         else:
             return jsonify({"error": "Report file not found"}), 404
@@ -929,9 +927,7 @@ def recording_file(filename):
             return send_from_directory(
                 application.config['RECORDINGS_FOLDER'], 
                 filename,
-                mimetype='video/mp4',
-                as_attachment=True,
-                download_name=filename
+                mimetype='video/mp4'
             )
         else:
             return jsonify({"error": "Recording file not found"}), 404
@@ -987,7 +983,7 @@ def upload():
                     pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
                     
                     if pdf_result and os.path.exists(pdf_path):
-                        result["pdf_report"] = f"/static/reports/{pdf_filename}"
+                        result["pdf_report"] = f"/download_report/{pdf_filename}"
                 
             elif file_ext in ['mp4', 'avi', 'mov', 'mkv']:
                 output_path, detections = process_video_file(file_path)
@@ -1004,7 +1000,7 @@ def upload():
                     pdf_result = generate_upload_pdf_report(detections, file_info, pdf_path)
                     
                     if pdf_result and os.path.exists(pdf_path):
-                        result["pdf_report"] = f"/static/reports/{pdf_filename}"
+                        result["pdf_report"] = f"/download_report/{pdf_filename}"
             
             return render_template('result.html', result=result)
     
@@ -1068,7 +1064,7 @@ def stop_monitoring():
     }
     
     if pdf_result and os.path.exists(pdf_path):
-        response_data["pdf_report"] = f"/static/reports/{pdf_filename}"
+        response_data["pdf_report"] = f"/download_report/{pdf_filename}"
     
     recording_filename = f"session_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
     recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
@@ -1081,10 +1077,23 @@ def stop_monitoring():
             recording_path = video_result
     
     if video_result and os.path.exists(recording_path):
-        response_data["video_file"] = f"/static/recordings/{os.path.basename(recording_path)}"
+        response_data["video_file"] = f"/download_recording/{os.path.basename(recording_path)}"
         session_data['recording_path'] = recording_path
     
     return jsonify(response_data)
+
+@application.route('/health')
+def health_check():
+    return jsonify({
+        "status": "healthy", 
+        "timestamp": datetime.now().isoformat(),
+        "directories": {
+            "uploads": os.path.exists(application.config['UPLOAD_FOLDER']),
+            "detected": os.path.exists(application.config['DETECTED_FOLDER']),
+            "reports": os.path.exists(application.config['REPORTS_FOLDER']),
+            "recordings": os.path.exists(application.config['RECORDINGS_FOLDER'])
+        }
+    })
 
 @application.route('/get_monitoring_data')
 def get_monitoring_data():
@@ -1184,18 +1193,39 @@ def process_frame():
         print(f"Error processing frame: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@application.route('/health')
-def health_check():
-    return jsonify({
-        "status": "healthy", 
-        "timestamp": datetime.now().isoformat(),
-        "directories": {
-            "uploads": os.path.exists(application.config['UPLOAD_FOLDER']),
-            "detected": os.path.exists(application.config['DETECTED_FOLDER']),
-            "reports": os.path.exists(application.config['REPORTS_FOLDER']),
-            "recordings": os.path.exists(application.config['RECORDINGS_FOLDER'])
-        }
-    })
+@application.route('/download_report/<filename>')
+def download_report(filename):
+    try:
+        file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_file(
+                file_path,
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name=filename
+            )
+        else:
+            return jsonify({"error": "Report file not found"}), 404
+    except Exception as e:
+        print(f"Error downloading report: {str(e)}")
+        return jsonify({"error": "Error downloading report file"}), 500
+
+@application.route('/download_recording/<filename>')
+def download_recording(filename):
+    try:
+        file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_file(
+                file_path,
+                mimetype='video/mp4',
+                as_attachment=True,
+                download_name=filename
+            )
+        else:
+            return jsonify({"error": "Recording file not found"}), 404
+    except Exception as e:
+        print(f"Error downloading recording: {str(e)}")
+        return jsonify({"error": "Error downloading recording file"}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
