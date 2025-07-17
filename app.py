@@ -45,12 +45,18 @@ for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED
     except Exception as e:
         print(f"Error creating directory {folder}: {str(e)}")
 
-# Global variables with thread lock for safety
-monitoring_lock = threading.RLock()  # Use RLock for recursive locking
-live_monitoring_active = False
-recording_active = False
+# CRITICAL FIX: Enhanced global variables with thread-safe management
+monitoring_lock = threading.RLock()
+monitoring_state = {
+    'active': False,
+    'recording': False,
+    'session_id': None,
+    'last_activity': None
+}
 
+# Enhanced session data structure
 session_data = {
+    'session_id': None,
     'start_time': None,
     'end_time': None,
     'detections': [],
@@ -200,8 +206,28 @@ def detect_drowsiness(frame, landmarks):
     
     return status, state
 
+# CRITICAL FIX: Enhanced monitoring state management
+def is_monitoring_active():
+    """Thread-safe check for monitoring status"""
+    with monitoring_lock:
+        return monitoring_state['active']
+
+def set_monitoring_active(active, session_id=None):
+    """Thread-safe setter for monitoring status"""
+    with monitoring_lock:
+        monitoring_state['active'] = active
+        monitoring_state['last_activity'] = time.time()
+        if session_id:
+            monitoring_state['session_id'] = session_id
+        print(f"Monitoring state updated: active={active}, session_id={monitoring_state['session_id']}")
+
+def get_current_session_id():
+    """Get current session ID thread-safely"""
+    with monitoring_lock:
+        return monitoring_state.get('session_id')
+
 def detect_persons_with_attention(image, mode="image"):
-    global live_monitoring_active, session_data, person_state_timers, person_current_state, last_alert_time
+    global person_state_timers, person_current_state, last_alert_time
     
     detector = mp.solutions.face_detection.FaceDetection(
         model_selection=1,
@@ -224,10 +250,9 @@ def detect_persons_with_attention(image, mode="image"):
     ih, iw, _ = image.shape
     current_time = time.time()
     
-    # Check monitoring status at the start of detection
-    with monitoring_lock:
-        is_monitoring_active = live_monitoring_active
-        current_session_data = session_data.copy() if session_data else None
+    # CRITICAL FIX: More robust monitoring check
+    is_monitoring = is_monitoring_active()
+    current_session_id = get_current_session_id()
     
     if detection_results.detections:
         for i, detection in enumerate(detection_results.detections):
@@ -282,7 +307,7 @@ def detect_persons_with_attention(image, mode="image"):
             person_key = f"person_{i+1}"
             
             duration = 0
-            if mode == "video" and is_monitoring_active:
+            if mode == "video" and is_monitoring and current_session_id:
                 with monitoring_lock:
                     if person_key not in person_state_timers:
                         person_state_timers[person_key] = {}
@@ -292,15 +317,17 @@ def detect_persons_with_attention(image, mode="image"):
                     if person_current_state[person_key] != status_text:
                         person_state_timers[person_key] = {}
                         person_current_state[person_key] = status_text
-                        person_state_timers[person_key][status_text] = current_time
-                    else:
-                        if status_text not in person_state_timers[person_key]:
+                        if status_text in DISTRACTION_THRESHOLDS:
                             person_state_timers[person_key][status_text] = current_time
+                    else:
+                        if status_text in DISTRACTION_THRESHOLDS:
+                            if status_text not in person_state_timers[person_key]:
+                                person_state_timers[person_key][status_text] = current_time
                     
                     if status_text in person_state_timers[person_key]:
                         duration = current_time - person_state_timers[person_key][status_text]
             
-            if mode == "video" and is_monitoring_active:
+            if mode == "video" and is_monitoring:
                 status_colors = {
                     "FOCUSED": (0, 255, 0),
                     "NOT FOCUSED": (0, 165, 255),
@@ -369,17 +396,20 @@ def detect_persons_with_attention(image, mode="image"):
                 cv.putText(image, f"Status: {status_text}", 
                         (x, info_y_start + 3*line_height), font, font_scale, color, thickness)
 
-            # Handle alerts with proper locking
+            # CRITICAL FIX: Enhanced alert handling with session validation
             should_alert = False
             alert_message = ""
             
-            if (mode == "video" and is_monitoring_active and status_text in DISTRACTION_THRESHOLDS and 
-                person_key in person_state_timers and status_text in person_state_timers[person_key]):
+            if (mode == "video" and is_monitoring and current_session_id and 
+                status_text in DISTRACTION_THRESHOLDS and 
+                person_key in person_state_timers and 
+                status_text in person_state_timers[person_key]):
                 
                 if duration >= DISTRACTION_THRESHOLDS[status_text]:
                     alert_cooldown = 5
                     with monitoring_lock:
-                        if current_time - last_alert_time.get(person_key, 0) >= alert_cooldown:
+                        # Double-check monitoring is still active
+                        if monitoring_state['active'] and current_time - last_alert_time.get(person_key, 0) >= alert_cooldown:
                             should_alert = True
                             last_alert_time[person_key] = current_time
                             
@@ -390,16 +420,19 @@ def detect_persons_with_attention(image, mode="image"):
                             elif status_text == 'NOT FOCUSED':
                                 alert_message = f'Person {i+1} is not focused - please focus on screen!'
                             
-                            # Only add alert if still monitoring (double check)
-                            if live_monitoring_active and session_data:
+                            # Add alert to session data with validation
+                            if session_data and session_data.get('session_id') == current_session_id:
                                 session_data['alerts'].append({
                                     'timestamp': datetime.now().isoformat(),
                                     'person': f"Person {i+1}",
                                     'detection': status_text,
                                     'message': alert_message,
-                                    'duration': int(duration)
+                                    'duration': int(duration),
+                                    'session_id': current_session_id
                                 })
-                                print(f"Alert added: {alert_message} (Total alerts: {len(session_data['alerts'])})")
+                                print(f"Alert added to session {current_session_id}: {alert_message} (Total: {len(session_data['alerts'])})")
+                            else:
+                                print(f"WARNING: Alert skipped - session mismatch or invalid session data")
             
             face_img = image[y:y+h, x:x+w]
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -419,7 +452,8 @@ def detect_persons_with_attention(image, mode="image"):
                 "image_path": f"/static/detected/{face_filename}",
                 "status": status_text,
                 "timestamp": datetime.now().isoformat(),
-                "duration": duration if mode == "video" else 0
+                "duration": duration if mode == "video" else 0,
+                "session_id": current_session_id
             })
     
     if detections:
@@ -468,13 +502,15 @@ def calculate_distraction_time_from_alerts(alerts):
     return distraction_times
 
 def update_session_statistics(detections):
+    """Update session statistics with thread safety"""
     global session_data
     
     if not detections:
         return
     
     with monitoring_lock:
-        if session_data:
+        # Only update if monitoring is active and session is valid
+        if monitoring_state['active'] and session_data and session_data.get('session_id'):
             session_data['detections'].extend(detections)
             session_data['focus_statistics']['total_detections'] += len(detections)
             session_data['focus_statistics']['total_persons'] = max(
@@ -628,6 +664,7 @@ def generate_pdf_report(session_data, output_path):
         story.append(Paragraph("Session Information", heading_style))
         
         session_info = [
+            ['Session ID', session_data.get('session_id', 'Unknown')],
             ['Session Start Time', session_data.get('start_time', datetime.now()).strftime('%m/%d/%Y, %I:%M:%S %p')],
             ['Session Duration', duration_str],
             ['Total Detections', str(session_data['focus_statistics']['total_detections'])],
@@ -660,7 +697,7 @@ def generate_pdf_report(session_data, output_path):
         
         rating_text = f"<para align=center><font size=14 color='{rating_color.hexval()}'><b>Focus Quality: {focus_rating}</b></font></para>"
         story.append(Paragraph(rating_text, styles['Normal']))
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 15))
         
         # Detailed time breakdown
         focus_breakdown = [
@@ -764,7 +801,7 @@ def generate_pdf_report(session_data, output_path):
             story.append(alert_table)
         
         # Footer
-        story.append(Spacer(1, 30))
+        story.append(Spacer(1, 20))
         footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System - Focus Monitoring Report"
         footer_style = ParagraphStyle(
             'Footer',
@@ -1301,21 +1338,27 @@ def upload():
 def webcam():
     return render_template('webcam.html')
 
+# CRITICAL FIX: Enhanced start_monitoring with better session management
 @application.route('/start_monitoring', methods=['POST'])
 def start_monitoring():
-    global live_monitoring_active, session_data, recording_active, person_state_timers, person_current_state, last_alert_time
+    global session_data, person_state_timers, person_current_state, last_alert_time
     
     try:
         with monitoring_lock:
             print(f"=== START MONITORING REQUEST ===")
-            print(f"Current status: live_monitoring_active={live_monitoring_active}")
+            print(f"Current monitoring state: {monitoring_state}")
             
-            if live_monitoring_active:
-                print("WARNING: Monitoring already active, returning error")
+            # Check if already monitoring
+            if monitoring_state['active']:
+                print("WARNING: Monitoring already active")
                 return jsonify({"status": "error", "message": "Monitoring already active"})
             
-            # Reset session data completely
+            # Generate unique session ID
+            session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+            
+            # CRITICAL FIX: Complete session data reset
             session_data = {
+                'session_id': session_id,
                 'start_time': datetime.now(),
                 'end_time': None,
                 'detections': [],
@@ -1331,47 +1374,63 @@ def start_monitoring():
                 'recording_frames': []
             }
             
+            # Reset all tracking variables
             person_state_timers = {}
             person_current_state = {}
             last_alert_time = {}
             
-            live_monitoring_active = True
-            recording_active = True
+            # Set monitoring active with session ID
+            set_monitoring_active(True, session_id)
+            monitoring_state['recording'] = True
             
-            print(f"Monitoring started at {session_data['start_time']}")
-            print(f"Status: live_monitoring_active={live_monitoring_active}")
+            print(f"NEW SESSION STARTED: {session_id}")
+            print(f"Session start time: {session_data['start_time']}")
+            print(f"Monitoring state: {monitoring_state}")
             print(f"=== START MONITORING SUCCESS ===")
             
-            return jsonify({"status": "success", "message": "Monitoring started"})
+            return jsonify({
+                "status": "success", 
+                "message": "Monitoring started",
+                "session_id": session_id
+            })
         
     except Exception as e:
-        print(f"Error starting monitoring: {str(e)}")
+        print(f"CRITICAL ERROR starting monitoring: {str(e)}")
         traceback.print_exc()
         return jsonify({"status": "error", "message": f"Failed to start monitoring: {str(e)}"})
 
+# CRITICAL FIX: Enhanced stop_monitoring with better validation
 @application.route('/stop_monitoring', methods=['POST'])
 def stop_monitoring():
-    global live_monitoring_active, session_data, recording_active
+    global session_data
     
     try:
         with monitoring_lock:
             print(f"=== STOP MONITORING REQUEST ===")
-            print(f"Current status: live_monitoring_active={live_monitoring_active}")
+            print(f"Current monitoring state: {monitoring_state}")
             print(f"Session data exists: {session_data is not None}")
+            
             if session_data:
-                print(f"Session start time: {session_data.get('start_time')}")
+                print(f"Session ID: {session_data.get('session_id')}")
+                print(f"Session start: {session_data.get('start_time')}")
                 print(f"Total alerts: {len(session_data.get('alerts', []))}")
                 print(f"Total frames: {len(session_data.get('recording_frames', []))}")
             
-            # More flexible check - allow stopping even if status inconsistent
-            if not live_monitoring_active and (not session_data or not session_data.get('start_time')):
-                print("ERROR: No active monitoring session found")
-                return jsonify({"status": "error", "message": "Monitoring not active"})
+            # CRITICAL FIX: More flexible validation
+            if not monitoring_state['active']:
+                # Check if we have valid session data even if monitoring flag is off
+                if not session_data or not session_data.get('session_id') or not session_data.get('start_time'):
+                    print("ERROR: No valid session found")
+                    return jsonify({"status": "error", "message": "Monitoring not active"})
+                else:
+                    print("WARNING: Monitoring flag off but valid session exists - proceeding")
             
             # Ensure session_data exists
             if not session_data:
                 print("WARNING: Creating minimal session data")
+                session_id = f"recovery_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 session_data = {
+                    'session_id': session_id,
                     'start_time': datetime.now() - timedelta(minutes=1),
                     'end_time': None,
                     'detections': [],
@@ -1387,28 +1446,37 @@ def stop_monitoring():
                     'recording_frames': []
                 }
             
+            # Ensure required fields exist
+            if not session_data.get('session_id'):
+                session_data['session_id'] = f"recovery_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             if not session_data.get('start_time'):
                 session_data['start_time'] = datetime.now() - timedelta(minutes=1)
             
             # Stop monitoring
-            live_monitoring_active = False
-            recording_active = False
+            set_monitoring_active(False)
+            monitoring_state['recording'] = False
             session_data['end_time'] = datetime.now()
             
-            print(f"Monitoring stopped at {session_data['end_time']}")
+            current_session_id = session_data['session_id']
+            print(f"SESSION STOPPED: {current_session_id}")
+            print(f"Session duration: {session_data['end_time'] - session_data['start_time']}")
             
             response_data = {
                 "status": "success", 
-                "message": "Monitoring stopped"
+                "message": "Monitoring stopped",
+                "session_id": current_session_id
             }
             
-            # Generate PDF report
+            # Generate PDF report with enhanced error handling
             print("=== GENERATING PDF REPORT ===")
             try:
-                pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.pdf"
+                pdf_filename = f"session_report_{current_session_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                 pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                 
+                print(f"PDF generation for session: {current_session_id}")
                 print(f"PDF path: {pdf_path}")
+                print(f"Session alerts: {len(session_data.get('alerts', []))}")
+                
                 pdf_result = generate_pdf_report(session_data, pdf_path)
                 
                 if pdf_result and os.path.exists(pdf_path):
@@ -1421,16 +1489,19 @@ def stop_monitoring():
                 print(f"PDF ERROR: {str(pdf_error)}")
                 traceback.print_exc()
             
-            # Generate video recording
+            # Generate video recording with enhanced error handling
             print("=== GENERATING VIDEO RECORDING ===")
             try:
-                recording_filename = f"session_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.mp4"
+                recording_filename = f"session_recording_{current_session_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
                 recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
                 
+                print(f"Video generation for session: {current_session_id}")
                 print(f"Video path: {recording_path}")
+                
                 frame_count = len(session_data.get('recording_frames', []))
                 print(f"Available frames: {frame_count}")
                 
+                video_result = None
                 if frame_count > 0:
                     print(f"Creating video from {frame_count} recorded frames")
                     video_result = create_session_recording_from_frames(session_data['recording_frames'], recording_path)
@@ -1452,7 +1523,7 @@ def stop_monitoring():
                 traceback.print_exc()
             
             print(f"=== STOP MONITORING COMPLETE ===")
-            print(f"Response: {response_data}")
+            print(f"Final response: {response_data}")
             return jsonify(response_data)
         
     except Exception as e:
@@ -1460,16 +1531,20 @@ def stop_monitoring():
         traceback.print_exc()
         return jsonify({"status": "error", "message": f"Failed to stop monitoring: {str(e)}"})
 
+# CRITICAL FIX: Enhanced get_monitoring_data with better validation
 @application.route('/get_monitoring_data')
 def get_monitoring_data():
-    global session_data
-    
     try:
         with monitoring_lock:
-            if not live_monitoring_active:
+            # More robust checking
+            if not monitoring_state['active']:
                 return jsonify({"error": "Monitoring not active"})
             
-            current_alerts = session_data.get('alerts', []) if session_data else []
+            # Validate session data
+            if not session_data or not session_data.get('session_id'):
+                return jsonify({"error": "No valid session data"})
+            
+            current_alerts = session_data.get('alerts', [])
             recent_alerts = current_alerts[-5:] if current_alerts else []
             
             formatted_alerts = []
@@ -1485,7 +1560,7 @@ def get_monitoring_data():
                     'type': 'warning' if alert['detection'] in ['YAWNING', 'NOT FOCUSED'] else 'error'
                 })
             
-            current_detections = session_data.get('detections', []) if session_data else []
+            current_detections = session_data.get('detections', [])
             recent_detections = current_detections[-10:] if current_detections else []
             current_status = 'READY'
             focused_count = 0
@@ -1515,7 +1590,9 @@ def get_monitoring_data():
                 'focused_count': focused_count,
                 'alert_count': len(current_alerts),
                 'current_status': current_status,
-                'latest_alerts': formatted_alerts
+                'latest_alerts': formatted_alerts,
+                'session_id': session_data.get('session_id'),
+                'session_active': monitoring_state['active']
             })
         
     except Exception as e:
@@ -1527,7 +1604,11 @@ def get_monitoring_data():
 def monitoring_status():
     try:
         with monitoring_lock:
-            return jsonify({"is_active": live_monitoring_active})
+            return jsonify({
+                "is_active": monitoring_state['active'],
+                "session_id": monitoring_state.get('session_id'),
+                "recording": monitoring_state.get('recording', False)
+            })
     except Exception as e:
         print(f"Error getting monitoring status: {str(e)}")
         return jsonify({"is_active": False})
@@ -1540,10 +1621,9 @@ def check_camera():
         print(f"Error checking camera: {str(e)}")
         return jsonify({"camera_available": False})
 
+# CRITICAL FIX: Enhanced process_frame with better session validation
 @application.route('/process_frame', methods=['POST'])
 def process_frame():
-    global session_data
-    
     try:
         data = request.get_json()
         if not data or 'frame' not in data:
@@ -1560,21 +1640,29 @@ def process_frame():
         # Process frame for detection FIRST to get face landmarks and overlays
         processed_frame, detections = detect_persons_with_attention(frame, mode="video")
         
-        # Store PROCESSED frame (with face landmarks) for recording if monitoring is active
+        # CRITICAL FIX: Enhanced frame storage validation
         with monitoring_lock:
-            if live_monitoring_active and recording_active and session_data:
+            if (monitoring_state['active'] and monitoring_state.get('recording', False) and 
+                session_data and session_data.get('session_id')):
+                
+                # Store PROCESSED frame with face landmarks for recording
                 session_data['recording_frames'].append(processed_frame.copy())
-                # Keep only last 300 frames to prevent memory issues (about 5 minutes at 1 fps)
+                
+                # Keep only last 300 frames to prevent memory issues
                 if len(session_data['recording_frames']) > 300:
                     session_data['recording_frames'] = session_data['recording_frames'][-300:]
                 
                 # Debug log every 10th frame
                 frame_count = len(session_data['recording_frames'])
                 if frame_count % 10 == 0:
-                    print(f"FRAME STORAGE: {frame_count} frames stored, {len(detections)} detections, active={live_monitoring_active}")
+                    print(f"FRAME STORAGE [Session: {session_data.get('session_id')}]: {frame_count} frames, {len(detections)} detections")
+            elif not monitoring_state['active']:
+                print("WARNING: Frame received but monitoring not active")
+            elif not session_data or not session_data.get('session_id'):
+                print("WARNING: Frame received but no valid session")
         
         # Update session statistics if monitoring is active
-        if live_monitoring_active and detections:
+        if monitoring_state['active'] and detections:
             update_session_statistics(detections)
         
         # Encode processed frame back to base64
@@ -1584,7 +1672,8 @@ def process_frame():
         return jsonify({
             "success": True,
             "processed_frame": f"data:image/jpeg;base64,{processed_frame_b64}",
-            "detections": detections
+            "detections": detections,
+            "session_id": session_data.get('session_id') if session_data else None
         })
         
     except Exception as e:
@@ -1598,9 +1687,9 @@ def debug_status():
     try:
         with monitoring_lock:
             status = {
-                "live_monitoring_active": live_monitoring_active,
-                "recording_active": recording_active,
+                "monitoring_state": monitoring_state.copy(),
                 "session_data_exists": session_data is not None,
+                "session_id": session_data.get('session_id') if session_data else None,
                 "session_start_time": session_data.get('start_time').isoformat() if session_data and session_data.get('start_time') else None,
                 "session_end_time": session_data.get('end_time').isoformat() if session_data and session_data.get('end_time') else None,
                 "alerts_count": len(session_data.get('alerts', [])) if session_data else 0,
@@ -1620,7 +1709,8 @@ def debug_status():
             
             # Add session duration if active
             if session_data and session_data.get('start_time'):
-                duration = datetime.now() - session_data['start_time']
+                current_time = session_data.get('end_time', datetime.now())
+                duration = current_time - session_data['start_time']
                 status["session_duration_seconds"] = duration.total_seconds()
                 status["session_duration_formatted"] = str(duration).split('.')[0]
             
@@ -1636,15 +1726,16 @@ def health_check():
             return jsonify({
                 "status": "healthy", 
                 "timestamp": datetime.now().isoformat(),
+                "monitoring_state": monitoring_state.copy(),
                 "directories": {
                     "uploads": os.path.exists(application.config['UPLOAD_FOLDER']),
                     "detected": os.path.exists(application.config['DETECTED_FOLDER']),
                     "reports": os.path.exists(application.config['REPORTS_FOLDER']),
                     "recordings": os.path.exists(application.config['RECORDINGS_FOLDER'])
                 },
-                "monitoring_active": live_monitoring_active,
                 "session_alerts": len(session_data.get('alerts', [])) if session_data else 0,
-                "recording_frames": len(session_data.get('recording_frames', [])) if session_data else 0
+                "recording_frames": len(session_data.get('recording_frames', [])) if session_data else 0,
+                "session_id": session_data.get('session_id') if session_data else None
             })
     except Exception as e:
         print(f"Health check error: {str(e)}")
@@ -1666,6 +1757,10 @@ if __name__ == "__main__":
             ("RECORDINGS", application.config['RECORDINGS_FOLDER'])
         ]:
             print(f"  {name}: {path} (exists: {os.path.exists(path)})")
+        
+        print("\nSystem Status:")
+        print(f"  Monitoring State: {monitoring_state}")
+        print(f"  Session Data: {session_data is not None}")
         
         application.run(host='0.0.0.0', port=port, debug=False)
     except Exception as e:
