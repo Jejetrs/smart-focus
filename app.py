@@ -33,12 +33,14 @@ application.config['REPORTS_FOLDER'] = '/tmp/reports'
 application.config['RECORDINGS_FOLDER'] = '/tmp/recordings'
 application.config['MAX_CONTENT_PATH'] = 10000000
 
+# Ensure all directories exist
 for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED_FOLDER'], 
                application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
     if not os.path.exists(folder):
         os.makedirs(folder, exist_ok=True)
         os.chmod(folder, 0o755)
 
+# Global variables
 live_monitoring_active = False
 session_data = {
     'start_time': None,
@@ -53,22 +55,73 @@ session_data = {
         'total_detections': 0
     },
     'recording_path': None,
-    'recording_frames': []
+    'recording_frames': [],
+    'current_pdf_path': None,
+    'current_recording_path': None
 }
 
 video_writer = None
 recording_active = False
 recording_frames = []
 
+# State tracking variables
 person_state_timers = {}
 person_current_state = {}
 last_alert_time = {}
 
+# Distraction thresholds
 DISTRACTION_THRESHOLDS = {
     'SLEEPING': 10,
     'YAWNING': 3.5,
     'NOT FOCUSED': 10
 }
+
+def cleanup_old_files():
+    """Clean up old files to prevent disk space issues"""
+    try:
+        # Clean up files older than 1 hour
+        cutoff_time = time.time() - 3600  # 1 hour ago
+        
+        for folder in [application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
+            if os.path.exists(folder):
+                for filename in os.listdir(folder):
+                    filepath = os.path.join(folder, filename)
+                    if os.path.isfile(filepath):
+                        file_time = os.path.getmtime(filepath)
+                        if file_time < cutoff_time:
+                            try:
+                                os.remove(filepath)
+                                print(f"Cleaned up old file: {filepath}")
+                            except Exception as e:
+                                print(f"Error cleaning up {filepath}: {e}")
+    except Exception as e:
+        print(f"Error in cleanup_old_files: {e}")
+
+def reset_session_data():
+    """Reset session data for new monitoring session"""
+    global session_data, person_state_timers, person_current_state, last_alert_time
+    
+    session_data = {
+        'start_time': None,
+        'end_time': None,
+        'detections': [],
+        'alerts': [],
+        'focus_statistics': {
+            'unfocused_time': 0,
+            'yawning_time': 0,
+            'sleeping_time': 0,
+            'total_persons': 0,
+            'total_detections': 0
+        },
+        'recording_path': None,
+        'recording_frames': [],
+        'current_pdf_path': None,
+        'current_recording_path': None
+    }
+    
+    person_state_timers = {}
+    person_current_state = {}
+    last_alert_time = {}
 
 def draw_landmarks(image, landmarks, land_mark, color):
     height, width = image.shape[:2]
@@ -465,6 +518,7 @@ def update_session_statistics(detections):
 
 def generate_pdf_report(session_data, output_path):
     try:
+        # Ensure directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
         doc = SimpleDocTemplate(output_path, pagesize=A4, leftMargin=50, rightMargin=50, 
@@ -689,12 +743,13 @@ def generate_pdf_report(session_data, output_path):
         footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System - Focus Monitoring Report"
         story.append(Paragraph(footer_text, footer_style))
         
-        try:
-            doc.build(story)
-            print(f"PDF report created: {output_path}")
+        doc.build(story)
+        
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            print(f"PDF report successfully created: {output_path}")
             return output_path
-        except Exception as pdf_error:
-            print(f"PDF error: {str(pdf_error)}")
+        else:
+            print(f"PDF report creation failed: {output_path}")
             return None
             
     except Exception as e:
@@ -758,12 +813,13 @@ def generate_upload_pdf_report(detections, file_info, output_path):
         )
         story.append(Paragraph(footer_text, footer_style))
         
-        try:
-            doc.build(story)
-            print(f"Upload PDF report created: {output_path}")
+        doc.build(story)
+        
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            print(f"Upload PDF report successfully created: {output_path}")
             return output_path
-        except Exception as pdf_error:
-            print(f"PDF error: {str(pdf_error)}")
+        else:
+            print(f"Upload PDF report creation failed: {output_path}")
             return None
             
     except Exception as e:
@@ -815,6 +871,9 @@ def create_session_recording_from_frames(recording_frames, output_path):
             print("No frames to create video")
             return None
         
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
         height, width = recording_frames[0].shape[:2]
         
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
@@ -827,24 +886,23 @@ def create_session_recording_from_frames(recording_frames, output_path):
         out.release()
         
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            print(f"Session recording created: {output_path}")
+            print(f"Session recording successfully created: {output_path}")
             return output_path
         else:
-            print("Failed to create session recording")
+            print(f"Session recording creation failed: {output_path}")
             return None
             
     except Exception as e:
         print(f"Error creating session recording: {str(e)}")
         return None
 
-def create_demo_recording_file():
+def create_demo_recording_file(output_path):
     try:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        recording_filename = f"session_recording_{timestamp}.mp4"
-        recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
-        out = cv.VideoWriter(recording_path, fourcc, 30, (640, 480))
+        out = cv.VideoWriter(output_path, fourcc, 30, (640, 480))
         
         for i in range(150):
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -868,17 +926,18 @@ def create_demo_recording_file():
         
         out.release()
         
-        if os.path.exists(recording_path) and os.path.getsize(recording_path) > 0:
-            print(f"Demo recording created: {recording_path}")
-            return recording_path
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            print(f"Demo recording successfully created: {output_path}")
+            return output_path
         else:
-            print("Failed to create demo recording")
+            print(f"Demo recording creation failed: {output_path}")
             return None
             
     except Exception as e:
         print(f"Error creating demo recording: {str(e)}")
         return None
 
+# Static file serving routes
 @application.route('/static/uploads/<filename>')
 def uploaded_file(filename):
     try:
@@ -935,6 +994,7 @@ def recording_file(filename):
         print(f"Error serving recording file: {str(e)}")
         return jsonify({"error": "Error accessing recording file"}), 500
 
+# Main application routes
 @application.route('/')
 def index():
     return render_template('index.html')
@@ -1012,33 +1072,24 @@ def webcam():
 
 @application.route('/start_monitoring', methods=['POST'])
 def start_monitoring():
-    global live_monitoring_active, session_data, recording_active, person_state_timers, person_current_state, last_alert_time
+    global live_monitoring_active, session_data, recording_active
     
     if live_monitoring_active:
         return jsonify({"status": "error", "message": "Monitoring already active"})
     
-    session_data = {
-        'start_time': datetime.now(),
-        'end_time': None,
-        'detections': [],
-        'alerts': [],
-        'focus_statistics': {
-            'unfocused_time': 0,
-            'yawning_time': 0,
-            'sleeping_time': 0,
-            'total_persons': 0,
-            'total_detections': 0
-        },
-        'recording_path': None,
-        'recording_frames': []
-    }
+    # Clean up old files periodically
+    cleanup_old_files()
     
-    person_state_timers = {}
-    person_current_state = {}
-    last_alert_time = {}
+    # Reset session data for new monitoring session
+    reset_session_data()
+    
+    # Set new session start time
+    session_data['start_time'] = datetime.now()
     
     live_monitoring_active = True
     recording_active = True
+    
+    print(f"Monitoring started at {session_data['start_time']}")
     
     return jsonify({"status": "success", "message": "Monitoring started"})
 
@@ -1053,7 +1104,14 @@ def stop_monitoring():
     recording_active = False
     session_data['end_time'] = datetime.now()
     
-    pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    print(f"Monitoring stopped at {session_data['end_time']}")
+    
+    # Generate unique filenames for this session
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    session_uuid = uuid.uuid4().hex[:8]
+    
+    # Generate PDF report
+    pdf_filename = f"session_report_{timestamp}_{session_uuid}.pdf"
     pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
     
     pdf_result = generate_pdf_report(session_data, pdf_path)
@@ -1065,20 +1123,27 @@ def stop_monitoring():
     
     if pdf_result and os.path.exists(pdf_path):
         response_data["pdf_report"] = f"/download_report/{pdf_filename}"
+        session_data['current_pdf_path'] = pdf_path
+        print(f"PDF report generated: {pdf_path}")
+    else:
+        print("PDF report generation failed")
     
-    recording_filename = f"session_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+    # Generate video recording
+    recording_filename = f"session_recording_{timestamp}_{session_uuid}.mp4"
     recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
     
-    if session_data.get('recording_frames'):
+    video_result = None
+    if session_data.get('recording_frames') and len(session_data['recording_frames']) > 0:
         video_result = create_session_recording_from_frames(session_data['recording_frames'], recording_path)
     else:
-        video_result = create_demo_recording_file()
-        if video_result:
-            recording_path = video_result
+        video_result = create_demo_recording_file(recording_path)
     
     if video_result and os.path.exists(recording_path):
-        response_data["video_file"] = f"/download_recording/{os.path.basename(recording_path)}"
-        session_data['recording_path'] = recording_path
+        response_data["video_file"] = f"/download_recording/{recording_filename}"
+        session_data['current_recording_path'] = recording_path
+        print(f"Video recording generated: {recording_path}")
+    else:
+        print("Video recording generation failed")
     
     return jsonify(response_data)
 
@@ -1087,6 +1152,7 @@ def health_check():
     return jsonify({
         "status": "healthy", 
         "timestamp": datetime.now().isoformat(),
+        "monitoring_active": live_monitoring_active,
         "directories": {
             "uploads": os.path.exists(application.config['UPLOAD_FOLDER']),
             "detected": os.path.exists(application.config['DETECTED_FOLDER']),
@@ -1175,6 +1241,7 @@ def process_frame():
         
         if live_monitoring_active and recording_active:
             session_data['recording_frames'].append(processed_frame.copy())
+            # Keep only last 300 frames to manage memory
             if len(session_data['recording_frames']) > 300:
                 session_data['recording_frames'] = session_data['recording_frames'][-300:]
         
@@ -1205,6 +1272,7 @@ def download_report(filename):
                 download_name=filename
             )
         else:
+            print(f"Report file not found: {file_path}")
             return jsonify({"error": "Report file not found"}), 404
     except Exception as e:
         print(f"Error downloading report: {str(e)}")
@@ -1222,10 +1290,21 @@ def download_recording(filename):
                 download_name=filename
             )
         else:
+            print(f"Recording file not found: {file_path}")
             return jsonify({"error": "Recording file not found"}), 404
     except Exception as e:
         print(f"Error downloading recording: {str(e)}")
         return jsonify({"error": "Error downloading recording file"}), 500
+
+# Add route for reports with /reports/ prefix
+@application.route('/reports/<filename>')
+def reports_route(filename):
+    return download_report(filename)
+
+# Add route for recordings with /recordings/ prefix
+@application.route('/recordings/<filename>')
+def recordings_route(filename):
+    return download_recording(filename)
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
