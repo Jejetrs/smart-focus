@@ -1292,9 +1292,23 @@
 
         async function stopMonitoring() {
             try {
-                const response = await fetch('/stop_monitoring', { method: 'POST' });
-                const data = await response.json();
+                // Show loading state
+                const stopBtn = document.getElementById('stopBtn');
+                const originalText = stopBtn.innerHTML;
+                stopBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Stopping...';
+                stopBtn.disabled = true;
+                
+                let response = await fetch('/stop_monitoring', { method: 'POST' });
+                let data = await response.json();
 
+                // If normal stop fails, try force stop
+                if (data.status === 'error' && data.message === 'Monitoring not active') {
+                    console.log('Normal stop failed, trying force stop...');
+                    response = await fetch('/force_stop_monitoring', { method: 'POST' });
+                    data = await response.json();
+                }
+
+                // Always update UI regardless of response
                 updateUIForInactiveMonitoring();
                 stopDataUpdates();
 
@@ -1311,6 +1325,7 @@
                 personStates = {};
                 personTimers = {};
 
+                // Handle response
                 if (data.status === 'success') {
                     showNotification(`Session complete! Generated ${alertCount} alerts. Files are being prepared...`, 'success');
                     
@@ -1324,10 +1339,25 @@
                         }, 2000);
                     }
                 } else {
-                    showNotification('Session stopped but there was an issue generating files: ' + data.message, 'warning');
+                    // Even if there's an error, try to check for files
+                    showNotification(`Session stopped. Checking for generated files...`, 'info');
+                    setTimeout(() => {
+                        checkForSessionFiles();
+                    }, 1000);
                 }
+                
+                // Reset button
+                stopBtn.innerHTML = originalText;
+                stopBtn.disabled = false;
+                
             } catch (error) {
+                console.error('Stop monitoring error:', error);
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
+                
+                // Reset button on error
+                const stopBtn = document.getElementById('stopBtn');
+                stopBtn.innerHTML = '<i class="fas fa-stop"></i> Stop & Generate Report';
+                stopBtn.disabled = false;
             }
         }
 
