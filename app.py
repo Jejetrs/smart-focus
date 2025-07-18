@@ -625,7 +625,7 @@ def create_session_recording_from_frames(recording_frames, output_path):
         
         # Improved video settings for more natural playback
         fourcc = cv.VideoWriter_fourcc(*'mp4v')
-        fps = 10.0  # Increased from 5.0 for more natural playback
+        fps = 30.0  # Increased from 5.0 for more natural playback
         out = cv.VideoWriter(output_path, fourcc, fps, (width, height))
         
         if not out.isOpened():
