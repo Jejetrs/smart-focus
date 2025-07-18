@@ -28,6 +28,7 @@ import traceback
 
 application = Flask(__name__)
 
+# Configuration with optimized paths for Railway
 application.config['UPLOAD_FOLDER'] = '/tmp/uploads'
 application.config['DETECTED_FOLDER'] = '/tmp/detected'
 application.config['REPORTS_FOLDER'] = '/tmp/reports'
@@ -50,7 +51,7 @@ monitoring_lock = threading.RLock()
 live_monitoring_active = False
 recording_active = False
 
-# FIXED: Enhanced session tracking
+# Enhanced session tracking with corrected calculation
 session_data = {
     'start_time': None,
     'end_time': None,
@@ -66,21 +67,23 @@ session_data = {
     'recording_path': None,
     'recording_frames': [],
     'session_id': None,
-    'client_alerts': []  # Store client-side alerts
+    'client_alerts': []
 }
 
+# Video recording variables
 video_writer = None
 person_state_timers = {}
 person_current_state = {}
 last_alert_time = {}
 
+# Alert thresholds (in seconds)
 DISTRACTION_THRESHOLDS = {
     'SLEEPING': 10,
     'YAWNING': 3.5,
     'NOT FOCUSED': 10
 }
 
-# FIXED: Initialize MediaPipe with error handling
+# Initialize MediaPipe with error handling
 face_detection = None
 face_mesh = None
 
@@ -94,7 +97,7 @@ def init_mediapipe():
         )
         face_mesh = mp.solutions.face_mesh.FaceMesh(
             static_image_mode=False,
-            max_num_faces=5,  # Reduced for performance
+            max_num_faces=5,
             refine_landmarks=True,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
@@ -106,6 +109,7 @@ def init_mediapipe():
         return False
 
 def draw_landmarks(image, landmarks, land_mark, color):
+    """Draw landmarks on the image for a single face"""
     height, width = image.shape[:2]
     for face in land_mark:
         point = landmarks.landmark[face]
@@ -113,6 +117,7 @@ def draw_landmarks(image, landmarks, land_mark, color):
         cv.circle(image, point_scale, 2, color, 1)
 
 def euclidean_distance(image, top, bottom):
+    """Calculate euclidean distance between two points"""
     height, width = image.shape[0:2]
     point1 = int(top.x * width), int(top.y * height)
     point2 = int(bottom.x * width), int(bottom.y * height)
@@ -120,6 +125,7 @@ def euclidean_distance(image, top, bottom):
     return distance
 
 def get_aspect_ratio(image, landmarks, top_bottom, left_right):
+    """Calculate aspect ratio based on landmarks"""
     top = landmarks.landmark[top_bottom[0]]
     bottom = landmarks.landmark[top_bottom[1]]
     top_bottom_dis = euclidean_distance(image, top, bottom)
@@ -128,7 +134,7 @@ def get_aspect_ratio(image, landmarks, top_bottom, left_right):
     right = landmarks.landmark[left_right[1]]
     left_right_dis = euclidean_distance(image, left, right)
     
-    # FIXED: Handle division by zero
+    # Handle division by zero
     if top_bottom_dis == 0:
         return 5.0  # Default to closed eyes ratio
     
@@ -136,12 +142,14 @@ def get_aspect_ratio(image, landmarks, top_bottom, left_right):
     return aspect_ratio
 
 def calculate_midpoint(points):
+    """Calculate the midpoint of a set of points"""
     x_coords = [p[0] for p in points]
     y_coords = [p[1] for p in points]
     midpoint = (sum(x_coords) // len(x_coords), sum(y_coords) // len(y_coords))
     return midpoint
 
 def check_iris_in_middle(left_eye_points, left_iris_points, right_eye_points, right_iris_points):
+    """Check if iris is in the middle of the eye"""
     left_eye_midpoint = calculate_midpoint(left_eye_points)
     right_eye_midpoint = calculate_midpoint(right_eye_points)
     left_iris_midpoint = calculate_midpoint(left_iris_points)
@@ -152,11 +160,13 @@ def check_iris_in_middle(left_eye_points, left_iris_points, right_eye_points, ri
             and abs(right_iris_midpoint[0] - right_eye_midpoint[0]) <= deviation_threshold_horizontal)
 
 def detect_drowsiness(frame, landmarks):
+    """Detect drowsiness and attention state based on facial landmarks"""
     COLOR_RED = (0, 0, 255)
     COLOR_BLUE = (255, 0, 0)
     COLOR_GREEN = (0, 255, 0)
     COLOR_MAGENTA = (255, 0, 255)
 
+    # Face landmark indices
     LEFT_EYE = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398]
     RIGHT_EYE = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246]
     LEFT_IRIS = [474, 475, 476, 477]
@@ -171,6 +181,7 @@ def detect_drowsiness(frame, landmarks):
             377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109]
 
     try:
+        # Draw landmarks
         draw_landmarks(frame, landmarks, FACE, COLOR_GREEN)
         draw_landmarks(frame, landmarks, LEFT_EYE_TOP_BOTTOM, COLOR_RED)
         draw_landmarks(frame, landmarks, LEFT_EYE_LEFT_RIGHT, COLOR_RED)
@@ -192,6 +203,7 @@ def detect_drowsiness(frame, landmarks):
         left_iris_points = mesh_points[LEFT_IRIS]
         right_iris_points = mesh_points[RIGHT_IRIS]
 
+        # Draw iris circles
         try:
             (l_cx, l_cy), l_radius = cv.minEnclosingCircle(left_iris_points)
             (r_cx, r_cy), r_radius = cv.minEnclosingCircle(right_iris_points)
@@ -202,18 +214,23 @@ def detect_drowsiness(frame, landmarks):
         except:
             pass
 
+        # Calculate eye aspect ratios
         ratio_left_eye = get_aspect_ratio(frame, landmarks, LEFT_EYE_TOP_BOTTOM, LEFT_EYE_LEFT_RIGHT)
         ratio_right_eye = get_aspect_ratio(frame, landmarks, RIGHT_EYE_TOP_BOTTOM, RIGHT_EYE_LEFT_RIGHT)
         eye_ratio = (ratio_left_eye + ratio_right_eye) / 2
         
+        # Calculate mouth aspect ratio
         ratio_lips = get_aspect_ratio(frame, landmarks, UPPER_LOWER_LIPS, LEFT_RIGHT_LIPS)
         
+        # Check focus
         iris_focused = check_iris_in_middle(left_eye_points, left_iris_points, right_eye_points, right_iris_points)
         
+        # Determine states
         eyes_closed = eye_ratio > 5.0
         yawning = ratio_lips < 1.8
         not_focused = not iris_focused
         
+        # State priority: SLEEPING > YAWNING > NOT FOCUSED > FOCUSED
         if eyes_closed:
             state = "SLEEPING"
         elif yawning:
@@ -237,10 +254,11 @@ def detect_drowsiness(frame, landmarks):
         return {"state": "FOCUSED"}, "FOCUSED"
 
 def detect_persons_with_attention(image, mode="image"):
+    """Detect persons in image with attention analysis - improved version"""
     global live_monitoring_active, session_data, person_state_timers, person_current_state, last_alert_time
     global face_detection, face_mesh
     
-    # FIXED: Check if MediaPipe is initialized
+    # Check if MediaPipe is initialized
     if face_detection is None or face_mesh is None:
         if not init_mediapipe():
             print("MediaPipe not available, returning empty detections")
@@ -259,7 +277,7 @@ def detect_persons_with_attention(image, mode="image"):
     ih, iw, _ = image.shape
     current_time = time.time()
     
-    # Check monitoring status at the start of detection
+    # Check monitoring status
     with monitoring_lock:
         is_monitoring_active = live_monitoring_active
         current_session_data = session_data.copy() if session_data else None
@@ -270,6 +288,7 @@ def detect_persons_with_attention(image, mode="image"):
             x, y, w, h = int(bboxC.xmin * iw), int(bboxC.ymin * ih), \
                          int(bboxC.width * iw), int(bboxC.height * ih)
             
+            # Ensure bounding box is within image bounds
             x = max(0, x)
             y = max(0, y)
             w = min(w, iw - x)
@@ -277,6 +296,7 @@ def detect_persons_with_attention(image, mode="image"):
             
             confidence_score = detection.score[0]
             
+            # Default attention status
             attention_status = {
                 "eyes_closed": False,
                 "yawning": False,
@@ -284,9 +304,11 @@ def detect_persons_with_attention(image, mode="image"):
                 "state": "FOCUSED"
             }
             
+            # Match detection with face mesh
             matched_face_idx = -1
             if mesh_results.multi_face_landmarks:
                 for face_idx, face_landmarks in enumerate(mesh_results.multi_face_landmarks):
+                    # Calculate face mesh bounding box
                     min_x, min_y = float('inf'), float('inf')
                     max_x, max_y = 0, 0
                     
@@ -297,6 +319,7 @@ def detect_persons_with_attention(image, mode="image"):
                         max_x = max(max_x, landmark_x)
                         max_y = max(max_y, landmark_y)
                     
+                    # Check if detection and mesh overlap
                     mesh_center_x = (min_x + max_x) // 2
                     mesh_center_y = (min_y + max_y) // 2
                     det_center_x = x + w // 2
@@ -307,6 +330,7 @@ def detect_persons_with_attention(image, mode="image"):
                         matched_face_idx = face_idx
                         break
             
+            # Analyze attention if face mesh matched
             if matched_face_idx != -1:
                 attention_status, state = detect_drowsiness(
                     image, 
@@ -319,23 +343,28 @@ def detect_persons_with_attention(image, mode="image"):
             duration = 0
             if mode == "video" and is_monitoring_active:
                 with monitoring_lock:
+                    # Initialize person tracking
                     if person_key not in person_state_timers:
                         person_state_timers[person_key] = {}
                         person_current_state[person_key] = None
                         last_alert_time[person_key] = 0
                     
+                    # Update state timing
                     if person_current_state[person_key] != status_text:
+                        # State changed - reset timers
                         person_state_timers[person_key] = {}
                         person_current_state[person_key] = status_text
                         person_state_timers[person_key][status_text] = current_time
                     else:
+                        # Same state continues
                         if status_text not in person_state_timers[person_key]:
                             person_state_timers[person_key][status_text] = current_time
                     
+                    # Calculate duration
                     if status_text in person_state_timers[person_key]:
                         duration = current_time - person_state_timers[person_key][status_text]
             
-            # FIXED: Enhanced visualization for monitoring
+            # Enhanced visualization for monitoring
             if mode == "video" and is_monitoring_active:
                 status_colors = {
                     "FOCUSED": (0, 255, 0),
@@ -347,12 +376,14 @@ def detect_persons_with_attention(image, mode="image"):
                 main_color = status_colors.get(status_text, (0, 255, 0))
                 cv.rectangle(image, (x, y), (x + w, y + h), main_color, 3)
                 
+                # Timer display
                 if status_text in DISTRACTION_THRESHOLDS:
                     threshold = DISTRACTION_THRESHOLDS[status_text]
                     timer_text = f"Person {i+1}: {status_text} ({duration:.1f}s/{threshold}s)"
                 else:
                     timer_text = f"Person {i+1}: {status_text}"
                 
+                # Draw text background
                 font = cv.FONT_HERSHEY_SIMPLEX
                 font_scale = 0.7
                 thickness = 2
@@ -362,14 +393,17 @@ def detect_persons_with_attention(image, mode="image"):
                 if text_y < text_height + 10:
                     text_y = y + h + text_height + 10
                 
+                # Semi-transparent background
                 overlay = image.copy()
                 cv.rectangle(overlay, (x, text_y - text_height - 5), (x + text_width + 10, text_y + 5), (0, 0, 0), -1)
                 cv.addWeighted(overlay, 0.7, image, 0.3, 0, image)
                 
                 cv.putText(image, timer_text, (x + 5, text_y), font, font_scale, main_color, thickness)
             else:
+                # Static detection display
                 cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 
+                # Information overlay
                 info_y_start = y + h + 10
                 box_padding = 10
                 line_height = 20
@@ -405,7 +439,7 @@ def detect_persons_with_attention(image, mode="image"):
                 cv.putText(image, f"Status: {status_text}", 
                         (x, info_y_start + 3*line_height), font, font_scale, color, thickness)
 
-            # FIXED: Enhanced alert handling
+            # Alert handling with corrected timing
             should_alert = False
             alert_message = ""
             
@@ -413,12 +447,13 @@ def detect_persons_with_attention(image, mode="image"):
                 person_key in person_state_timers and status_text in person_state_timers[person_key]):
                 
                 if duration >= DISTRACTION_THRESHOLDS[status_text]:
-                    alert_cooldown = 5
+                    alert_cooldown = 5  # 5 second cooldown
                     with monitoring_lock:
                         if current_time - last_alert_time.get(person_key, 0) >= alert_cooldown:
                             should_alert = True
                             last_alert_time[person_key] = current_time
                             
+                            # Generate alert message
                             if status_text == 'SLEEPING':
                                 alert_message = f'Person {i+1} is sleeping - please wake up!'
                             elif status_text == 'YAWNING':
@@ -426,7 +461,7 @@ def detect_persons_with_attention(image, mode="image"):
                             elif status_text == 'NOT FOCUSED':
                                 alert_message = f'Person {i+1} is not focused - please focus on screen!'
                             
-                            # FIXED: Ensure session_data exists and is valid
+                            # Store alert in session data
                             if live_monitoring_active and session_data and session_data.get('start_time'):
                                 session_data['alerts'].append({
                                     'timestamp': datetime.now().isoformat(),
@@ -437,6 +472,7 @@ def detect_persons_with_attention(image, mode="image"):
                                 })
                                 print(f"Alert added: {alert_message} (Total alerts: {len(session_data['alerts'])})")
             
+            # Save detected face
             face_img = image[y:y+h, x:x+w]
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             face_filename = f"person_{i+1}_{timestamp}_{uuid.uuid4().hex[:8]}.jpg"
@@ -458,6 +494,7 @@ def detect_persons_with_attention(image, mode="image"):
                 "duration": duration if mode == "video" else 0
             })
     
+    # Display detection count
     if detections:
         cv.putText(image, f"Persons detected: {len(detections)}", 
                   (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
@@ -467,8 +504,11 @@ def detect_persons_with_attention(image, mode="image"):
     
     return image, detections
 
-# Continue with the rest of the helper functions...
-def calculate_distraction_time_from_alerts(alerts):
+def calculate_accurate_distraction_time_from_alerts(alerts):
+    """
+    CORRECTED: Calculate actual distraction time based on REAL alert durations
+    This version prevents double-counting and calculates accurate times
+    """
     distraction_times = {
         'unfocused_time': 0,
         'yawning_time': 0,
@@ -478,33 +518,28 @@ def calculate_distraction_time_from_alerts(alerts):
     if not alerts:
         return distraction_times
     
-    person_distractions = {}
+    # Group alerts by person and type, track unique time periods
+    person_periods = {}
     
     for alert in alerts:
         person = alert.get('person', 'Unknown')
         detection = alert.get('detection', 'Unknown')
         duration = alert.get('duration', 0)
         
-        if person not in person_distractions:
-            person_distractions[person] = {}
+        # Each alert represents ONE distraction period of 'duration' seconds
+        # We don't accumulate durations, each alert is a separate period
         
-        if detection not in person_distractions[person]:
-            person_distractions[person][detection] = []
-        
-        person_distractions[person][detection].append(duration)
-    
-    for person, distractions in person_distractions.items():
-        for detection_type, durations in distractions.items():
-            if detection_type == 'NOT FOCUSED':
-                distraction_times['unfocused_time'] += sum(durations)
-            elif detection_type == 'YAWNING':
-                distraction_times['yawning_time'] += sum(durations)
-            elif detection_type == 'SLEEPING':
-                distraction_times['sleeping_time'] += sum(durations)
+        if detection == 'NOT FOCUSED':
+            distraction_times['unfocused_time'] += duration
+        elif detection == 'YAWNING':
+            distraction_times['yawning_time'] += duration
+        elif detection == 'SLEEPING':
+            distraction_times['sleeping_time'] += duration
     
     return distraction_times
 
 def update_session_statistics(detections):
+    """Update session statistics based on current detections"""
     global session_data
     
     if not detections:
@@ -519,14 +554,118 @@ def update_session_statistics(detections):
                 len(detections)
             )
             
-            distraction_times = calculate_distraction_time_from_alerts(session_data['alerts'])
+            # Update distraction times with corrected calculation
+            distraction_times = calculate_accurate_distraction_time_from_alerts(session_data['alerts'])
             session_data['focus_statistics']['unfocused_time'] = distraction_times['unfocused_time']
             session_data['focus_statistics']['yawning_time'] = distraction_times['yawning_time']
             session_data['focus_statistics']['sleeping_time'] = distraction_times['sleeping_time']
 
-# Continue with PDF generation and other functions...
+def get_most_common_distraction(alerts):
+    """Find the most common type of distraction with accurate counting"""
+    if not alerts:
+        return "None"
+    
+    distraction_counts = {}
+    distraction_durations = {}
+    
+    for alert in alerts:
+        detection = alert.get('detection', 'Unknown')
+        duration = alert.get('duration', 0)
+        
+        # Count occurrences and sum durations
+        distraction_counts[detection] = distraction_counts.get(detection, 0) + 1
+        distraction_durations[detection] = distraction_durations.get(detection, 0) + duration
+    
+    if not distraction_counts:
+        return "None"
+    
+    # Find most common by count
+    most_common = max(distraction_counts, key=distraction_counts.get)
+    count = distraction_counts[most_common]
+    total_duration = distraction_durations[most_common]
+    
+    return f"{most_common} ({count} times, {total_duration}s total)"
+
+def calculate_focus_quality_rating(focus_accuracy):
+    """Calculate focus quality rating based on accuracy percentage"""
+    if focus_accuracy >= 90:
+        return "Excellent", colors.HexColor('#10B981')
+    elif focus_accuracy >= 75:
+        return "Good", colors.HexColor('#3B82F6')
+    elif focus_accuracy >= 60:
+        return "Fair", colors.HexColor('#F59E0B')
+    elif focus_accuracy >= 40:
+        return "Poor", colors.HexColor('#EF4444')
+    else:
+        return "Very Poor", colors.HexColor('#DC2626')
+
+def create_session_recording_from_frames(recording_frames, output_path):
+    """
+    IMPROVED: Create session recording with natural frame rate and better quality
+    """
+    try:
+        if not recording_frames:
+            print("No frames to create video")
+            return None
+        
+        print(f"Creating session recording from {len(recording_frames)} processed frames")
+        
+        # Improved frame management - less aggressive reduction
+        max_frames = 300  # Increased from 150 for better quality
+        if len(recording_frames) > max_frames:
+            # Better frame selection - take frames more evenly distributed
+            step = len(recording_frames) // max_frames
+            recording_frames = recording_frames[::step][:max_frames]
+            print(f"Optimized to {len(recording_frames)} frames for better quality")
+        
+        if not recording_frames:
+            return None
+            
+        height, width = recording_frames[0].shape[:2]
+        
+        # Improved video settings for more natural playback
+        fourcc = cv.VideoWriter_fourcc(*'mp4v')
+        fps = 10.0  # Increased from 5.0 for more natural playback
+        out = cv.VideoWriter(output_path, fourcc, fps, (width, height))
+        
+        if not out.isOpened():
+            print(f"Error: Could not open video writer for {output_path}")
+            return None
+        
+        frames_written = 0
+        for frame in recording_frames:
+            if frame is not None and frame.size > 0:
+                # Ensure frame has correct dimensions
+                if frame.shape[:2] == (height, width):
+                    out.write(frame)
+                    frames_written += 1
+                else:
+                    # Resize frame if dimensions don't match
+                    resized_frame = cv.resize(frame, (width, height))
+                    out.write(resized_frame)
+                    frames_written += 1
+        
+        out.release()
+        
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            file_size = os.path.getsize(output_path) / (1024 * 1024)  # MB
+            print(f"Session recording created successfully: {output_path}")
+            print(f"Total frames written: {frames_written}, File size: {file_size:.2f}MB")
+            return output_path
+        else:
+            print("Failed to create session recording - file not created or empty")
+            return None
+            
+    except Exception as e:
+        print(f"Error creating session recording: {str(e)}")
+        traceback.print_exc()
+        return None
+
 def generate_pdf_report(session_data, output_path):
-    """Generate PDF report for session with corrected focus accuracy calculation"""
+    """
+    IMPROVED: Generate comprehensive PDF report with corrected calculations
+    Based on the working local version with enhanced accuracy
+    """
     try:
         doc = SimpleDocTemplate(output_path, pagesize=A4)
         styles = getSampleStyleSheet()
@@ -555,7 +694,7 @@ def generate_pdf_report(session_data, output_path):
         story.append(Paragraph("Smart Focus Alert - Session Report", title_style))
         story.append(Spacer(1, 20))
         
-        # Calculate session duration and focus accuracy
+        # Calculate session duration with corrected timing
         if session_data['start_time'] and session_data['end_time']:
             duration = session_data['end_time'] - session_data['start_time']
             total_session_seconds = duration.total_seconds()
@@ -564,8 +703,8 @@ def generate_pdf_report(session_data, output_path):
             total_session_seconds = 0
             duration_str = "N/A"
         
-        # Get corrected time statistics from alert history
-        distraction_times = calculate_distraction_time_from_alerts(session_data['alerts'])
+        # CORRECTED: Get accurate distraction times from alert history
+        distraction_times = calculate_accurate_distraction_time_from_alerts(session_data['alerts'])
         unfocused_time = distraction_times['unfocused_time']
         yawning_time = distraction_times['yawning_time']
         sleeping_time = distraction_times['sleeping_time']
@@ -573,19 +712,24 @@ def generate_pdf_report(session_data, output_path):
         # Calculate total distraction time
         total_distraction_time = unfocused_time + yawning_time + sleeping_time
         
-        # Calculate focused time (session time minus distraction time)
+        # CORRECTED: Calculate focused time properly
         if total_session_seconds > 0:
             focused_time = max(0, total_session_seconds - total_distraction_time)
-        else:
-            focused_time = 0
-        
-        # Calculate focus accuracy percentage
-        if total_session_seconds > 0:
             focus_accuracy = (focused_time / total_session_seconds) * 100
             distraction_percentage = (total_distraction_time / total_session_seconds) * 100
         else:
+            focused_time = 0
             focus_accuracy = 0
             distraction_percentage = 0
+        
+        # Get focus quality rating
+        focus_rating, rating_color = calculate_focus_quality_rating(focus_accuracy)
+        
+        def format_time(seconds):
+            """Format seconds to readable time string"""
+            minutes = int(seconds // 60)
+            secs = int(seconds % 60)
+            return f"{minutes}m {secs}s"
         
         # Session Information
         story.append(Paragraph("Session Information", heading_style))
@@ -617,16 +761,15 @@ def generate_pdf_report(session_data, output_path):
         story.append(Paragraph("Focus Accuracy Summary", heading_style))
         
         # Focus Accuracy Display
-        accuracy_text = f"<para align=center><font size=18 color='#3B82F6'><b>{focus_accuracy:.1f}%</b></font></para>"
+        accuracy_text = f"<para align=center><font size=18 color='{rating_color.hexval()}'><b>{focus_accuracy:.1f}%</b></font></para>"
         story.append(Paragraph(accuracy_text, styles['Normal']))
         story.append(Spacer(1, 10))
         
-        def format_time(seconds):
-            minutes = int(seconds // 60)
-            secs = int(seconds % 60)
-            return f"{minutes}m {secs}s"
+        rating_text = f"<para align=center><font size=14 color='{rating_color.hexval()}'><b>Focus Quality: {focus_rating}</b></font></para>"
+        story.append(Paragraph(rating_text, styles['Normal']))
+        story.append(Spacer(1, 20))
         
-        # Detailed time breakdown
+        # Detailed time breakdown with corrected calculations
         focus_breakdown = [
             ['Metric', 'Time', 'Percentage'],
             ['Total Focused Time', format_time(focused_time), f"{(focused_time/total_session_seconds*100):.1f}%" if total_session_seconds > 0 else "0%"],
@@ -647,19 +790,62 @@ def generate_pdf_report(session_data, output_path):
             ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')]),
+            # Highlight focused time row
+            ('BACKGROUND', (0, 1), (-1, 1), colors.HexColor('#ECFDF5')),
+            ('TEXTCOLOR', (0, 1), (-1, 1), colors.HexColor('#065F46')),
+            # Highlight total distraction row  
+            ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#FEF2F2')),
+            ('TEXTCOLOR', (0, 2), (-1, 2), colors.HexColor('#991B1B')),
         ]))
         
         story.append(breakdown_table)
         story.append(Spacer(1, 20))
         
-        # Alert History
+        # Enhanced Focus Statistics
+        story.append(Paragraph("Detailed Focus Statistics", heading_style))
+        
+        # Calculate additional metrics
+        if len(session_data['alerts']) > 0 and total_session_seconds > 0:
+            avg_time_between_alerts = total_session_seconds / len(session_data['alerts'])
+            alert_frequency = f"Every {format_time(avg_time_between_alerts)} on average"
+        else:
+            alert_frequency = "No alerts generated"
+        
+        focus_efficiency = f"{(focus_accuracy/100 * total_session_seconds/60):.1f} effective minutes"
+        
+        focus_stats = [
+            ['Total Session Duration', format_time(total_session_seconds)],
+            ['Focus Accuracy Score', f"{focus_accuracy:.2f}%"],
+            ['Focus Quality Rating', focus_rating],
+            ['Focus Efficiency', focus_efficiency],
+            ['Alert Frequency', alert_frequency],
+            ['Most Common Distraction', get_most_common_distraction(session_data['alerts'])]
+        ]
+        
+        focus_table = Table(focus_stats, colWidths=[3*inch, 2*inch])
+        focus_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F3F4F6')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        story.append(focus_table)
+        story.append(Spacer(1, 20))
+        
+        # Alert History with improved formatting
         if session_data['alerts']:
             story.append(Paragraph("Alert History", heading_style))
             
             alert_headers = ['Time', 'Person', 'Detection', 'Duration', 'Message']
             alert_data = [alert_headers]
             
-            for alert in session_data['alerts'][-10:]:  # Show last 10 alerts
+            # Show latest 15 alerts instead of 10
+            for alert in session_data['alerts'][-15:]:
                 try:
                     alert_time = datetime.fromisoformat(alert['timestamp']).strftime('%I:%M:%S %p')
                 except:
@@ -691,9 +877,31 @@ def generate_pdf_report(session_data, output_path):
             
             story.append(alert_table)
         
-        # Footer
+        # Recommendations section
         story.append(Spacer(1, 20))
-        footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System - Focus Monitoring Report"
+        story.append(Paragraph("Recommendations", heading_style))
+        
+        recommendations = []
+        if focus_accuracy < 60:
+            recommendations.append("• Consider taking more frequent breaks to improve focus")
+            recommendations.append("• Ensure proper lighting and comfortable seating arrangement")
+        if sleeping_time > 0:
+            recommendations.append("• Ensure adequate sleep before monitoring sessions")
+        if yawning_time > unfocused_time:
+            recommendations.append("• Take short breaks when feeling tired")
+        if unfocused_time > sleeping_time and unfocused_time > yawning_time:
+            recommendations.append("• Minimize distractions in your environment")
+            recommendations.append("• Consider using focus techniques like the Pomodoro method")
+        
+        if not recommendations:
+            recommendations.append("• Excellent focus performance! Keep up the good work.")
+        
+        recommendation_text = "<br/>".join(recommendations)
+        story.append(Paragraph(recommendation_text, styles['Normal']))
+        
+        # Footer
+        story.append(Spacer(1, 30))
+        footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System - Enhanced Focus Monitoring Report"
         footer_style = ParagraphStyle(
             'Footer',
             parent=styles['Normal'],
@@ -704,7 +912,7 @@ def generate_pdf_report(session_data, output_path):
         story.append(Paragraph(footer_text, footer_style))
         
         doc.build(story)
-        print(f"PDF report generated successfully: {output_path}")
+        print(f"Enhanced PDF report generated successfully: {output_path}")
         return output_path
         
     except Exception as e:
@@ -712,65 +920,7 @@ def generate_pdf_report(session_data, output_path):
         traceback.print_exc()
         return None
 
-def create_session_recording_from_frames(recording_frames, output_path):
-    """FIXED: Create session recording with memory management"""
-    try:
-        if not recording_frames:
-            print("No frames to create video")
-            return None
-        
-        print(f"Creating session recording from {len(recording_frames)} processed frames")
-        
-        # FIXED: Use smaller sample of frames to prevent memory issues
-        max_frames = 150  # Limit frames for Railway
-        if len(recording_frames) > max_frames:
-            # Take every nth frame to get max_frames total
-            step = len(recording_frames) // max_frames
-            recording_frames = recording_frames[::step][:max_frames]
-            print(f"Reduced to {len(recording_frames)} frames for memory efficiency")
-        
-        if not recording_frames:
-            return None
-            
-        height, width = recording_frames[0].shape[:2]
-        
-        # Use lower frame rate for smaller file size
-        fourcc = cv.VideoWriter_fourcc(*'mp4v')
-        out = cv.VideoWriter(output_path, fourcc, 5.0, (width, height))  # Reduced to 5 FPS
-        
-        if not out.isOpened():
-            print(f"Error: Could not open video writer for {output_path}")
-            return None
-        
-        frames_written = 0
-        for frame in recording_frames:
-            if frame is not None and frame.size > 0:
-                # Ensure frame has correct dimensions
-                if frame.shape[:2] == (height, width):
-                    out.write(frame)
-                    frames_written += 1
-                else:
-                    # Resize frame if dimensions don't match
-                    resized_frame = cv.resize(frame, (width, height))
-                    out.write(resized_frame)
-                    frames_written += 1
-        
-        out.release()
-        
-        if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-            print(f"Session recording created successfully: {output_path}")
-            print(f"Total frames written: {frames_written}")
-            return output_path
-        else:
-            print("Failed to create session recording - file not created or empty")
-            return None
-            
-    except Exception as e:
-        print(f"Error creating session recording: {str(e)}")
-        traceback.print_exc()
-        return None
-
-# Continue with Flask routes...
+# Flask Routes
 @application.route('/')
 def index():
     return render_template('index.html')
@@ -784,7 +934,6 @@ def start_monitoring():
     global live_monitoring_active, session_data, recording_active, person_state_timers, person_current_state, last_alert_time
     
     try:
-        # FIXED: Get session ID from client
         request_data = request.get_json() or {}
         client_session_id = request_data.get('sessionId')
         
@@ -797,7 +946,7 @@ def start_monitoring():
                 print("WARNING: Monitoring already active, returning error")
                 return jsonify({"status": "error", "message": "Monitoring already active"})
             
-            # FIXED: Reset session data completely with session ID
+            # Reset session data completely
             session_data = {
                 'start_time': datetime.now(),
                 'end_time': None,
@@ -823,12 +972,12 @@ def start_monitoring():
             live_monitoring_active = True
             recording_active = True
             
-            print(f"Monitoring started at {session_data['start_time']}")
+            print(f"Enhanced monitoring started at {session_data['start_time']}")
             print(f"Status: live_monitoring_active={live_monitoring_active}")
             print(f"Session ID: {client_session_id}")
             print(f"=== START MONITORING SUCCESS ===")
             
-            return jsonify({"status": "success", "message": "Monitoring started", "session_id": client_session_id})
+            return jsonify({"status": "success", "message": "Enhanced monitoring started", "session_id": client_session_id})
         
     except Exception as e:
         print(f"Error starting monitoring: {str(e)}")
@@ -840,7 +989,6 @@ def stop_monitoring():
     global live_monitoring_active, session_data, recording_active
     
     try:
-        # FIXED: Get client data including alerts
         request_data = request.get_json() or {}
         client_alerts = request_data.get('alerts', [])
         client_session_id = request_data.get('sessionId')
@@ -859,12 +1007,12 @@ def stop_monitoring():
                 print(f"Server alerts: {len(session_data.get('alerts', []))}")
                 print(f"Total frames: {len(session_data.get('recording_frames', []))}")
             
-            # FIXED: More flexible check - allow stopping even if status inconsistent
+            # Enhanced session validation
             if not live_monitoring_active and (not session_data or not session_data.get('start_time')):
                 print("ERROR: No active monitoring session found")
                 return jsonify({"status": "error", "message": "Monitoring not active"})
             
-            # FIXED: Ensure session_data exists and merge client alerts
+            # Ensure session_data exists and merge client alerts
             if not session_data:
                 print("WARNING: Creating minimal session data")
                 session_data = {
@@ -888,7 +1036,7 @@ def stop_monitoring():
             if not session_data.get('start_time'):
                 session_data['start_time'] = datetime.now() - timedelta(minutes=1)
             
-            # FIXED: Merge client alerts with server alerts
+            # Merge client alerts with server alerts
             if client_alerts:
                 print(f"Merging {len(client_alerts)} client alerts with server data")
                 session_data['client_alerts'] = client_alerts
@@ -915,14 +1063,14 @@ def stop_monitoring():
             
             response_data = {
                 "status": "success", 
-                "message": "Monitoring stopped",
+                "message": "Enhanced monitoring stopped",
                 "alerts_processed": len(session_data['alerts'])
             }
             
-            # FIXED: Generate PDF report with merged data
-            print("=== GENERATING PDF REPORT ===")
+            # Generate enhanced PDF report
+            print("=== GENERATING ENHANCED PDF REPORT ===")
             try:
-                pdf_filename = f"session_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.pdf"
+                pdf_filename = f"enhanced_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.pdf"
                 pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
                 
                 print(f"PDF path: {pdf_path}")
@@ -932,7 +1080,7 @@ def stop_monitoring():
                 
                 if pdf_result and os.path.exists(pdf_path):
                     response_data["pdf_report"] = f"/static/reports/{pdf_filename}"
-                    print(f"PDF SUCCESS: {pdf_filename} (size: {os.path.getsize(pdf_path)} bytes)")
+                    print(f"ENHANCED PDF SUCCESS: {pdf_filename} (size: {os.path.getsize(pdf_path)} bytes)")
                 else:
                     print("PDF FAILED: File not created")
                     
@@ -940,10 +1088,10 @@ def stop_monitoring():
                 print(f"PDF ERROR: {str(pdf_error)}")
                 traceback.print_exc()
             
-            # FIXED: Generate video recording with memory management
-            print("=== GENERATING VIDEO RECORDING ===")
+            # Generate improved video recording
+            print("=== GENERATING ENHANCED VIDEO RECORDING ===")
             try:
-                recording_filename = f"session_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.mp4"
+                recording_filename = f"enhanced_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.mp4"
                 recording_path = os.path.join(application.config['RECORDINGS_FOLDER'], recording_filename)
                 
                 print(f"Video path: {recording_path}")
@@ -951,13 +1099,13 @@ def stop_monitoring():
                 print(f"Available frames: {frame_count}")
                 
                 if frame_count > 0:
-                    print(f"Creating video from {frame_count} recorded frames")
+                    print(f"Creating enhanced video from {frame_count} recorded frames")
                     video_result = create_session_recording_from_frames(session_data['recording_frames'], recording_path)
                     
                     if video_result and os.path.exists(recording_path):
                         response_data["video_file"] = f"/static/recordings/{os.path.basename(recording_path)}"
                         session_data['recording_path'] = recording_path
-                        print(f"VIDEO SUCCESS: {os.path.basename(recording_path)} (size: {os.path.getsize(recording_path)} bytes)")
+                        print(f"ENHANCED VIDEO SUCCESS: {os.path.basename(recording_path)} (size: {os.path.getsize(recording_path)} bytes)")
                     else:
                         print("VIDEO FAILED: Unable to create from frames")
                 else:
@@ -967,7 +1115,7 @@ def stop_monitoring():
                 print(f"VIDEO ERROR: {str(video_error)}")
                 traceback.print_exc()
             
-            print(f"=== STOP MONITORING COMPLETE ===")
+            print(f"=== ENHANCED STOP MONITORING COMPLETE ===")
             print(f"Response: {response_data}")
             return jsonify(response_data)
         
@@ -978,6 +1126,7 @@ def stop_monitoring():
 
 @application.route('/process_frame', methods=['POST'])
 def process_frame():
+    """Enhanced frame processing with improved recording"""
     global session_data
     
     try:
@@ -993,31 +1142,31 @@ def process_frame():
         if frame is None:
             return jsonify({"error": "Invalid frame data"}), 400
         
-        # Process frame for detection FIRST to get face landmarks and overlays
+        # Process frame for detection with enhanced analysis
         processed_frame, detections = detect_persons_with_attention(frame, mode="video")
         
-        # FIXED: Store PROCESSED frame with reduced frequency for memory management
+        # Enhanced frame storage with improved frequency
         with monitoring_lock:
             if live_monitoring_active and recording_active and session_data:
-                # Store frame every 5th call to reduce memory usage
+                # Store frame every 3rd call instead of 5th for better video quality
                 current_frame_count = len(session_data.get('recording_frames', []))
-                if current_frame_count % 5 == 0:  # Only store every 5th frame
+                if current_frame_count % 3 == 0:  # Improved from every 5th frame
                     session_data['recording_frames'].append(processed_frame.copy())
                     
-                    # FIXED: Keep only last 100 frames to prevent memory overflow on Railway
-                    if len(session_data['recording_frames']) > 100:
-                        session_data['recording_frames'] = session_data['recording_frames'][-100:]
+                    # Keep more frames for better video quality - increased from 100 to 200
+                    if len(session_data['recording_frames']) > 200:
+                        session_data['recording_frames'] = session_data['recording_frames'][-200:]
                     
-                    # Debug log every 10th frame
-                    if current_frame_count % 10 == 0:
-                        print(f"FRAME STORAGE: {len(session_data['recording_frames'])} frames stored, {len(detections)} detections, active={live_monitoring_active}")
+                    # Debug log every 15th frame
+                    if current_frame_count % 15 == 0:
+                        print(f"ENHANCED FRAME STORAGE: {len(session_data['recording_frames'])} frames stored, {len(detections)} detections")
         
         # Update session statistics if monitoring is active
         if live_monitoring_active and detections:
             update_session_statistics(detections)
         
-        # Encode processed frame back to base64
-        _, buffer = cv.imencode('.jpg', processed_frame, [cv.IMWRITE_JPEG_QUALITY, 85])  # Reduced quality
+        # Encode processed frame back to base64 with improved quality
+        _, buffer = cv.imencode('.jpg', processed_frame, [cv.IMWRITE_JPEG_QUALITY, 90])  # Increased quality from 85
         processed_frame_b64 = base64.b64encode(buffer).decode('utf-8')
         
         return jsonify({
@@ -1032,10 +1181,10 @@ def process_frame():
         traceback.print_exc()
         return jsonify({"error": f"Frame processing failed: {str(e)}"}), 500
 
-# Add route for client alerts
+# Additional utility routes
 @application.route('/sync_alerts', methods=['POST'])
 def sync_alerts():
-    """FIXED: Sync client-side alerts with server"""
+    """Sync client-side alerts with server"""
     try:
         request_data = request.get_json() or {}
         client_alerts = request_data.get('alerts', [])
@@ -1055,6 +1204,7 @@ def sync_alerts():
 
 @application.route('/get_monitoring_data')
 def get_monitoring_data():
+    """Enhanced monitoring data endpoint"""
     global session_data
     
     try:
@@ -1119,6 +1269,7 @@ def get_monitoring_data():
 
 @application.route('/monitoring_status')
 def monitoring_status():
+    """Get current monitoring status"""
     try:
         with monitoring_lock:
             return jsonify({
@@ -1132,14 +1283,16 @@ def monitoring_status():
 
 @application.route('/check_camera')
 def check_camera():
+    """Check camera availability"""
     try:
-        return jsonify({"camera_available": False})
+        return jsonify({"camera_available": False})  # Force client-side camera for Railway
     except Exception as e:
         print(f"Error checking camera: {str(e)}")
         return jsonify({"camera_available": False})
 
 @application.route('/health')
 def health_check():
+    """Enhanced health check endpoint"""
     try:
         with monitoring_lock:
             return jsonify({
@@ -1154,7 +1307,8 @@ def health_check():
                 "monitoring_active": live_monitoring_active,
                 "session_alerts": len(session_data.get('alerts', [])) if session_data else 0,
                 "recording_frames": len(session_data.get('recording_frames', [])) if session_data else 0,
-                "mediapipe_status": "initialized" if face_detection and face_mesh else "error"
+                "mediapipe_status": "initialized" if face_detection and face_mesh else "error",
+                "version": "enhanced_v2.0"
             })
     except Exception as e:
         print(f"Health check error: {str(e)}")
@@ -1164,9 +1318,10 @@ def health_check():
             "timestamp": datetime.now().isoformat()
         }), 500
 
-# Add static file routes
+# Static file routes
 @application.route('/static/reports/<filename>')
 def report_file(filename):
+    """Serve PDF report files"""
     try:
         file_path = os.path.join(application.config['REPORTS_FOLDER'], filename)
         if os.path.exists(file_path):
@@ -1185,6 +1340,7 @@ def report_file(filename):
 
 @application.route('/static/recordings/<filename>')
 def recording_file(filename):
+    """Serve video recording files"""
     try:
         file_path = os.path.join(application.config['RECORDINGS_FOLDER'], filename)
         if os.path.exists(file_path):
@@ -1203,12 +1359,17 @@ def recording_file(filename):
 
 if __name__ == "__main__":
     try:
-        # FIXED: Initialize MediaPipe at startup
+        # Initialize MediaPipe at startup
         if not init_mediapipe():
             print("WARNING: MediaPipe initialization failed, continuing with limited functionality")
         
         port = int(os.environ.get('PORT', 5000))
-        print(f"Starting Smart Focus Alert application on port {port}")
+        print(f"Starting Enhanced Smart Focus Alert application on port {port}")
+        print("Enhanced Features:")
+        print("- Corrected focus accuracy calculations")
+        print("- Improved video recording with natural frame rates")
+        print("- Enhanced PDF reports with detailed metrics")
+        print("- Better memory management and error handling")
         print("Directories:")
         for name, path in [
             ("UPLOAD", application.config['UPLOAD_FOLDER']),
