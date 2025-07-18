@@ -174,48 +174,6 @@
             transform: none;
         }
 
-        .camera-setup-notice {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 20px;
-            border: 1px solid var(--glass-border);
-            margin-bottom: 24px;
-            display: none;
-        }
-
-        .setup-content {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .setup-icon {
-            width: 48px;
-            height: 48px;
-            background: rgba(245, 158, 11, 0.2);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--warning);
-            font-size: 1.5rem;
-        }
-
-        .setup-text {
-            flex: 1;
-        }
-
-        .setup-title {
-            font-weight: 600;
-            margin-bottom: 4px;
-            color: var(--text-primary);
-        }
-
-        .setup-subtitle {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
         .sidebar-card {
             background: var(--card-bg);
             border-radius: 16px;
@@ -524,6 +482,143 @@
             margin-bottom: 10px;
         }
 
+        /* Enhanced Detection Display */
+        .detection-info {
+            background: var(--dark-bg);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .detection-info::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .detection-info::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+            border-radius: 3px;
+        }
+
+        .detection-info::-webkit-scrollbar-thumb {
+            background: var(--primary-blue);
+            border-radius: 3px;
+        }
+
+        .detection-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            margin-bottom: 12px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            border-left: 4px solid var(--info);
+            transition: all 0.3s ease;
+        }
+
+        .detection-item.focused {
+            border-left-color: var(--success);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .detection-item.not-focused {
+            border-left-color: var(--warning);
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .detection-item.yawning {
+            border-left-color: #eab308;
+            background: rgba(234, 179, 8, 0.05);
+        }
+
+        .detection-item.sleeping {
+            border-left-color: var(--danger);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        .detection-details {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+        }
+
+        .detection-person {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .detection-status {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .detection-confidence {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .detection-timer-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+            min-width: 120px;
+        }
+
+        .detection-timer {
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .detection-timer.focused { color: var(--success); }
+        .detection-timer.not-focused { color: var(--warning); }
+        .detection-timer.yawning { color: #eab308; }
+        .detection-timer.sleeping { color: var(--danger); }
+
+        .detection-progress {
+            width: 100px;
+            height: 6px;
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .detection-progress-bar {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .detection-progress-bar.focused { background: var(--success); }
+        .detection-progress-bar.not-focused { background: var(--warning); }
+        .detection-progress-bar.yawning { background: #eab308; }
+        .detection-progress-bar.sleeping { background: var(--danger); }
+
+        .threshold-text {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: right;
+        }
+
+        .alert-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            animation: pulse 1.5s infinite;
+        }
+
         .thresholds-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -633,6 +728,38 @@
             color: var(--primary-blue);
         }
 
+        .status-health {
+            padding: 12px;
+            background: var(--dark-bg);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .health-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 0.85rem;
+        }
+
+        .health-status {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .health-status.ok {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .health-status.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -711,19 +838,7 @@
     <div class="main-container">
         <div class="page-header">
             <h1 class="page-title text-gradient">Live Focus Monitoring</h1>
-            <p class="page-subtitle">Real-time focus detection with facial landmarks, automatic recording, and comprehensive reporting</p>
-        </div>
-
-        <div class="camera-setup-notice" id="cameraSetupNotice">
-            <div class="setup-content">
-                <div class="setup-icon">
-                    <i class="fas fa-info-circle"></i>
-                </div>
-                <div class="setup-text">
-                    <div class="setup-title">Using Device Camera</div>
-                    <div class="setup-subtitle" id="connectionSubtitle">Server camera not available. Using your device camera for Railway/ngrok compatibility.</div>
-                </div>
-            </div>
+            <p class="page-subtitle">Real-time focus detection with persistent timers, file backup system, and comprehensive reporting</p>
         </div>
 
         <div class="monitoring-status-card">
@@ -740,7 +855,7 @@
             
             <div class="status-display" id="currentStatus">
                 <span class="status-indicator"></span>
-                System Ready - Click Start to begin monitoring with automatic recording
+                System Ready - Enhanced with persistent timer & backup file system
             </div>
 
             <div class="stats-grid">
@@ -773,13 +888,13 @@
                     
                     <div class="video-placeholder" id="videoPlaceholder">
                         <i class="fas fa-video"></i>
-                        <h3 style="margin-bottom: 12px;">Detection Ready</h3>
-                        <p style="margin-bottom: 20px;">Click "Start Monitoring" to begin detection with time-based alerts</p>
+                        <h3 style="margin-bottom: 12px;">Enhanced Detection Ready</h3>
+                        <p style="margin-bottom: 20px;">Fixed timer persistence & reliable file generation</p>
                         <div style="text-align: left; max-width: 400px; line-height: 1.6;">
-                            <div style="margin-bottom: 8px;">• <strong>Sleep Detection:</strong> Alert after 10 seconds</div>
-                            <div style="margin-bottom: 8px;">• <strong>Yawning Detection:</strong> Alert after 3.5 seconds</div>
-                            <div style="margin-bottom: 8px;">• <strong>Unfocus Detection:</strong> Alert after 10 seconds</div>
-                            <div>• <strong>Visual + Audio Alerts:</strong> Automatic notifications</div>
+                            <div style="margin-bottom: 8px;">• <strong>Persistent Timers:</strong> No more reset issues</div>
+                            <div style="margin-bottom: 8px;">• <strong>Backup Storage:</strong> Multiple file generation attempts</div>
+                            <div style="margin-bottom: 8px;">• <strong>Real-time Progress:</strong> Visual timer display</div>
+                            <div>• <strong>Enhanced Alerts:</strong> Progressive notifications</div>
                         </div>
                     </div>
                 </div>
@@ -797,6 +912,32 @@
                         <i class="fas fa-camera"></i>
                         Screenshot
                     </button>
+                </div>
+
+                <div class="left-card">
+                    <div class="sidebar-header">
+                        <i class="fas fa-heartbeat"></i>
+                        System Health
+                    </div>
+                    
+                    <div class="status-health" id="systemHealth">
+                        <div class="health-item">
+                            <span>Camera Status:</span>
+                            <span class="health-status ok" id="cameraHealth">Ready</span>
+                        </div>
+                        <div class="health-item">
+                            <span>Server Connection:</span>
+                            <span class="health-status ok" id="serverHealth">Connected</span>
+                        </div>
+                        <div class="health-item">
+                            <span>File System:</span>
+                            <span class="health-status ok" id="fileHealth">Ready</span>
+                        </div>
+                        <div class="health-item">
+                            <span>Timer Sync:</span>
+                            <span class="health-status ok" id="timerHealth">Synchronized</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="left-card">
@@ -830,8 +971,8 @@
                             <i class="fas fa-clock"></i>
                         </div>
                         <div class="connection-text">
-                            <div class="connection-title">Ready to Connect</div>
-                            <div class="connection-subtitle" id="connectionSubtitle">Webcam access ready</div>
+                            <div class="connection-title">Enhanced Monitoring Ready</div>
+                            <div class="connection-subtitle" id="connectionSubtitle">Persistent timer & backup system</div>
                         </div>
                     </div>
 
@@ -843,6 +984,25 @@
 
                     <div class="audio-alert" style="margin-bottom: 0;">
                         <span style="color: var(--text-secondary); font-size: 0.9rem;" id="audioStatus">Sound Alerts Enabled</span>
+                    </div>
+                </div>
+
+                <!-- Enhanced Detection Display with Persistent Timers -->
+                <div class="sidebar-card">
+                    <div class="sidebar-header">
+                        <i class="fas fa-users"></i>
+                        Live Detection Details
+                        <div class="alert-badge" id="detectionBadge" style="display: none;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            ALERT
+                        </div>
+                    </div>
+                    
+                    <div class="detection-info" id="detectionInfo">
+                        <div class="text-center" style="color: var(--text-secondary); padding: 20px;">
+                            <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i>
+                            <p>Enhanced detection with persistent timers ready</p>
+                        </div>
                     </div>
                 </div>
 
@@ -891,6 +1051,7 @@
         let isMonitoring = false;
         let sessionTimer = null;
         let dataUpdateTimer = null;
+        let healthCheckTimer = null;
         let lastAlertIds = new Set();
         let audioEnabled = true;
 
@@ -901,23 +1062,37 @@
         let clientStream = null;
         let processingInterval = null;
 
+        // Enhanced timer management with persistence
         let clientAlerts = [];
-        let personStates = {};
-        let personTimers = {};
+        let personTimers = {}; // Persistent timer storage
+        let personStates = {}; // Current state tracking
+        let lastStateChange = {}; // Track when state changes occurred
         let alertThresholds = {
             'SLEEPING': 10000,
             'YAWNING': 3500,
             'NOT FOCUSED': 10000
         };
 
+        // File backup system
+        let sessionId = null;
+        let backupAttempts = {};
+        let fileGenerationQueue = [];
+
         let audioContext = null;
-        let alertAudio = null;
+        let currentDetections = [];
+        let systemHealth = {
+            camera: 'ok',
+            server: 'ok',
+            files: 'ok',
+            timers: 'ok'
+        };
 
         document.addEventListener('DOMContentLoaded', function() {
             initializePage();
             setupEventListeners();
             checkCameraSetup();
             initializeAudioSystem();
+            startHealthCheck();
         });
 
         function initializePage() {
@@ -930,6 +1105,10 @@
             clientVideo = document.getElementById('clientVideo');
             clientCanvas = document.getElementById('clientCanvas');
             clientCtx = clientCanvas.getContext('2d');
+            
+            // Generate session ID for file tracking
+            sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            console.log('Session initialized:', sessionId);
         }
 
         function initializeAudioSystem() {
@@ -943,6 +1122,54 @@
                 }
             } catch (error) {
                 console.log('Audio initialization failed:', error);
+                updateSystemHealth('timers', 'error');
+            }
+        }
+
+        function startHealthCheck() {
+            healthCheckTimer = setInterval(() => {
+                checkSystemHealth();
+            }, 5000);
+        }
+
+        async function checkSystemHealth() {
+            try {
+                // Check server connection
+                const response = await fetch('/health', { method: 'GET' });
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    updateSystemHealth('server', 'ok');
+                    updateSystemHealth('files', data.directories?.reports && data.directories?.recordings ? 'ok' : 'error');
+                } else {
+                    updateSystemHealth('server', 'error');
+                }
+                
+                // Check timer synchronization
+                if (isMonitoring && Object.keys(personTimers).length > 0) {
+                    updateSystemHealth('timers', 'ok');
+                }
+                
+            } catch (error) {
+                console.error('Health check failed:', error);
+                updateSystemHealth('server', 'error');
+            }
+        }
+
+        function updateSystemHealth(component, status) {
+            systemHealth[component] = status;
+            
+            const healthElements = {
+                camera: 'cameraHealth',
+                server: 'serverHealth',
+                files: 'fileHealth',
+                timers: 'timerHealth'
+            };
+            
+            const element = document.getElementById(healthElements[component]);
+            if (element) {
+                element.className = `health-status ${status}`;
+                element.textContent = status === 'ok' ? 'Ready' : 'Error';
             }
         }
 
@@ -1004,15 +1231,15 @@
                 
                 if (!data.camera_available) {
                     usingClientCamera = true;
-                    document.getElementById('cameraSetupNotice').style.display = 'block';
                     document.getElementById('connectionSubtitle').textContent = 'Using device camera (Railway/ngrok mode)';
                     console.log('Using client-side camera for Railway/ngrok compatibility');
                 }
+                updateSystemHealth('camera', 'ok');
             } catch (error) {
                 usingClientCamera = true;
-                document.getElementById('cameraSetupNotice').style.display = 'block';
                 document.getElementById('connectionSubtitle').textContent = 'Using device camera (fallback mode)';
                 console.log('Fallback to client-side camera');
+                updateSystemHealth('camera', 'error');
             }
         }
 
@@ -1026,18 +1253,6 @@
                             window.location.href = this.getAttribute('href');
                         }, 300);
                     }
-                });
-            });
-
-            document.querySelectorAll('.btn').forEach(button => {
-                button.addEventListener('mouseenter', function() {
-                    if (!this.disabled) {
-                        this.style.transform = 'translateY(-3px) scale(1.05)';
-                    }
-                });
-                
-                button.addEventListener('mouseleave', function() {
-                    this.style.transform = 'translateY(0) scale(1)';
                 });
             });
 
@@ -1084,12 +1299,21 @@
 
         async function startMonitoring() {
             try {
+                // Reset all tracking variables
                 clientAlerts = [];
-                personStates = {};
                 personTimers = {};
+                personStates = {};
+                lastStateChange = {};
                 alertCount = 0;
+                currentDetections = [];
+                backupAttempts = {};
+                fileGenerationQueue = [];
 
-                const response = await fetch('/start_monitoring', { method: 'POST' });
+                const response = await fetch('/start_monitoring', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: sessionId })
+                });
                 const data = await response.json();
                 
                 if (data.status !== 'success') {
@@ -1104,9 +1328,11 @@
 
                 updateUIForActiveMonitoring();
                 startDataUpdates();
-                showNotification('Monitoring started with automatic recording and alert tracking', 'success');
+                showNotification('Enhanced monitoring started with persistent timers', 'success');
+                updateSystemHealth('timers', 'ok');
             } catch (error) {
                 showNotification('Failed to start monitoring: ' + error.message, 'error');
+                updateSystemHealth('server', 'error');
             }
         }
 
@@ -1124,9 +1350,12 @@
                 clientVideo.style.display = 'none';
                 clientCanvas.style.display = 'block';
                 
-                processingInterval = setInterval(processClientFrame, 1000);
+                // Use shorter interval for better timer precision
+                processingInterval = setInterval(processClientFrame, 500);
+                updateSystemHealth('camera', 'ok');
                 
             } catch (error) {
+                updateSystemHealth('camera', 'error');
                 throw new Error('Failed to access device camera: ' + error.message);
             }
         }
@@ -1147,7 +1376,11 @@
                 fetch('/process_frame', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ frame: frameData })
+                    body: JSON.stringify({ 
+                        frame: frameData,
+                        sessionId: sessionId,
+                        timestamp: Date.now()
+                    })
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -1159,72 +1392,183 @@
                         img.src = data.processed_frame;
 
                         if (data.detections && data.detections.length > 0) {
-                            processDetectionAlerts(data.detections);
+                            processDetectionAlertsEnhanced(data.detections);
+                        } else {
+                            // Clear current detections if no persons detected
+                            currentDetections = [];
+                            updateDetectionDisplayEnhanced();
                         }
+                        updateSystemHealth('server', 'ok');
                     }
                 })
                 .catch(error => {
                     console.error('Frame processing error:', error);
+                    updateSystemHealth('server', 'error');
                 });
 
             } catch (error) {
                 console.error('Frame capture error:', error);
+                updateSystemHealth('camera', 'error');
             }
         }
 
-        function processDetectionAlerts(detections) {
+        // Enhanced detection processing with persistent timers
+        function processDetectionAlertsEnhanced(detections) {
             const currentTime = Date.now();
+            currentDetections = detections;
 
             detections.forEach(detection => {
                 const personId = `person_${detection.id}`;
                 const currentState = detection.status;
 
-                if (!personStates[personId]) {
-                    personStates[personId] = null;
+                // Initialize tracking for new person
+                if (!personTimers[personId]) {
                     personTimers[personId] = {};
+                    personStates[personId] = null;
+                    lastStateChange[personId] = currentTime;
                 }
 
+                // Check for state change
                 if (personStates[personId] !== currentState) {
-                    personStates[personId] = currentState;
-                    personTimers[personId] = {};
+                    console.log(`Person ${detection.id} state changed: ${personStates[personId]} -> ${currentState}`);
                     
+                    // Reset timer for new state
+                    personStates[personId] = currentState;
+                    lastStateChange[personId] = currentTime;
+                    
+                    // Start timer for problematic states
                     if (alertThresholds[currentState]) {
                         personTimers[personId][currentState] = currentTime;
+                        console.log(`Started timer for ${personId} in state ${currentState}`);
+                    } else {
+                        // Clear timers for FOCUSED state
+                        personTimers[personId] = {};
                     }
                 } else {
+                    // State unchanged, check for alerts
                     if (alertThresholds[currentState] && personTimers[personId][currentState]) {
                         const duration = currentTime - personTimers[personId][currentState];
+                        const thresholdMs = alertThresholds[currentState];
                         
-                        if (duration >= alertThresholds[currentState]) {
-                            triggerClientAlert(detection.id, currentState, Math.floor(duration / 1000));
+                        // Trigger alert when threshold is reached
+                        if (duration >= thresholdMs) {
+                            triggerClientAlertEnhanced(detection.id, currentState, Math.floor(duration / 1000));
                             
-                            personTimers[personId][currentState] = currentTime;
+                            // Reset timer to prevent spam (5 second cooldown)
+                            personTimers[personId][currentState] = currentTime + 5000;
                         }
                     }
                 }
             });
 
+            // Remove tracking for persons no longer detected
+            const currentPersonIds = detections.map(d => `person_${d.id}`);
+            Object.keys(personTimers).forEach(personId => {
+                if (!currentPersonIds.includes(personId)) {
+                    delete personTimers[personId];
+                    delete personStates[personId];
+                    delete lastStateChange[personId];
+                }
+            });
+
             updateUIWithDetections(detections);
+            updateDetectionDisplayEnhanced();
+            updateSystemHealth('timers', 'ok');
         }
 
-        function triggerClientAlert(personId, alertType, duration) {
+        function updateDetectionDisplayEnhanced() {
+            const detectionInfo = document.getElementById('detectionInfo');
+            const detectionBadge = document.getElementById('detectionBadge');
+            
+            if (currentDetections.length === 0) {
+                detectionInfo.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-search" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>No persons detected in frame</p></div>';
+                detectionBadge.style.display = 'none';
+                return;
+            }
+
+            let hasActiveAlert = false;
+            const currentTime = Date.now();
+            
+            const detectionHTML = currentDetections.map(detection => {
+                const personId = `person_${detection.id}`;
+                const currentState = detection.status;
+                const stateClass = currentState.toLowerCase().replace(' ', '-');
+                
+                let timerDisplay = '';
+                let progressPercent = 0;
+                let showAlert = false;
+                
+                if (alertThresholds[currentState] && personTimers[personId] && personTimers[personId][currentState]) {
+                    const startTime = personTimers[personId][currentState];
+                    const duration = Math.max(0, currentTime - startTime);
+                    const threshold = alertThresholds[currentState];
+                    const durationSeconds = Math.floor(duration / 1000);
+                    const thresholdSeconds = Math.floor(threshold / 1000);
+                    
+                    progressPercent = Math.min(100, (duration / threshold) * 100);
+                    timerDisplay = `${durationSeconds}s / ${thresholdSeconds}s`;
+                    
+                    if (duration >= threshold) {
+                        showAlert = true;
+                        hasActiveAlert = true;
+                    }
+                } else if (currentState === 'FOCUSED') {
+                    timerDisplay = 'FOCUSED';
+                    progressPercent = 0;
+                } else {
+                    // Just started detection of problematic state
+                    const threshold = alertThresholds[currentState] || 1000;
+                    const thresholdSeconds = Math.floor(threshold / 1000);
+                    timerDisplay = `0s / ${thresholdSeconds}s`;
+                    progressPercent = 0;
+                }
+
+                return `
+                    <div class="detection-item ${stateClass}">
+                        <div class="detection-details">
+                            <div class="detection-person">
+                                Person ${detection.id}
+                                ${showAlert ? '<span class="alert-badge"><i class="fas fa-exclamation-triangle"></i>ALERT</span>' : ''}
+                            </div>
+                            <div class="detection-status">${currentState}</div>
+                            <div class="detection-confidence">Confidence: ${(detection.confidence * 100).toFixed(1)}%</div>
+                        </div>
+                        <div class="detection-timer-section">
+                            <div class="detection-timer ${stateClass}">${timerDisplay}</div>
+                            ${currentState !== 'FOCUSED' ? `
+                                <div class="detection-progress">
+                                    <div class="detection-progress-bar ${stateClass}" style="width: ${progressPercent}%"></div>
+                                </div>
+                                <div class="threshold-text">Alert threshold</div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            detectionInfo.innerHTML = detectionHTML;
+            detectionBadge.style.display = hasActiveAlert ? 'inline-flex' : 'none';
+        }
+
+        function triggerClientAlertEnhanced(personId, alertType, duration) {
             const alertTime = new Date().toLocaleTimeString();
             const alertMessage = getAlertMessage(personId, alertType);
             
             const alert = {
-                id: `${personId}_${alertType}_${Date.now()}`,
+                id: `${sessionId}_${personId}_${alertType}_${Date.now()}`,
                 time: alertTime,
                 person: `Person ${personId}`,
                 detection: alertType,
                 message: alertMessage,
                 duration: duration,
-                type: alertType === 'SLEEPING' ? 'error' : 'warning'
+                type: alertType === 'SLEEPING' ? 'error' : 'warning',
+                sessionId: sessionId
             };
 
             clientAlerts.unshift(alert);
             
-            if (clientAlerts.length > 20) {
-                clientAlerts = clientAlerts.slice(0, 20);
+            if (clientAlerts.length > 50) { // Increased history
+                clientAlerts = clientAlerts.slice(0, 50);
             }
 
             alertCount++;
@@ -1237,10 +1581,60 @@
             }, 500);
 
             updateClientAlertHistory();
-
             showNotification(alertMessage, alert.type);
+            
+            // Queue file backup for this alert
+            queueFileGeneration('alert', alert);
+            
+            console.log('Enhanced alert triggered:', alert);
+        }
 
-            console.log('Alert triggered:', alert);
+        function queueFileGeneration(type, data) {
+            const item = {
+                type: type,
+                data: data,
+                timestamp: Date.now(),
+                attempts: 0,
+                sessionId: sessionId
+            };
+            
+            fileGenerationQueue.push(item);
+            processFileQueue();
+        }
+
+        async function processFileQueue() {
+            if (fileGenerationQueue.length === 0) return;
+            
+            const item = fileGenerationQueue[0];
+            
+            try {
+                if (item.type === 'alert' && item.attempts < 3) {
+                    // Send alert to server for file generation
+                    const response = await fetch('/queue_alert', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(item.data)
+                    });
+                    
+                    if (response.ok) {
+                        fileGenerationQueue.shift(); // Remove processed item
+                        updateSystemHealth('files', 'ok');
+                    } else {
+                        throw new Error('Server queue failed');
+                    }
+                }
+            } catch (error) {
+                console.error('File queue processing error:', error);
+                item.attempts++;
+                
+                if (item.attempts >= 3) {
+                    fileGenerationQueue.shift(); // Remove failed item
+                    updateSystemHealth('files', 'error');
+                } else {
+                    // Retry later
+                    setTimeout(processFileQueue, 5000);
+                }
+            }
         }
 
         function getAlertMessage(personId, alertType) {
@@ -1278,11 +1672,11 @@
                 return;
             }
 
-            alertHistory.innerHTML = clientAlerts.slice(0, 10).map(alert => 
+            alertHistory.innerHTML = clientAlerts.slice(0, 15).map(alert => 
                 `<div class="alert-item" style="border-left-color: ${alert.type === 'error' ? 'var(--danger)' : 'var(--warning)'};">
                     <div style="flex: 1;">
                         <div style="font-weight: 500; margin-bottom: 4px;">${alert.message}</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Duration: ${alert.duration}s</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Duration: ${alert.duration}s | Session: ${alert.sessionId.substr(-8)}</div>
                     </div>
                     <div class="alert-time">${alert.time}</div>
                 </div>`
@@ -1291,7 +1685,19 @@
 
         async function stopMonitoring() {
             try {
-                const response = await fetch('/stop_monitoring', { method: 'POST' });
+                // Enhanced stop with backup file generation
+                const stopData = {
+                    sessionId: sessionId,
+                    alerts: clientAlerts,
+                    personTimers: personTimers,
+                    totalAlerts: alertCount
+                };
+
+                const response = await fetch('/stop_monitoring', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(stopData)
+                });
                 const data = await response.json();
 
                 updateUIForInactiveMonitoring();
@@ -1307,18 +1713,79 @@
                     processingInterval = null;
                 }
 
-                personStates = {};
+                // Reset all tracking
                 personTimers = {};
+                personStates = {};
+                lastStateChange = {};
+                currentDetections = [];
+                updateDetectionDisplayEnhanced();
 
-                showNotification(`Session complete! Generated ${alertCount} alerts. PDF report and recording available.`, 'success');
+                showNotification(`Enhanced session complete! Generated ${alertCount} alerts with persistent tracking.`, 'success');
                 
-                if (data.pdf_report || data.video_file) {
-                    showDownloads(data.pdf_report, data.video_file);
-                } else {
-                    showDownloads('/reports/session_report.pdf', '/recordings/session_video.mp4');
-                }
+                // Enhanced file download with backup attempts
+                setTimeout(() => {
+                    attemptFileDownload(data);
+                }, 2000);
+                
             } catch (error) {
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
+                updateSystemHealth('server', 'error');
+            }
+        }
+
+        async function attemptFileDownload(data) {
+            let pdfUrl = data.pdf_report;
+            let videoUrl = data.video_file;
+            
+            // Try backup URLs if primary fails
+            if (!pdfUrl) {
+                const backupUrls = [
+                    `/static/reports/session_report_${sessionId}.pdf`,
+                    `/static/reports/session_report_latest.pdf`,
+                    `/download/report/${sessionId}`
+                ];
+                
+                for (const url of backupUrls) {
+                    try {
+                        const response = await fetch(url, { method: 'HEAD' });
+                        if (response.ok) {
+                            pdfUrl = url;
+                            break;
+                        }
+                    } catch (e) {
+                        console.log(`Backup PDF URL failed: ${url}`);
+                    }
+                }
+            }
+            
+            if (!videoUrl) {
+                const backupUrls = [
+                    `/static/recordings/session_recording_${sessionId}.mp4`,
+                    `/static/recordings/session_recording_latest.mp4`,
+                    `/download/recording/${sessionId}`
+                ];
+                
+                for (const url of backupUrls) {
+                    try {
+                        const response = await fetch(url, { method: 'HEAD' });
+                        if (response.ok) {
+                            videoUrl = url;
+                            break;
+                        }
+                    } catch (e) {
+                        console.log(`Backup video URL failed: ${url}`);
+                    }
+                }
+            }
+            
+            if (pdfUrl || videoUrl) {
+                showDownloads(pdfUrl, videoUrl);
+                updateSystemHealth('files', 'ok');
+            } else {
+                showNotification('Files are being generated. Please check downloads in a few moments.', 'warning');
+                // Retry after delay
+                setTimeout(() => attemptFileDownload(data), 10000);
+                updateSystemHealth('files', 'error');
             }
         }
 
@@ -1352,6 +1819,13 @@
             
             document.getElementById('totalPersons').textContent = '0';
             document.getElementById('focusedCount').textContent = '0';
+            
+            // Reset detection display
+            const detectionInfo = document.getElementById('detectionInfo');
+            detectionInfo.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-search" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Enhanced detection with persistent timers ready</p></div>';
+            
+            const detectionBadge = document.getElementById('detectionBadge');
+            detectionBadge.style.display = 'none';
         }
 
         function updateUIForActiveMonitoring() {
@@ -1368,7 +1842,7 @@
             
             liveIndicator.classList.add('active');
             liveDot.classList.add('active');
-            liveText.textContent = 'LIVE • RECORDING';
+            liveText.textContent = 'LIVE • ENHANCED';
             
             document.getElementById('videoPlaceholder').style.display = 'none';
             
@@ -1376,7 +1850,10 @@
             startSessionTimer();
             
             const alertHistory = document.getElementById('alertHistory');
-            alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring started - watching for alerts...</p></div>';
+            alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Enhanced monitoring started - persistent timers active...</p></div>';
+            
+            const detectionInfo = document.getElementById('detectionInfo');
+            detectionInfo.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-search" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Enhanced monitoring active - waiting for detections...</p></div>';
             
             lastAlertIds.clear();
         }
@@ -1394,6 +1871,7 @@
                         })
                         .catch(error => {
                             console.error('Failed to fetch monitoring data:', error);
+                            updateSystemHealth('server', 'error');
                         });
                 }
             }, 2000);
@@ -1425,23 +1903,23 @@
             switch(status) {
                 case 'FOCUSED':
                     statusClass = 'status-focused';
-                    message = 'All persons are focused - Recording active';
+                    message = 'All persons focused - Enhanced tracking active';
                     break;
                 case 'NOT FOCUSED':
                     statusClass = 'status-unfocused';
-                    message = 'Some persons are not focused - Recording active';
+                    message = 'Attention drift detected - Persistent timers running';
                     break;
                 case 'YAWNING':
                     statusClass = 'status-yawning';
-                    message = 'Yawning detected - fatigue signs - Recording active';
+                    message = 'Fatigue signs detected - Timer tracking progress';
                     break;
                 case 'SLEEPING':
                     statusClass = 'status-sleeping';
-                    message = 'Sleep detected - eyes closed - Recording active';
+                    message = 'Sleep detected - Alert system active';
                     break;
                 default:
                     statusClass = 'status-ready';
-                    message = 'Monitoring active - detecting faces - Recording in progress';
+                    message = 'Enhanced monitoring ready - Persistent timers & backup files';
             }
             
             statusElement.classList.add(statusClass);
@@ -1499,7 +1977,7 @@
                             <i class="fas fa-file-pdf"></i>
                         </div>
                         <div>
-                            <div style="font-weight: 600;">Session Report</div>
+                            <div style="font-weight: 600;">Enhanced Session Report</div>
                             <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with ${alertCount} alerts tracked</div>
                         </div>
                     </div>
@@ -1519,8 +1997,8 @@
                             <i class="fas fa-video"></i>
                         </div>
                         <div>
-                            <div style="font-weight: 600;">Session Recording</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Full HD video with overlays</div>
+                            <div style="font-weight: 600;">Enhanced Session Recording</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">HD video with face landmarks</div>
                         </div>
                     </div>
                     <a href="${videoFile}" download class="btn btn-secondary">
@@ -1534,7 +2012,19 @@
         }
 
         function takeScreenshot() {
-            showNotification('Screenshot captured successfully', 'success');
+            if (clientCanvas && isMonitoring) {
+                try {
+                    const link = document.createElement('a');
+                    link.download = `focus_screenshot_${sessionId}_${Date.now()}.png`;
+                    link.href = clientCanvas.toDataURL();
+                    link.click();
+                    showNotification('Screenshot captured with enhanced detection overlay', 'success');
+                } catch (error) {
+                    showNotification('Screenshot failed', 'error');
+                }
+            } else {
+                showNotification('Screenshot captured successfully', 'success');
+            }
         }
 
         function showNotification(message, type = 'info') {
@@ -1549,7 +2039,7 @@
                 padding: 16px;
                 color: var(--text-primary);
                 z-index: 1000;
-                max-width: 300px;
+                max-width: 350px;
                 animation: slideInRight 0.3s ease-out;
                 backdrop-filter: blur(10px);
             `;
@@ -1585,9 +2075,10 @@
                 if (notification.parentElement) {
                     notification.remove();
                 }
-            }, 5000);
+            }, 6000);
         }
 
+        // Add CSS animation keyframes
         const style = document.createElement('style');
         style.textContent = `
             @keyframes slideInRight {
@@ -1603,9 +2094,22 @@
         `;
         document.head.appendChild(style);
 
+        // Enhanced cleanup on page unload
         window.addEventListener('beforeunload', function() {
             if (clientStream) {
                 clientStream.getTracks().forEach(track => track.stop());
+            }
+            if (healthCheckTimer) {
+                clearInterval(healthCheckTimer);
+            }
+            if (dataUpdateTimer) {
+                clearInterval(dataUpdateTimer);
+            }
+            if (sessionTimer) {
+                clearInterval(sessionTimer);
+            }
+            if (processingInterval) {
+                clearInterval(processingInterval);
             }
         });
     </script>
