@@ -28,14 +28,14 @@ import traceback
 
 application = Flask(__name__)
 
-# Configuration with optimized paths for Railway
+# Enhanced Configuration for Railway with better paths
 application.config['UPLOAD_FOLDER'] = '/tmp/uploads'
 application.config['DETECTED_FOLDER'] = '/tmp/detected'
 application.config['REPORTS_FOLDER'] = '/tmp/reports'
 application.config['RECORDINGS_FOLDER'] = '/tmp/recordings'
 application.config['MAX_CONTENT_PATH'] = 10000000
 
-# Ensure all directories exist
+# Ensure all directories exist with proper permissions
 for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED_FOLDER'], 
                application.config['REPORTS_FOLDER'], application.config['RECORDINGS_FOLDER']]:
     try:
@@ -46,12 +46,12 @@ for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED
     except Exception as e:
         print(f"Error creating directory {folder}: {str(e)}")
 
-# Global variables with thread lock for safety
+# Enhanced thread safety
 monitoring_lock = threading.RLock()
 live_monitoring_active = False
 recording_active = False
 
-# Enhanced session tracking with corrected calculation
+# Enhanced session tracking with proper video recording
 session_data = {
     'start_time': None,
     'end_time': None,
@@ -65,7 +65,7 @@ session_data = {
         'total_detections': 0
     },
     'recording_path': None,
-    'recording_frames': [],
+    'recording_frames': [],  # Store frames in memory for Railway
     'session_id': None,
     'client_alerts': []
 }
@@ -83,12 +83,12 @@ DISTRACTION_THRESHOLDS = {
     'NOT FOCUSED': 10
 }
 
-# Initialize MediaPipe with error handling
+# Initialize MediaPipe with better error handling
 face_detection = None
 face_mesh = None
 
 def init_mediapipe():
-    """Initialize MediaPipe with error handling"""
+    """Initialize MediaPipe with comprehensive error handling"""
     global face_detection, face_mesh
     try:
         face_detection = mp.solutions.face_detection.FaceDetection(
@@ -254,7 +254,7 @@ def detect_drowsiness(frame, landmarks):
         return {"state": "FOCUSED"}, "FOCUSED"
 
 def detect_persons_with_attention(image, mode="image"):
-    """Detect persons in image with attention analysis - improved version"""
+    """Enhanced person detection with attention analysis"""
     global live_monitoring_active, session_data, person_state_timers, person_current_state, last_alert_time
     global face_detection, face_mesh
     
@@ -504,11 +504,8 @@ def detect_persons_with_attention(image, mode="image"):
     
     return image, detections
 
-def calculate_accurate_distraction_time_from_alerts(alerts):
-    """
-    CORRECTED: Calculate actual distraction time based on REAL alert durations
-    This version prevents double-counting and calculates accurate times
-    """
+def calculate_distraction_time_from_alerts(alerts):
+    """Calculate accurate distraction time based on alert durations"""
     distraction_times = {
         'unfocused_time': 0,
         'yawning_time': 0,
@@ -518,16 +515,9 @@ def calculate_accurate_distraction_time_from_alerts(alerts):
     if not alerts:
         return distraction_times
     
-    # Group alerts by person and type, track unique time periods
-    person_periods = {}
-    
     for alert in alerts:
-        person = alert.get('person', 'Unknown')
         detection = alert.get('detection', 'Unknown')
         duration = alert.get('duration', 0)
-        
-        # Each alert represents ONE distraction period of 'duration' seconds
-        # We don't accumulate durations, each alert is a separate period
         
         if detection == 'NOT FOCUSED':
             distraction_times['unfocused_time'] += duration
@@ -554,14 +544,14 @@ def update_session_statistics(detections):
                 len(detections)
             )
             
-            # Update distraction times with corrected calculation
-            distraction_times = calculate_accurate_distraction_time_from_alerts(session_data['alerts'])
+            # Update distraction times
+            distraction_times = calculate_distraction_time_from_alerts(session_data['alerts'])
             session_data['focus_statistics']['unfocused_time'] = distraction_times['unfocused_time']
             session_data['focus_statistics']['yawning_time'] = distraction_times['yawning_time']
             session_data['focus_statistics']['sleeping_time'] = distraction_times['sleeping_time']
 
 def get_most_common_distraction(alerts):
-    """Find the most common type of distraction with accurate counting"""
+    """Find the most common type of distraction"""
     if not alerts:
         return "None"
     
@@ -572,14 +562,12 @@ def get_most_common_distraction(alerts):
         detection = alert.get('detection', 'Unknown')
         duration = alert.get('duration', 0)
         
-        # Count occurrences and sum durations
         distraction_counts[detection] = distraction_counts.get(detection, 0) + 1
         distraction_durations[detection] = distraction_durations.get(detection, 0) + duration
     
     if not distraction_counts:
         return "None"
     
-    # Find most common by count
     most_common = max(distraction_counts, key=distraction_counts.get)
     count = distraction_counts[most_common]
     total_duration = distraction_durations[most_common]
@@ -599,33 +587,32 @@ def calculate_focus_quality_rating(focus_accuracy):
     else:
         return "Very Poor", colors.HexColor('#DC2626')
 
-def create_session_recording_from_frames(recording_frames, output_path):
-    """
-    IMPROVED: Create session recording with natural frame rate and better quality
-    """
+def create_enhanced_video_from_frames(recording_frames, output_path):
+    """Create high-quality video from stored frames with proper frame rate"""
     try:
         if not recording_frames:
             print("No frames to create video")
             return None
         
-        print(f"Creating session recording from {len(recording_frames)} processed frames")
+        print(f"Creating enhanced video from {len(recording_frames)} frames")
         
-        # Improved frame management - less aggressive reduction
-        max_frames = 300  # Increased from 150 for better quality
+        # Enhanced frame management for Railway
+        # Keep more frames but limit to reasonable size
+        max_frames = 400  # Increased from previous version
         if len(recording_frames) > max_frames:
-            # Better frame selection - take frames more evenly distributed
+            # Better frame selection - evenly distributed
             step = len(recording_frames) // max_frames
             recording_frames = recording_frames[::step][:max_frames]
-            print(f"Optimized to {len(recording_frames)} frames for better quality")
+            print(f"Optimized to {len(recording_frames)} frames for Railway compatibility")
         
         if not recording_frames:
             return None
             
         height, width = recording_frames[0].shape[:2]
         
-        # Improved video settings for more natural playback
-        fourcc = cv.VideoWriter_fourcc(*'mp4v')
-        fps = 30.0  # Increased from 5.0 for more natural playback
+        # Enhanced video settings for Railway deployment
+        fourcc = cv.VideoWriter_fourcc(*'mp4v')  # Better compatibility
+        fps = 20.0  # Optimized frame rate for Railway
         out = cv.VideoWriter(output_path, fourcc, fps, (width, height))
         
         if not out.isOpened():
@@ -633,7 +620,7 @@ def create_session_recording_from_frames(recording_frames, output_path):
             return None
         
         frames_written = 0
-        for frame in recording_frames:
+        for i, frame in enumerate(recording_frames):
             if frame is not None and frame.size > 0:
                 # Ensure frame has correct dimensions
                 if frame.shape[:2] == (height, width):
@@ -644,28 +631,29 @@ def create_session_recording_from_frames(recording_frames, output_path):
                     resized_frame = cv.resize(frame, (width, height))
                     out.write(resized_frame)
                     frames_written += 1
+                
+                # Progress logging
+                if i % 50 == 0:
+                    print(f"Video creation progress: {i+1}/{len(recording_frames)} frames")
         
         out.release()
         
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             file_size = os.path.getsize(output_path) / (1024 * 1024)  # MB
-            print(f"Session recording created successfully: {output_path}")
+            print(f"Enhanced video created successfully: {output_path}")
             print(f"Total frames written: {frames_written}, File size: {file_size:.2f}MB")
             return output_path
         else:
-            print("Failed to create session recording - file not created or empty")
+            print("Failed to create video - file not created or empty")
             return None
             
     except Exception as e:
-        print(f"Error creating session recording: {str(e)}")
+        print(f"Error creating enhanced video: {str(e)}")
         traceback.print_exc()
         return None
 
-def generate_pdf_report(session_data, output_path):
-    """
-    IMPROVED: Generate comprehensive PDF report with corrected calculations
-    Based on the working local version with enhanced accuracy
-    """
+def generate_comprehensive_pdf_report(session_data, output_path):
+    """Generate comprehensive PDF report with enhanced calculations"""
     try:
         doc = SimpleDocTemplate(output_path, pagesize=A4)
         styles = getSampleStyleSheet()
@@ -691,10 +679,10 @@ def generate_pdf_report(session_data, output_path):
         )
         
         # Title
-        story.append(Paragraph("Smart Focus Alert - Session Report", title_style))
+        story.append(Paragraph("Smart Focus Alert - Enhanced Session Report", title_style))
         story.append(Spacer(1, 20))
         
-        # Calculate session duration with corrected timing
+        # Calculate session duration
         if session_data['start_time'] and session_data['end_time']:
             duration = session_data['end_time'] - session_data['start_time']
             total_session_seconds = duration.total_seconds()
@@ -703,8 +691,8 @@ def generate_pdf_report(session_data, output_path):
             total_session_seconds = 0
             duration_str = "N/A"
         
-        # CORRECTED: Get accurate distraction times from alert history
-        distraction_times = calculate_accurate_distraction_time_from_alerts(session_data['alerts'])
+        # Get accurate distraction times from alert history
+        distraction_times = calculate_distraction_time_from_alerts(session_data['alerts'])
         unfocused_time = distraction_times['unfocused_time']
         yawning_time = distraction_times['yawning_time']
         sleeping_time = distraction_times['sleeping_time']
@@ -712,7 +700,7 @@ def generate_pdf_report(session_data, output_path):
         # Calculate total distraction time
         total_distraction_time = unfocused_time + yawning_time + sleeping_time
         
-        # CORRECTED: Calculate focused time properly
+        # Calculate focused time properly
         if total_session_seconds > 0:
             focused_time = max(0, total_session_seconds - total_distraction_time)
             focus_accuracy = (focused_time / total_session_seconds) * 100
@@ -739,7 +727,8 @@ def generate_pdf_report(session_data, output_path):
             ['Session Duration', duration_str],
             ['Total Detections', str(session_data['focus_statistics']['total_detections'])],
             ['Total Persons Detected', str(session_data['focus_statistics']['total_persons'])],
-            ['Total Alerts Generated', str(len(session_data['alerts']))]
+            ['Total Alerts Generated', str(len(session_data['alerts']))],
+            ['Video Frames Recorded', str(len(session_data.get('recording_frames', [])))]
         ]
         
         session_table = Table(session_info, colWidths=[3*inch, 2*inch])
@@ -769,7 +758,7 @@ def generate_pdf_report(session_data, output_path):
         story.append(Paragraph(rating_text, styles['Normal']))
         story.append(Spacer(1, 20))
         
-        # Detailed time breakdown with corrected calculations
+        # Detailed time breakdown
         focus_breakdown = [
             ['Metric', 'Time', 'Percentage'],
             ['Total Focused Time', format_time(focused_time), f"{(focused_time/total_session_seconds*100):.1f}%" if total_session_seconds > 0 else "0%"],
@@ -837,14 +826,14 @@ def generate_pdf_report(session_data, output_path):
         story.append(focus_table)
         story.append(Spacer(1, 20))
         
-        # Alert History with improved formatting
+        # Alert History
         if session_data['alerts']:
             story.append(Paragraph("Alert History", heading_style))
             
             alert_headers = ['Time', 'Person', 'Detection', 'Duration', 'Message']
             alert_data = [alert_headers]
             
-            # Show latest 15 alerts instead of 10
+            # Show latest 15 alerts
             for alert in session_data['alerts'][-15:]:
                 try:
                     alert_time = datetime.fromisoformat(alert['timestamp']).strftime('%I:%M:%S %p')
@@ -960,7 +949,7 @@ def start_monitoring():
                     'total_detections': 0
                 },
                 'recording_path': None,
-                'recording_frames': [],
+                'recording_frames': [],  # Initialize frames list for Railway
                 'session_id': client_session_id,
                 'client_alerts': []
             }
@@ -1076,7 +1065,7 @@ def stop_monitoring():
                 print(f"PDF path: {pdf_path}")
                 print(f"Session data alerts: {len(session_data['alerts'])}")
                 
-                pdf_result = generate_pdf_report(session_data, pdf_path)
+                pdf_result = generate_comprehensive_pdf_report(session_data, pdf_path)
                 
                 if pdf_result and os.path.exists(pdf_path):
                     response_data["pdf_report"] = f"/static/reports/{pdf_filename}"
@@ -1088,7 +1077,7 @@ def stop_monitoring():
                 print(f"PDF ERROR: {str(pdf_error)}")
                 traceback.print_exc()
             
-            # Generate improved video recording
+            # Generate enhanced video recording
             print("=== GENERATING ENHANCED VIDEO RECORDING ===")
             try:
                 recording_filename = f"enhanced_recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.mp4"
@@ -1100,7 +1089,7 @@ def stop_monitoring():
                 
                 if frame_count > 0:
                     print(f"Creating enhanced video from {frame_count} recorded frames")
-                    video_result = create_session_recording_from_frames(session_data['recording_frames'], recording_path)
+                    video_result = create_enhanced_video_from_frames(session_data['recording_frames'], recording_path)
                     
                     if video_result and os.path.exists(recording_path):
                         response_data["video_file"] = f"/static/recordings/{os.path.basename(recording_path)}"
@@ -1126,7 +1115,7 @@ def stop_monitoring():
 
 @application.route('/process_frame', methods=['POST'])
 def process_frame():
-    """Enhanced frame processing with improved recording"""
+    """Enhanced frame processing with improved video recording for Railway"""
     global session_data
     
     try:
@@ -1145,28 +1134,33 @@ def process_frame():
         # Process frame for detection with enhanced analysis
         processed_frame, detections = detect_persons_with_attention(frame, mode="video")
         
-        # Enhanced frame storage with improved frequency
+        # Enhanced frame storage specifically for Railway deployment
         with monitoring_lock:
             if live_monitoring_active and recording_active and session_data:
-                # Store frame every 3rd call instead of 5th for better video quality
                 current_frame_count = len(session_data.get('recording_frames', []))
-                if current_frame_count % 3 == 0:  # Improved from every 5th frame
-                    session_data['recording_frames'].append(processed_frame.copy())
+                
+                # Store every 2nd frame for better video quality on Railway
+                if current_frame_count % 2 == 0:
+                    # Store a copy of the processed frame
+                    frame_copy = processed_frame.copy()
+                    session_data['recording_frames'].append(frame_copy)
                     
-                    # Keep more frames for better video quality - increased from 100 to 200
-                    if len(session_data['recording_frames']) > 200:
-                        session_data['recording_frames'] = session_data['recording_frames'][-200:]
+                    # Keep memory usage reasonable - limit to 600 frames (~30 second video at 20fps)
+                    max_frames = 600
+                    if len(session_data['recording_frames']) > max_frames:
+                        # Remove oldest frames to prevent memory overflow
+                        session_data['recording_frames'] = session_data['recording_frames'][-max_frames:]
                     
-                    # Debug log every 15th frame
-                    if current_frame_count % 15 == 0:
-                        print(f"ENHANCED FRAME STORAGE: {len(session_data['recording_frames'])} frames stored, {len(detections)} detections")
+                    # Debug log every 20th frame
+                    if current_frame_count % 20 == 0:
+                        print(f"RAILWAY FRAME STORAGE: {len(session_data['recording_frames'])} frames stored, {len(detections)} detections")
         
         # Update session statistics if monitoring is active
         if live_monitoring_active and detections:
             update_session_statistics(detections)
         
-        # Encode processed frame back to base64 with improved quality
-        _, buffer = cv.imencode('.jpg', processed_frame, [cv.IMWRITE_JPEG_QUALITY, 90])  # Increased quality from 85
+        # Encode processed frame back to base64 with good quality
+        _, buffer = cv.imencode('.jpg', processed_frame, [cv.IMWRITE_JPEG_QUALITY, 85])
         processed_frame_b64 = base64.b64encode(buffer).decode('utf-8')
         
         return jsonify({
@@ -1283,7 +1277,7 @@ def monitoring_status():
 
 @application.route('/check_camera')
 def check_camera():
-    """Check camera availability"""
+    """Check camera availability - always return false for Railway deployment"""
     try:
         return jsonify({"camera_available": False})  # Force client-side camera for Railway
     except Exception as e:
@@ -1292,7 +1286,7 @@ def check_camera():
 
 @application.route('/health')
 def health_check():
-    """Enhanced health check endpoint"""
+    """Enhanced health check endpoint for Railway"""
     try:
         with monitoring_lock:
             return jsonify({
@@ -1308,7 +1302,8 @@ def health_check():
                 "session_alerts": len(session_data.get('alerts', [])) if session_data else 0,
                 "recording_frames": len(session_data.get('recording_frames', [])) if session_data else 0,
                 "mediapipe_status": "initialized" if face_detection and face_mesh else "error",
-                "version": "enhanced_v2.0"
+                "version": "enhanced_railway_v3.0",
+                "deployment": "railway"
             })
     except Exception as e:
         print(f"Health check error: {str(e)}")
@@ -1357,6 +1352,298 @@ def recording_file(filename):
         print(f"Error serving recording file: {str(e)}")
         return jsonify({"error": "Error accessing recording file"}), 500
 
+# Upload functionality
+@application.route('/upload', methods=['GET', 'POST'])
+def upload():
+    if request.method == 'POST':
+        if 'file' not in request.files:
+            return render_template('upload.html', error='No file part')
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return render_template('upload.html', error='No selected file')
+        
+        if file:
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(application.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            
+            file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+            
+            result = {
+                "filename": filename,
+                "file_path": f"/static/uploads/{filename}",
+                "detections": []
+            }
+            
+            if file_ext in ['jpg', 'jpeg', 'png', 'bmp']:
+                # Process image
+                image = cv.imread(file_path)
+                processed_image, detections = detect_persons_with_attention(image)
+                
+                # Save processed image
+                output_filename = f"processed_{filename}"
+                output_path = os.path.join(application.config['DETECTED_FOLDER'], output_filename)
+                cv.imwrite(output_path, processed_image)
+                
+                result["processed_image"] = f"/static/detected/{output_filename}"
+                result["detections"] = detections
+                result["type"] = "image"
+                
+                # Generate PDF report
+                pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
+                
+                file_info = {
+                    'filename': filename,
+                    'type': file_ext.upper()
+                }
+                
+                generate_upload_pdf_report(detections, file_info, pdf_path)
+                result["pdf_report"] = f"/static/reports/{pdf_filename}"
+                
+            elif file_ext in ['mp4', 'avi', 'mov', 'mkv']:
+                # Process video
+                output_path, detections = process_video_file(file_path)
+                
+                result["processed_video"] = f"/static/detected/{os.path.basename(output_path)}"
+                result["detections"] = detections
+                result["type"] = "video"
+                
+                # Generate PDF report
+                pdf_filename = f"report_{filename}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                pdf_path = os.path.join(application.config['REPORTS_FOLDER'], pdf_filename)
+                
+                file_info = {
+                    'filename': filename,
+                    'type': file_ext.upper()
+                }
+                
+                generate_upload_pdf_report(detections, file_info, pdf_path)
+                result["pdf_report"] = f"/static/reports/{pdf_filename}"
+            
+            return render_template('result.html', result=result)
+    
+    return render_template('upload.html')
+
+def generate_upload_pdf_report(detections, file_info, output_path):
+    """Generate PDF report for uploaded file analysis"""
+    doc = SimpleDocTemplate(output_path, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#3B82F6')
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=16,
+        spaceAfter=12,
+        spaceBefore=20,
+        textColor=colors.HexColor('#1F2937')
+    )
+    
+    # Title
+    story.append(Paragraph("Smart Focus Alert - Analysis Report", title_style))
+    story.append(Spacer(1, 20))
+    
+    # File Information
+    story.append(Paragraph("File Information", heading_style))
+    
+    file_info_data = [
+        ['File Name', file_info.get('filename', 'Unknown')],
+        ['File Type', file_info.get('type', 'Unknown')],
+        ['Analysis Date', datetime.now().strftime('%m/%d/%Y, %I:%M:%S %p')],
+        ['Total Persons Detected', str(len(detections))]
+    ]
+    
+    file_table = Table(file_info_data, colWidths=[3*inch, 2*inch])
+    file_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F3F4F6')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(file_table)
+    story.append(Spacer(1, 20))
+    
+    # Analysis Statistics
+    story.append(Paragraph("Analysis Statistics", heading_style))
+    
+    # Count statuses
+    status_counts = {'FOCUSED': 0, 'NOT FOCUSED': 0, 'YAWNING': 0, 'SLEEPING': 0}
+    for detection in detections:
+        status = detection.get('status', 'FOCUSED')
+        if status in status_counts:
+            status_counts[status] += 1
+    
+    total_detections = len(detections)
+    focus_accuracy = 0
+    if total_detections > 0:
+        focus_accuracy = (status_counts['FOCUSED'] / total_detections) * 100
+    
+    analysis_stats = [
+        ['Focus Accuracy', f"{focus_accuracy:.1f}%"],
+        ['Focused Persons', str(status_counts['FOCUSED'])],
+        ['Unfocused Persons', str(status_counts['NOT FOCUSED'])],
+        ['Yawning Persons', str(status_counts['YAWNING'])],
+        ['Sleeping Persons', str(status_counts['SLEEPING'])]
+    ]
+    
+    analysis_table = Table(analysis_stats, colWidths=[3*inch, 2*inch])
+    analysis_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F3F4F6')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    
+    story.append(analysis_table)
+    story.append(Spacer(1, 20))
+    
+    # Individual Results
+    if detections:
+        story.append(Paragraph("Individual Detection Results", heading_style))
+        
+        detection_headers = ['Person ID', 'Status', 'Confidence', 'Position (X,Y)', 'Size (W,H)']
+        detection_data = [detection_headers]
+        
+        for detection in detections:
+            bbox = detection.get('bbox', [0, 0, 0, 0])
+            detection_data.append([
+                f"Person {detection.get('id', 'N/A')}",
+                detection.get('status', 'Unknown'),
+                f"{detection.get('confidence', 0)*100:.1f}%",
+                f"({bbox[0]}, {bbox[1]})",
+                f"({bbox[2]}, {bbox[3]})"
+            ])
+        
+        detection_table = Table(detection_data, colWidths=[1*inch, 1.5*inch, 1*inch, 1.2*inch, 1.3*inch])
+        detection_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3B82F6')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')])
+        ]))
+        
+        story.append(detection_table)
+    
+    # Footer
+    story.append(Spacer(1, 30))
+    footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System - File Analysis Report"
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#6B7280')
+    )
+    story.append(Paragraph(footer_text, footer_style))
+    
+    doc.build(story)
+    return output_path
+
+def process_video_file(video_path):
+    """Process video file and detect persons in each frame"""
+    cap = cv.VideoCapture(video_path)
+    fps = cap.get(cv.CAP_PROP_FPS)
+    width = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"processed_{timestamp}_{uuid.uuid4().hex[:8]}.mp4"
+    output_path = os.path.join(application.config['DETECTED_FOLDER'], output_filename)
+    
+    fourcc = cv.VideoWriter_fourcc(*'mp4v')
+    out = cv.VideoWriter(output_path, fourcc, fps, (width, height))
+    
+    all_detections = []
+    frame_count = 0
+    process_every_n_frames = 10
+    
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        frame_count += 1
+        if frame_count % process_every_n_frames == 0:
+            processed_frame, detections = detect_persons_with_attention(frame, mode="video")
+            all_detections.extend(detections)
+        else:
+            processed_frame = frame
+            
+        out.write(processed_frame)
+    
+    cap.release()
+    out.release()
+    
+    return output_path, all_detections
+
+@application.route('/api/detect', methods=['POST'])
+def api_detect():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+    
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(application.config['UPLOAD_FOLDER'], filename)
+    file.save(file_path)
+    
+    file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+    
+    if file_ext in ['jpg', 'jpeg', 'png', 'bmp']:
+        image = cv.imread(file_path)
+        processed_image, detections = detect_persons_with_attention(image)
+        
+        output_filename = f"processed_{filename}"
+        output_path = os.path.join(application.config['DETECTED_FOLDER'], output_filename)
+        cv.imwrite(output_path, processed_image)
+        
+        return jsonify({
+            "type": "image",
+            "processed_image": f"/static/detected/{output_filename}",
+            "detections": detections
+        })
+        
+    elif file_ext in ['mp4', 'avi', 'mov', 'mkv']:
+        output_path, detections = process_video_file(file_path)
+        
+        return jsonify({
+            "type": "video",
+            "processed_video": f"/static/detected/{os.path.basename(output_path)}",
+            "detections": detections
+        })
+    
+    return jsonify({"error": "Unsupported file format"}), 400
+
 if __name__ == "__main__":
     try:
         # Initialize MediaPipe at startup
@@ -1365,11 +1652,6 @@ if __name__ == "__main__":
         
         port = int(os.environ.get('PORT', 5000))
         print(f"Starting Enhanced Smart Focus Alert application on port {port}")
-        print("Enhanced Features:")
-        print("- Corrected focus accuracy calculations")
-        print("- Improved video recording with natural frame rates")
-        print("- Enhanced PDF reports with detailed metrics")
-        print("- Better memory management and error handling")
         print("Directories:")
         for name, path in [
             ("UPLOAD", application.config['UPLOAD_FOLDER']),
