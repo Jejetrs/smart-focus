@@ -1,4 +1,4 @@
-# app.py - Synchronized Duration Tracking System with pyttsx3
+# app.py - Complete Synchronized Duration Tracking System with pyttsx3 Speech Integration
 from flask import Flask, render_template, request, Response, jsonify, send_file, send_from_directory
 from werkzeug.utils import secure_filename
 import mediapipe as mp
@@ -37,98 +37,37 @@ application.config['REPORTS_FOLDER'] = '/tmp/reports'
 application.config['RECORDINGS_FOLDER'] = '/tmp/recordings'
 application.config['MAX_CONTENT_PATH'] = 10000000
 
-# PYTTSX3 SPEECH ENGINE CONFIGURATION - ADDED
-speech_engine = None
-speech_lock = threading.Lock()
-speech_enabled = True
-
-def init_speech_engine():
-    """Initialize pyttsx3 speech engine with thread safety"""
-    global speech_engine
-    try:
-        speech_engine = pyttsx3.init()
-        
-        # Konfigurasi voice properties
-        voices = speech_engine.getProperty('voices')
-        if voices:
-            # Gunakan voice pertama yang available
-            speech_engine.setProperty('voice', voices[0].id)
-        
-        # Set rate (kecepatan bicara) - default biasanya 200
-        speech_engine.setProperty('rate', 150)  # Lebih lambat untuk clarity
-        
-        # Set volume (0.0 to 1.0)
-        speech_engine.setProperty('volume', 0.8)
-        
-        print(f"pyttsx3 initialized successfully with voice: {voices[0].name if voices else 'default'}")
-        return True
-        
-    except Exception as e:
-        print(f"Failed to initialize pyttsx3: {str(e)}")
-        return False
-
-def speak_alert_pyttsx3(message):
-    """Speak alert message using pyttsx3 in separate thread"""
-    global speech_engine, speech_enabled
+# Initialize pyttsx3 Speech Engine
+try:
+    speech_engine = pyttsx3.init()
+    speech_engine.setProperty('rate', 150)  # Set speech rate
+    speech_engine.setProperty('volume', 0.9)  # Set volume level
     
-    if not speech_enabled or not speech_engine:
-        return
+    # Get available voices
+    voices = speech_engine.getProperty('voices')
+    if voices and len(voices) > 0:
+        speech_engine.setProperty('voice', voices[0].id)  # Set default voice
     
-    def speak_in_thread():
+    print("pyttsx3 Speech Engine initialized successfully")
+    print(f"Available voices: {len(voices) if voices else 0}")
+    
+    # Test speech engine
+    def test_speech_init():
         try:
-            with speech_lock:
-                # Stop any ongoing speech
-                speech_engine.stop()
-                
-                # Speak the message
-                speech_engine.say(message)
-                speech_engine.runAndWait()
-                
+            speech_engine.say("Smart Focus Alert Speech System Ready")
+            speech_engine.runAndWait()
+            print("Speech engine test completed successfully")
         except Exception as e:
-            print(f"pyttsx3 speech error: {str(e)}")
+            print(f"Speech engine test failed: {str(e)}")
     
-    # Run speech in separate thread to avoid blocking
-    speech_thread = threading.Thread(target=speak_in_thread, daemon=True)
-    speech_thread.start()
-
-def update_speech_settings(rate=None, volume=None, voice_index=None):
-    """Update pyttsx3 settings"""
-    global speech_engine
+    # Run test in background thread
+    init_thread = threading.Thread(target=test_speech_init, daemon=True)
+    init_thread.start()
     
-    if not speech_engine:
-        return False
-    
-    try:
-        with speech_lock:
-            if rate is not None:
-                speech_engine.setProperty('rate', rate)
-            
-            if volume is not None:
-                speech_engine.setProperty('volume', volume)
-            
-            if voice_index is not None:
-                voices = speech_engine.getProperty('voices')
-                if voices and 0 <= voice_index < len(voices):
-                    speech_engine.setProperty('voice', voices[voice_index].id)
-        
-        return True
-        
-    except Exception as e:
-        print(f"Failed to update speech settings: {str(e)}")
-        return False
-
-def get_available_voices():
-    """Get list of available voices"""
-    global speech_engine
-    
-    if not speech_engine:
-        return []
-    
-    try:
-        voices = speech_engine.getProperty('voices')
-        return [{'id': i, 'name': voice.name, 'lang': voice.languages} for i, voice in enumerate(voices)]
-    except:
-        return []
+except Exception as e:
+    speech_engine = None
+    print(f"pyttsx3 Speech Engine initialization failed: {str(e)}")
+    print("Speech alerts will be disabled")
 
 # Ensure all directories exist
 for folder in [application.config['UPLOAD_FOLDER'], application.config['DETECTED_FOLDER'], 
@@ -186,8 +125,8 @@ DISTRACTION_THRESHOLDS = {
     'NOT FOCUSED': 10    # 10 seconds
 }
 
-# Reduced cooldown for better user experience (2 seconds as requested)
-ALERT_COOLDOWN = 5.0  # 2 seconds between repeated alerts for same distraction
+# Reduced cooldown for better user experience (5 seconds as requested)
+ALERT_COOLDOWN = 5.0  # 5 seconds between repeated alerts for same distraction
 
 # Frame recording configuration
 FRAME_STORAGE_INTERVAL = 2
@@ -218,6 +157,44 @@ def init_mediapipe():
     except Exception as e:
         print(f"MediaPipe initialization failed: {str(e)}")
         return False
+
+def speak_alert_message(message, priority="normal"):
+    """Enhanced speech alert function using pyttsx3"""
+    global speech_engine
+    
+    if not speech_engine:
+        print(f"Speech engine not available: {message}")
+        return
+    
+    try:
+        def speak_async():
+            try:
+                # Set speech properties based on priority
+                if priority == "urgent":
+                    speech_engine.setProperty('rate', 180)  # Faster for urgent alerts
+                    speech_engine.setProperty('volume', 1.0)  # Max volume
+                elif priority == "warning":
+                    speech_engine.setProperty('rate', 160)  # Medium speed
+                    speech_engine.setProperty('volume', 0.9)
+                else:
+                    speech_engine.setProperty('rate', 150)  # Normal speed
+                    speech_engine.setProperty('volume', 0.8)
+                
+                # Speak the message
+                speech_engine.say(message)
+                speech_engine.runAndWait()
+                
+                print(f"SPEECH ALERT DELIVERED: {message} (Priority: {priority})")
+                
+            except Exception as e:
+                print(f"Speech engine error during playback: {str(e)}")
+        
+        # Run speech in separate thread to avoid blocking
+        speech_thread = threading.Thread(target=speak_async, daemon=True)
+        speech_thread.start()
+        
+    except Exception as e:
+        print(f"Failed to create speech thread: {str(e)}")
 
 def draw_landmarks(image, landmarks, land_mark, color):
     """Draw landmarks with reduced noise"""
@@ -278,7 +255,7 @@ def check_iris_in_middle(left_eye_points, left_iris_points, right_eye_points, ri
             and abs(right_iris_midpoint[0] - right_eye_midpoint[0]) <= deviation_threshold_horizontal)
 
 def detect_drowsiness(frame, landmarks, speech_engine=None):
-    """Detect drowsiness with improved landmark visualization - KEEP ORIGINAL PARAMETER"""
+    """Detect drowsiness with improved landmark visualization and speech integration"""
     COLOR_RED = (0, 0, 255)
     COLOR_BLUE = (255, 0, 0)
     COLOR_GREEN = (0, 255, 0)
@@ -466,7 +443,7 @@ def calculate_synchronized_distraction_times():
     return totals
 
 def should_trigger_alert_improved(person_id, current_state, current_duration):
-    """Improved alert triggering with 2-second cooldown for repeated alerts"""
+    """Improved alert triggering with 5-second cooldown for repeated alerts"""
     global last_alert_times
     
     if current_state not in DISTRACTION_THRESHOLDS:
@@ -480,7 +457,7 @@ def should_trigger_alert_improved(person_id, current_state, current_duration):
     if current_duration < threshold:
         return False
     
-    # Improved cooldown system - 2 seconds for repeated alerts
+    # Improved cooldown system - 5 seconds for repeated alerts
     if person_key in last_alert_times:
         if current_time - last_alert_times[person_key] < ALERT_COOLDOWN:
             return False
@@ -489,9 +466,10 @@ def should_trigger_alert_improved(person_id, current_state, current_duration):
     return True
 
 def detect_persons_with_attention(image, mode="image"):
-    """Detect persons with synchronized session tracking"""
+    """Detect persons with synchronized session tracking and pyttsx3 speech integration"""
     global live_monitoring_active, session_data, face_detection, face_mesh
     global person_distraction_sessions, person_current_states, person_state_start_times
+    global speech_engine
     
     # Check if MediaPipe is initialized
     if face_detection is None or face_mesh is None:
@@ -568,7 +546,7 @@ def detect_persons_with_attention(image, mode="image"):
                 attention_status, state = detect_drowsiness(
                     image, 
                     mesh_results.multi_face_landmarks[matched_face_idx],
-                    None  # KEEP ORIGINAL PARAMETER
+                    speech_engine  # Pass speech engine
                 )
             
             status_text = attention_status.get("state", "FOCUSED")
@@ -691,24 +669,34 @@ def detect_persons_with_attention(image, mode="image"):
     return image, detections
 
 def trigger_alert_synchronized(person_id, alert_type, duration):
-    """Store alert with pyttsx3 speech integration - MODIFIED TO USE PYTTSX3"""
-    global session_data
+    """Store alert with exact duration matching display and pyttsx3 speech integration"""
+    global session_data, speech_engine
     
     alert_time = datetime.now().strftime("%H:%M:%S")
     
     # Generate alert message
     if alert_type == 'SLEEPING':
         alert_message = f'Person {person_id} is sleeping - please wake up!'
+        speech_priority = "urgent"
     elif alert_type == 'YAWNING':
         alert_message = f'Person {person_id} is yawning - please take a rest!'
+        speech_priority = "warning"
     elif alert_type == 'NOT FOCUSED':
         alert_message = f'Person {person_id} is not focused - please focus on screen!'
+        speech_priority = "normal"
     else:
         return
     
-    # PYTTSX3 SPEECH INTEGRATION - ADDED
-    if speech_enabled:
-        speak_alert_pyttsx3(alert_message)
+    # ENHANCED SPEECH ALERT with pyttsx3
+    speech_delivered = False
+    if speech_engine:
+        try:
+            # Use enhanced speech function with priority
+            speak_alert_message(alert_message, speech_priority)
+            speech_delivered = True
+            print(f"PYTTSX3 SPEECH ALERT TRIGGERED: {alert_message} (Priority: {speech_priority})")
+        except Exception as e:
+            print(f"pyttsx3 speech alert failed: {str(e)}")
     
     # Store alert with duration that matches alert history display
     with monitoring_lock:
@@ -721,73 +709,12 @@ def trigger_alert_synchronized(person_id, alert_type, duration):
                 'duration': int(duration),  # Duration in seconds as shown in alert history
                 'alert_time': alert_time,
                 'real_time_duration': duration,  # Exact duration for calculation
-                'speech_enabled': speech_enabled  # Track if speech was used - ADDED
+                'speech_delivered': speech_delivered,  # Track if speech was delivered
+                'speech_priority': speech_priority if speech_delivered else None
             }
             session_data['alerts'].append(alert_entry)
-            print(f"Alert with pyttsx3 speech: {alert_message} (Duration: {duration:.1f}s)")
+            print(f"Alert stored with SPEECH - {alert_message} (Duration: {duration:.1f}s, Speech: {speech_delivered})")
 
-# NEW SPEECH CONFIGURATION ROUTES - ADDED
-@application.route('/speech/settings', methods=['GET', 'POST'])
-def speech_settings():
-    """Configure pyttsx3 speech settings"""
-    global speech_enabled
-    
-    if request.method == 'GET':
-        return jsonify({
-            'enabled': speech_enabled,
-            'voices': get_available_voices(),
-            'current_settings': {
-                'rate': speech_engine.getProperty('rate') if speech_engine else 150,
-                'volume': speech_engine.getProperty('volume') if speech_engine else 0.8,
-                'voice': speech_engine.getProperty('voice') if speech_engine else None
-            }
-        })
-    
-    elif request.method == 'POST':
-        data = request.get_json()
-        
-        if 'enabled' in data:
-            speech_enabled = data['enabled']
-        
-        if 'rate' in data:
-            update_speech_settings(rate=data['rate'])
-        
-        if 'volume' in data:
-            update_speech_settings(volume=data['volume'])
-        
-        if 'voice_index' in data:
-            update_speech_settings(voice_index=data['voice_index'])
-        
-        return jsonify({'status': 'success', 'message': 'Speech settings updated'})
-
-@application.route('/speech/test', methods=['POST'])
-def test_speech():
-    """Test pyttsx3 speech output"""
-    data = request.get_json()
-    message = data.get('message', 'This is a test of the pyttsx3 speech system')
-    
-    if speech_enabled and speech_engine:
-        speak_alert_pyttsx3(message)
-        return jsonify({'status': 'success', 'message': 'Speech test initiated'})
-    else:
-        return jsonify({'status': 'error', 'message': 'Speech engine not available'})
-
-@application.route('/speech/stop', methods=['POST'])
-def stop_speech():
-    """Stop current speech"""
-    global speech_engine
-    
-    if speech_engine:
-        try:
-            with speech_lock:
-                speech_engine.stop()
-            return jsonify({'status': 'success', 'message': 'Speech stopped'})
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': str(e)})
-    
-    return jsonify({'status': 'error', 'message': 'Speech engine not available'})
-
-# KEEP ALL EXISTING FUNCTIONS AND ROUTES UNCHANGED
 def update_session_statistics_synchronized(detections):
     """Update session statistics with synchronized tracking"""
     global session_data
@@ -861,7 +788,7 @@ def create_session_recording_from_frames(recording_frames, output_path, session_
         return None
 
 def generate_live_pdf_report(session_data, output_path):
-    """Generate PDF report with accurate distraction time calculation"""
+    """Generate PDF report with accurate distraction time calculation and speech info"""
     try:
         doc = SimpleDocTemplate(output_path, pagesize=A4)
         styles = getSampleStyleSheet()
@@ -886,8 +813,8 @@ def generate_live_pdf_report(session_data, output_path):
             textColor=colors.HexColor('#1F2937')
         )
         
-        # Title - MODIFIED TO INCLUDE PYTTSX3
-        story.append(Paragraph("Smart Focus Alert with pyttsx3 - Live Report", title_style))
+        # Title
+        story.append(Paragraph("Smart Focus Alert - Live Report with pyttsx3 Speech Integration", title_style))
         story.append(Spacer(1, 5))
         
         # Calculate session duration
@@ -903,12 +830,18 @@ def generate_live_pdf_report(session_data, output_path):
         unfocused_time = 0
         yawning_time = 0
         sleeping_time = 0
+        speech_alerts_count = 0
+        total_alerts = len(session_data.get('alerts', []))
         
         # Sum up all alert durations by type
         alert_durations_by_type = {}
         for alert in session_data.get('alerts', []):
             alert_type = alert.get('detection', '')
             duration = alert.get('real_time_duration', alert.get('duration', 0))
+            
+            # Count speech alerts
+            if alert.get('speech_delivered', False):
+                speech_alerts_count += 1
             
             if alert_type not in alert_durations_by_type:
                 alert_durations_by_type[alert_type] = []
@@ -953,19 +886,17 @@ def generate_live_pdf_report(session_data, output_path):
             secs = int(seconds % 60)
             return f"{minutes}m {secs}s"
         
-        # Session Information - MODIFIED TO INCLUDE SPEECH INFO
+        # Session Information
         story.append(Paragraph("Session Information", heading_style))
-        
-        # Count speech-enabled alerts
-        speech_alerts = len([alert for alert in session_data.get('alerts', []) if alert.get('speech_enabled', False)])
         
         session_info = [
             ['Session Start Time', session_data.get('start_time', datetime.now()).strftime('%m/%d/%Y, %I:%M:%S %p')],
             ['Session Duration', duration_str],
             ['Total Detections', str(session_data['focus_statistics']['total_detections'])],
             ['Total Persons Detected', str(session_data['focus_statistics']['total_persons'])],
-            ['Total Alerts Generated', str(len(session_data['alerts']))],
-            ['pyttsx3 Speech Alerts', str(speech_alerts)],  # ADDED
+            ['Total Alerts Generated', str(total_alerts)],
+            ['Speech Alerts Delivered', f"{speech_alerts_count}/{total_alerts}"],
+            ['Speech Engine Status', 'Available (pyttsx3)' if speech_engine else 'Not Available'],
             ['Frames Recorded', str(len(session_data.get('recording_frames', [])))]
         ]
         
@@ -1026,8 +957,8 @@ def generate_live_pdf_report(session_data, output_path):
         story.append(breakdown_table)
         story.append(Spacer(1, 15))
         
-        # Focus Statistics
-        story.append(Paragraph("Detailed Focus Statistics", heading_style))
+        # Focus Statistics with Speech Analytics
+        story.append(Paragraph("Detailed Focus Statistics with Speech Analytics", heading_style))
         
         # Calculate meaningful statistics
         if total_session_seconds > 0:
@@ -1040,14 +971,21 @@ def generate_live_pdf_report(session_data, output_path):
         # Get most common distraction
         most_common_distraction = get_most_common_distraction_from_alerts(session_data.get('alerts', []))
         
+        # Calculate speech effectiveness
+        speech_effectiveness = "N/A"
+        if total_alerts > 0:
+            speech_rate = (speech_alerts_count / total_alerts) * 100
+            speech_effectiveness = f"{speech_rate:.1f}% ({speech_alerts_count}/{total_alerts} alerts)"
+        
         focus_stats = [
             ['Total Session Duration', format_time(total_session_seconds)],
             ['Focus Accuracy Score', f"{focus_accuracy:.2f}%"],
             ['Focus Quality Rating', focus_rating],
             ['Average Focus Metric', average_focus_metric],
-            ['Distraction Frequency', f"{len(session_data['alerts'])} alerts in {format_time(total_session_seconds)}"],
+            ['Distraction Frequency', f"{total_alerts} alerts in {format_time(total_session_seconds)}"],
             ['Most Common Distraction', most_common_distraction],
-            ['pyttsx3 Speech System', f"{speech_alerts} speech alerts delivered"],  # ADDED
+            ['Speech Alert Effectiveness', speech_effectiveness],
+            ['Speech Engine', 'pyttsx3 Available' if speech_engine else 'Not Available'],
             ['Recording Quality', f"{len(session_data.get('recording_frames', []))} frames captured"]
         ]
         
@@ -1066,11 +1004,11 @@ def generate_live_pdf_report(session_data, output_path):
         story.append(focus_table)
         story.append(Spacer(1, 15))
         
-        # Alert History with correct durations - MODIFIED TO SHOW SPEECH STATUS
+        # Alert History with Speech Status
         if session_data['alerts']:
-            story.append(Paragraph("Alert History with pyttsx3 Speech", heading_style))
+            story.append(Paragraph("Alert History with Speech Delivery Status", heading_style))
             
-            alert_headers = ['Time', 'Person', 'Detection', 'Duration', 'Speech', 'Message']
+            alert_headers = ['Time', 'Person', 'Detection', 'Duration', 'Speech', 'Priority', 'Message']
             alert_data = [alert_headers]
             
             for alert in session_data['alerts'][-15:]:  # Show last 15 alerts
@@ -1083,26 +1021,28 @@ def generate_live_pdf_report(session_data, output_path):
                 duration = alert.get('real_time_duration', alert.get('duration', 0))
                 duration_text = f"{duration:.0f}s" if duration > 0 else "N/A"
                 
-                # Speech status - ADDED
-                speech_status = "Yes" if alert.get('speech_enabled', False) else "No"
+                # Speech status
+                speech_status = "✓" if alert.get('speech_delivered', False) else "✗"
+                speech_priority = alert.get('speech_priority', 'N/A') if alert.get('speech_delivered', False) else "N/A"
                 
                 alert_data.append([
                     alert_time,
                     alert['person'],
                     alert['detection'],
                     duration_text,
-                    speech_status,  # ADDED
+                    speech_status,
+                    speech_priority,
                     alert['message']
                 ])
             
-            alert_table = Table(alert_data, colWidths=[1*inch, 0.7*inch, 0.9*inch, 0.7*inch, 0.5*inch, 2.2*inch])
+            alert_table = Table(alert_data, colWidths=[0.7*inch, 0.6*inch, 0.8*inch, 0.5*inch, 0.3*inch, 0.5*inch, 2.6*inch])
             alert_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3B82F6')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#E5E7EB')),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')])
@@ -1110,7 +1050,7 @@ def generate_live_pdf_report(session_data, output_path):
             
             story.append(alert_table)
         
-        # Footer - MODIFIED
+        # Footer
         story.append(Spacer(1, 10))
         footer_text = f"Report generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>Smart Focus Alert System with pyttsx3 Speech Integration"
         footer_style = ParagraphStyle(
@@ -1123,7 +1063,7 @@ def generate_live_pdf_report(session_data, output_path):
         story.append(Paragraph(footer_text, footer_style))
         
         doc.build(story)
-        print(f"PDF report with pyttsx3 integration generated: {output_path}")
+        print(f"PDF report generated with pyttsx3 speech integration info: {output_path}")
         return output_path
     except Exception as e:
         print(f"Error generating PDF report: {str(e)}")
@@ -1335,7 +1275,7 @@ def generate_upload_pdf_report(detections, file_info, output_path):
     doc.build(story)
     return output_path
 
-# KEEP ALL EXISTING FLASK ROUTES UNCHANGED
+# Flask Routes
 @application.route('/')
 def index():
     return render_template('index.html')
@@ -1420,10 +1360,10 @@ def live():
 
 @application.route('/start_monitoring', methods=['POST'])
 def start_monitoring():
-    """Start monitoring with synchronized session tracking"""
+    """Start monitoring with synchronized session tracking and speech integration"""
     global live_monitoring_active, session_data, recording_active
     global person_distraction_sessions, person_current_states, person_state_start_times
-    global last_alert_times, session_start_time
+    global last_alert_times, session_start_time, speech_engine
     
     try:
         request_data = request.get_json() or {}
@@ -1466,12 +1406,20 @@ def start_monitoring():
             live_monitoring_active = True
             recording_active = True
             
-            print(f"Synchronized session tracking with pyttsx3 started at {session_data['start_time']}")
+            # Announce session start with speech
+            if speech_engine:
+                try:
+                    speak_alert_message("Smart Focus Alert monitoring session started with speech integration", "normal")
+                except Exception as e:
+                    print(f"Session start speech failed: {str(e)}")
+            
+            print(f"Synchronized session tracking with pyttsx3 speech started at {session_data['start_time']}")
             
             return jsonify({
                 "status": "success", 
-                "message": "synchronized session tracking with pyttsx3 started", 
-                "session_id": client_session_id
+                "message": "synchronized session tracking with pyttsx3 speech started", 
+                "session_id": client_session_id,
+                "speech_enabled": speech_engine is not None
             })
         
     except Exception as e:
@@ -1481,9 +1429,10 @@ def start_monitoring():
 
 @application.route('/stop_monitoring', methods=['POST'])
 def stop_monitoring():
-    """Stop monitoring with finalized synchronized session tracking"""
+    """Stop monitoring with finalized synchronized session tracking and speech notification"""
     global live_monitoring_active, session_data, recording_active
     global person_distraction_sessions, person_current_states, person_state_start_times
+    global speech_engine
     
     try:
         request_data = request.get_json() or {}
@@ -1525,14 +1474,26 @@ def stop_monitoring():
             recording_active = False
             session_data['end_time'] = datetime.now()
             
-            print(f"Synchronized session tracking with pyttsx3 stopped at {session_data['end_time']}")
+            # Announce session end with speech
+            if speech_engine:
+                try:
+                    total_alerts = len(session_data['alerts'])
+                    speech_alerts = sum(1 for alert in session_data['alerts'] if alert.get('speech_delivered', False))
+                    end_message = f"Monitoring session completed. {total_alerts} alerts were generated with {speech_alerts} speech notifications delivered."
+                    speak_alert_message(end_message, "normal")
+                except Exception as e:
+                    print(f"Session end speech failed: {str(e)}")
+            
+            print(f"Synchronized session tracking with pyttsx3 speech stopped at {session_data['end_time']}")
             
             response_data = {
                 "status": "success", 
-                "message": "synchronized session tracking with pyttsx3 stopped",
+                "message": "synchronized session tracking with pyttsx3 speech stopped",
                 "alerts_processed": len(session_data['alerts']),
                 "frames_captured": len(session_data.get('recording_frames', [])),
-                "distraction_sessions": len(person_distraction_sessions)
+                "distraction_sessions": len(person_distraction_sessions),
+                "speech_alerts_delivered": sum(1 for alert in session_data['alerts'] if alert.get('speech_delivered', False)),
+                "total_alerts": len(session_data['alerts'])
             }
             
             # Generate PDF report with synchronized data
@@ -1544,7 +1505,7 @@ def stop_monitoring():
                 
                 if pdf_result and os.path.exists(pdf_path):
                     response_data["pdf_report"] = f"/static/reports/{pdf_filename}"
-                    print(f"SYNC PDF with pyttsx3 SUCCESS: {pdf_filename}")
+                    print(f"SYNC PDF WITH SPEECH SUCCESS: {pdf_filename}")
                 else:
                     print("SYNC PDF FAILED: File not created")
                     
@@ -1587,7 +1548,7 @@ def stop_monitoring():
 
 @application.route('/process_frame', methods=['POST'])
 def process_frame():
-    """Frame processing with synchronized session tracking"""
+    """Frame processing with synchronized session tracking and speech integration"""
     global session_data
     
     try:
@@ -1643,7 +1604,8 @@ def process_frame():
             "detections": detections,
             "frame_count": len(session_data.get('recording_frames', [])) if session_data else 0,
             "total_processed": session_data.get('total_frames_processed', 0) if session_data else 0,
-            "frame_number": session_data.get('frame_counter', 0) if session_data else 0
+            "frame_number": session_data.get('frame_counter', 0) if session_data else 0,
+            "speech_enabled": speech_engine is not None
         })
         
     except Exception as e:
@@ -1673,7 +1635,7 @@ def sync_alerts():
 
 @application.route('/get_monitoring_data')
 def get_monitoring_data():
-    """Monitoring data endpoint with synchronized information"""
+    """Monitoring data endpoint with synchronized information and speech status"""
     global session_data
     
     try:
@@ -1685,6 +1647,8 @@ def get_monitoring_data():
             recent_alerts = current_alerts[-5:] if current_alerts else []
             
             formatted_alerts = []
+            speech_alerts_count = 0
+            
             for alert in recent_alerts:
                 try:
                     alert_time = datetime.fromisoformat(alert['timestamp']).strftime('%H:%M:%S')
@@ -1695,14 +1659,16 @@ def get_monitoring_data():
                 duration = alert.get('real_time_duration', alert.get('duration', 0))
                 duration_text = f" ({duration:.1f}s)" if duration > 0 else ""
                 
-                # Add speech indicator - ADDED
-                speech_indicator = " [pyttsx3]" if alert.get('speech_enabled', False) else ""
+                # Count speech alerts
+                if alert.get('speech_delivered', False):
+                    speech_alerts_count += 1
                 
                 formatted_alerts.append({
                     'time': alert_time,
-                    'message': alert['message'] + duration_text + speech_indicator,
+                    'message': alert['message'] + duration_text,
                     'type': 'warning' if alert['detection'] in ['YAWNING', 'NOT FOCUSED'] else 'error',
-                    'duration': duration
+                    'duration': duration,
+                    'speech_delivered': alert.get('speech_delivered', False)
                 })
             
             current_detections = session_data.get('detections', []) if session_data else []
@@ -1737,7 +1703,10 @@ def get_monitoring_data():
                 'current_status': current_status,
                 'latest_alerts': formatted_alerts,
                 'frame_count': len(session_data.get('recording_frames', [])) if session_data else 0,
-                'total_processed': session_data.get('total_frames_processed', 0) if session_data else 0
+                'total_processed': session_data.get('total_frames_processed', 0) if session_data else 0,
+                'speech_enabled': speech_engine is not None,
+                'speech_alerts_delivered': speech_alerts_count,
+                'speech_coverage': f"{speech_alerts_count}/{len(current_alerts)}" if current_alerts else "0/0"
             })
         
     except Exception as e:
@@ -1747,7 +1716,7 @@ def get_monitoring_data():
 
 @application.route('/monitoring_status')
 def monitoring_status():
-    """Get current monitoring status with synchronized information"""
+    """Get current monitoring status with synchronized information and speech status"""
     try:
         with monitoring_lock:
             return jsonify({
@@ -1758,11 +1727,12 @@ def monitoring_status():
                 "frames_processed": session_data.get('total_frames_processed', 0) if session_data else 0,
                 "distraction_sessions": len(person_distraction_sessions),
                 "synchronized_tracking": True,
-                "speech_enabled": speech_enabled  # ADDED
+                "speech_engine_available": speech_engine is not None,
+                "speech_engine_status": "active" if speech_engine else "unavailable"
             })
     except Exception as e:
         print(f"Error getting monitoring status: {str(e)}")
-        return jsonify({"is_active": False})
+        return jsonify({"is_active": False, "speech_engine_available": False})
 
 @application.route('/check_camera')
 def check_camera():
@@ -1773,11 +1743,135 @@ def check_camera():
         print(f"Error checking camera: {str(e)}")
         return jsonify({"camera_available": False})
 
+# NEW SPEECH-RELATED ENDPOINTS
+
+@application.route('/set_speech_settings', methods=['POST'])
+def set_speech_settings():
+    """Set speech engine properties"""
+    global speech_engine
+    
+    try:
+        data = request.get_json() or {}
+        rate = data.get('rate', 150)
+        volume = data.get('volume', 0.9)
+        voice = data.get('voice', 0)  # 0 for default voice
+        
+        if speech_engine:
+            speech_engine.setProperty('rate', rate)
+            speech_engine.setProperty('volume', volume)
+            
+            # Try to set voice if available
+            voices = speech_engine.getProperty('voices')
+            if voices and len(voices) > voice:
+                speech_engine.setProperty('voice', voices[voice].id)
+            
+            return jsonify({
+                "status": "success", 
+                "message": "Speech settings updated",
+                "settings": {
+                    "rate": rate,
+                    "volume": volume,
+                    "voice": voice,
+                    "available_voices": len(voices) if voices else 0
+                }
+            })
+        else:
+            return jsonify({"status": "error", "message": "Speech engine not available"})
+            
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Failed to update speech settings: {str(e)}"})
+
+@application.route('/test_speech', methods=['POST'])
+def test_speech():
+    """Test speech functionality"""
+    global speech_engine
+    
+    try:
+        data = request.get_json() or {}
+        message = data.get('message', 'This is a test message from Smart Focus Alert system with pyttsx3 speech integration')
+        priority = data.get('priority', 'normal')
+        
+        if speech_engine:
+            speak_alert_message(message, priority)
+            return jsonify({
+                "status": "success", 
+                "message": "Test speech initiated", 
+                "speech_message": message,
+                "priority": priority
+            })
+        else:
+            return jsonify({"status": "error", "message": "Speech engine not available"})
+            
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Test speech failed: {str(e)}"})
+
+@application.route('/get_speech_info')
+def get_speech_info():
+    """Get speech engine information"""
+    global speech_engine
+    
+    try:
+        if speech_engine:
+            voices = speech_engine.getProperty('voices')
+            current_rate = speech_engine.getProperty('rate')
+            current_volume = speech_engine.getProperty('volume')
+            
+            voice_list = []
+            if voices:
+                for i, voice in enumerate(voices):
+                    voice_list.append({
+                        "id": i,
+                        "name": voice.name,
+                        "age": getattr(voice, 'age', 'Unknown'),
+                        "gender": getattr(voice, 'gender', 'Unknown')
+                    })
+            
+            return jsonify({
+                "status": "available",
+                "engine": "pyttsx3",
+                "current_settings": {
+                    "rate": current_rate,
+                    "volume": current_volume
+                },
+                "available_voices": voice_list,
+                "voice_count": len(voice_list)
+            })
+        else:
+            return jsonify({
+                "status": "unavailable",
+                "message": "pyttsx3 speech engine not initialized"
+            })
+            
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to get speech info: {str(e)}"
+        })
+
 @application.route('/health')
 def health_check():
-    """Health check endpoint with pyttsx3 information - MODIFIED"""
+    """Health check endpoint with synchronized information including speech status"""
     try:
         with monitoring_lock:
+            # Get speech engine details
+            speech_info = {
+                "available": speech_engine is not None,
+                "engine": "pyttsx3" if speech_engine else None,
+                "voice_count": 0,
+                "current_settings": {}
+            }
+            
+            if speech_engine:
+                try:
+                    voices = speech_engine.getProperty('voices')
+                    speech_info["voice_count"] = len(voices) if voices else 0
+                    speech_info["current_settings"] = {
+                        "rate": speech_engine.getProperty('rate'),
+                        "volume": speech_engine.getProperty('volume')
+                    }
+                except Exception as e:
+                    speech_info["error"] = str(e)
+            
             return jsonify({
                 "status": "healthy", 
                 "timestamp": datetime.now().isoformat(),
@@ -1796,19 +1890,16 @@ def health_check():
                 "distraction_sessions": len(person_distraction_sessions),
                 "synchronized_tracking": True,
                 "alert_cooldown": ALERT_COOLDOWN,
-                "speech_engine": {  # ADDED
-                    "initialized": speech_engine is not None,
-                    "enabled": speech_enabled,
-                    "available_voices": len(get_available_voices())
-                },
-                "version": "pyttsx3_integration_v1.0"  # MODIFIED
+                "speech_engine": speech_info,
+                "version": "synchronized_duration_tracking_with_pyttsx3_speech_v1.0"
             })
     except Exception as e:
         print(f"Health check error: {str(e)}")
         return jsonify({
             "status": "error",
             "error": str(e),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "speech_engine": {"available": False, "error": "Health check failed"}
         }), 500
 
 @application.route('/api/detect', methods=['POST'])
@@ -1916,17 +2007,8 @@ if __name__ == "__main__":
         if not init_mediapipe():
             print("WARNING: MediaPipe initialization failed, continuing with limited functionality")
         
-        # Initialize pyttsx3 at startup - ADDED
-        if not init_speech_engine():
-            print("WARNING: pyttsx3 initialization failed, speech alerts will be disabled")
-            speech_enabled = False
-        
         port = int(os.environ.get('PORT', 5000))
-        print(f"Starting Smart Focus Alert with pyttsx3 Speech Integration on port {port}")
-        print("Speech configuration:")  # ADDED
-        print(f"  - pyttsx3 initialized: {speech_engine is not None}")
-        print(f"  - Speech enabled: {speech_enabled}")
-        print(f"  - Available voices: {len(get_available_voices())}")
+        print(f"Starting Smart Focus Alert with SYNCHRONIZED Duration Tracking and pyttsx3 Speech Integration on port {port}")
         print("Frame storage configuration:")
         print(f"  - Storage interval: every {FRAME_STORAGE_INTERVAL} frames")
         print(f"  - Max stored frames: {MAX_STORED_FRAMES}")
@@ -1934,6 +2016,16 @@ if __name__ == "__main__":
         print(f"Alert configuration:")
         print(f"  - Alert cooldown: {ALERT_COOLDOWN} seconds")
         print(f"  - Thresholds: {DISTRACTION_THRESHOLDS}")
+        print(f"Speech configuration:")
+        print(f"  - Speech engine: {'Available (pyttsx3)' if speech_engine else 'Not Available'}")
+        if speech_engine:
+            try:
+                voices = speech_engine.getProperty('voices')
+                print(f"  - Available voices: {len(voices) if voices else 0}")
+                print(f"  - Current rate: {speech_engine.getProperty('rate')}")
+                print(f"  - Current volume: {speech_engine.getProperty('volume')}")
+            except Exception as e:
+                print(f"  - Speech info error: {str(e)}")
         print("Directories:")
         for name, path in [
             ("UPLOAD", application.config['UPLOAD_FOLDER']),
