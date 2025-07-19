@@ -23,7 +23,6 @@
             --warning: #f59e0b;
             --danger: #ef4444;
             --info: #06b6d4;
-            --sidebar-bg: #334155;
         }
 
         * {
@@ -844,7 +843,7 @@
     <div class="main-container">
         <div class="page-header">
             <h1 class="page-title text-gradient">Live Focus Monitoring</h1>
-            <p class="page-subtitle">Real-time focus detection with facial landmarks, automatic recording, and comprehensive reporting</p>
+            <p class="page-subtitle">Real-time focus detection with automatic alerts</p>
         </div>
 
         <div class="monitoring-status-card">
@@ -861,7 +860,7 @@
             
             <div class="status-display" id="currentStatus">
                 <span class="status-indicator"></span>
-                System Ready - Click Start to begin monitoring with automatic
+                System ready - Click Start to begin monitoring
             </div>
 
             <div class="stats-grid">
@@ -895,13 +894,12 @@
                     <div class="video-placeholder" id="videoPlaceholder">
                         <i class="fas fa-video"></i>
                         <h3 style="margin-bottom: 12px;">Detection System</h3>
-                        <p style="margin-bottom: 20px;">All duration tracking and alert synchronization issues resolved</p>
+                        <p style="margin-bottom: 20px;">Click "Start Monitoring" to begin detection</p>
                         <div style="text-align: left; max-width: 500px; line-height: 1.6;">
-                            <div style="margin-bottom: 8px;">✅ <strong>Display:</strong> Real-time matches PDF report</div>
-                            <div style="margin-bottom: 8px;">✅ <strong>Alert Reminders:</strong> Every 2 seconds for continued distraction</div>
-                            <div style="margin-bottom: 8px;">✅ <strong>Accurate Duration:</strong> Consistent calculation across all displays</div>
-                            <div style="margin-bottom: 8px;">✅ <strong>Speech Alerts:</strong> Repeated reminders for productivity</div>
-                            <div>✅ <strong>Data Consistency:</strong> Real-time synchronized with PDF generation</div>
+                            <div style="margin-bottom: 8px;">• <strong>Sleep Detection:</strong> Alert after 10 seconds</div>
+                            <div style="margin-bottom: 8px;">• <strong>Yawning Detection:</strong> Alert after 3.5 seconds</div>
+                            <div style="margin-bottom: 8px;">• <strong>Unfocus Detection:</strong> Alert after 10 seconds</div>
+                            <div>• <strong>Audio Alerts:</strong> Speech and beep notifications</div>
                         </div>
                     </div>
                 </div>
@@ -929,20 +927,16 @@
                     
                     <div class="status-health" id="systemHealth">
                         <div class="health-item">
-                            <span>Data Synchronization:</span>
-                            <span class="health-status ok" id="syncHealth">Synchronized</span>
+                            <span>Audio System:</span>
+                            <span class="health-status ok" id="audioHealth">Active</span>
                         </div>
                         <div class="health-item">
-                            <span>Alert Reminders:</span>
-                            <span class="health-status ok" id="reminderHealth">5-Second Cycle</span>
+                            <span>Speech Alerts:</span>
+                            <span class="health-status ok" id="speechHealth">Enabled</span>
                         </div>
                         <div class="health-item">
-                            <span>Duration Accuracy:</span>
-                            <span class="health-status ok" id="durationHealth">Consistent</span>
-                        </div>
-                        <div class="health-item">
-                            <span>PDF Matching:</span>
-                            <span class="health-status ok" id="pdfHealth">Synchronized</span>
+                            <span>Beep Alerts:</span>
+                            <span class="health-status ok" id="beepHealth">Enabled</span>
                         </div>
                     </div>
                 </div>
@@ -953,7 +947,7 @@
                         Alert Configuration
                     </div>
                     
-                    <label class="volume-label">Choose volume level:</label>
+                    <label class="volume-label">Audio alert volume:</label>
                     <select class="volume-select" id="alertVolume">
                         <option value="0.3">Low</option>
                         <option value="0.6" selected>Medium</option>
@@ -964,7 +958,7 @@
                 <div class="left-card" style="display: none;" id="downloadsSection">
                     <div class="sidebar-header">
                         <i class="fas fa-download"></i>
-                        Session Downloads - SYNCHRONIZED DATA
+                        Session Downloads
                     </div>
                     <div id="downloadItems">
                     </div>
@@ -978,19 +972,19 @@
                             <i class="fas fa-check-circle"></i>
                         </div>
                         <div class="connection-text">
-                            <div class="connection-title">All Synchronization Issues Fixed</div>
-                            <div class="connection-subtitle" id="connectionSubtitle">Real-time display with PDF data</div>
+                            <div class="connection-title">Audio Alert System</div>
+                            <div class="connection-subtitle" id="connectionSubtitle">Speech and beep alerts ready</div>
                         </div>
                     </div>
 
                     <div class="audio-alert">
                         <i class="fas fa-volume-up" style="color: var(--text-secondary);"></i>
-                        <span style="flex: 1; font-weight: 500;">Audio Alert Reminders</span>
+                        <span style="flex: 1; font-weight: 500;">Audio Alerts</span>
                         <div class="toggle-switch" onclick="toggleAudioAlert()"></div>
                     </div>
 
                     <div class="audio-alert" style="margin-bottom: 0;">
-                        <span style="color: var(--text-secondary); font-size: 0.9rem;" id="audioStatus">2-Second Reminder Alerts Enabled</span>
+                        <span style="color: var(--text-secondary); font-size: 0.9rem;" id="audioStatus">Audio alerts enabled</span>
                     </div>
                 </div>
 
@@ -1007,7 +1001,7 @@
                     <div class="detection-info" id="detectionInfo">
                         <div class="text-center" style="color: var(--text-secondary); padding: 20px;">
                             <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i>
-                            <p>Synchronized detection system ready</p>
+                            <p>Detection system ready</p>
                         </div>
                     </div>
                 </div>
@@ -1043,7 +1037,7 @@
                     <div class="alert-history" id="alertHistory">
                         <div class="text-center" style="color: var(--text-secondary); padding: 20px;">
                             <i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i>
-                            <p>No alerts yet - monitoring not started</p>
+                            <p>No alerts yet</p>
                         </div>
                     </div>
                 </div>
@@ -1052,7 +1046,7 @@
     </div>
 
     <script>
-        // Enhanced variable management with real-time PDF data matching
+        // Variable management
         let sessionStartTime = null;
         let alertCount = 0;
         let isMonitoring = false;
@@ -1069,23 +1063,23 @@
         let clientStream = null;
         let processingInterval = null;
 
-        // Real-time tracking that matches PDF report exactly
+        // Real-time tracking
         let clientAlerts = [];
-        let personSynchronizedTimers = {}; // server tracking
-        let personCurrentStates = {};      // Current state tracking
-        let personStateStartTimes = {};    // When current state started
-        let personLastAlertTimes = {};     // Last alert time for 2-second reminders
-        let personLastReminderTimes = {}; // FIXED: Last reminder time for continuous alerts
+        let personTimers = {};
+        let personCurrentStates = {};
+        let personStateStartTimes = {};
+        let personLastAlertTimes = {};
+        let personLastReminderTimes = {};
         
-        // Exact thresholds and cooldowns matching server
+        // Thresholds and cooldowns
         let alertThresholds = {
             'SLEEPING': 10000,    // 10 seconds  
             'YAWNING': 3500,      // 3.5 seconds
             'NOT FOCUSED': 10000  // 10 seconds
         };
-        let alertCooldown = 5000; // FIXED: 2 seconds for reminder alerts
+        let alertCooldown = 5000; // 5 seconds
 
-        // Enhanced session management with data consistency
+        // Session management
         let sessionId = null;
         let sessionSyncTimer = null;
         let fileRetryAttempts = {};
@@ -1094,13 +1088,12 @@
         let audioContext = null;
         let currentDetections = [];
         let systemHealth = {
-            sync: 'ok',
-            reminder: 'ok', 
-            duration: 'ok',
-            pdf: 'ok'
+            audio: 'ok',
+            speech: 'ok', 
+            beep: 'ok'
         };
 
-        // Accumulated duration tracking for PDF consistency
+        // Duration tracking
         let accumulatedDistractionTimes = {
             'SLEEPING': 0,
             'YAWNING': 0,
@@ -1130,24 +1123,32 @@
                 clientCtx = clientCanvas.getContext('2d');
             }
             
-            // Generate unique session ID for data consistency
             sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            console.log('Session initialized with data consistency:', sessionId);
+            console.log('Session initialized:', sessionId);
         }
 
         function initializeAudioSystem() {
             try {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 
-                if ('speechSynthesis' in window) {
-                    console.log('Speech synthesis available for reminder alerts');
-                } else {
-                    console.log('Speech synthesis not available, using beep alerts only');
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume().then(() => {
+                        updateSystemHealth('audio', 'ok');
+                    });
                 }
-                updateSystemHealth('reminder', 'ok');
+                
+                if ('speechSynthesis' in window) {
+                    updateSystemHealth('speech', 'ok');
+                } else {
+                    updateSystemHealth('speech', 'error');
+                }
+                
+                updateSystemHealth('beep', 'ok');
+                
             } catch (error) {
-                console.log('Audio initialization failed:', error);
-                updateSystemHealth('reminder', 'error');
+                updateSystemHealth('audio', 'error');
+                updateSystemHealth('speech', 'error');
+                updateSystemHealth('beep', 'error');
             }
         }
 
@@ -1163,25 +1164,15 @@
                 const data = await response.json();
                 
                 if (data.status === 'healthy') {
-                    updateSystemHealth('pdf', data.directories?.reports && data.directories?.recordings ? 'ok' : 'error');
-                    updateSystemHealth('sync', data.synchronized_tracking ? 'ok' : 'error');
-                    updateSystemHealth('duration', data.version?.includes('synchronized') ? 'ok' : 'error');
-                    
-                    // Check alert cooldown
-                    if (data.alert_cooldown <= 2.1) { // 2 seconds + tolerance
-                        updateSystemHealth('reminder', 'ok');
-                    } else {
-                        updateSystemHealth('reminder', 'error');
-                    }
+                    updateSystemHealth('audio', data.speech_status?.enabled ? 'ok' : 'error');
+                    updateSystemHealth('speech', data.speech_status?.engine_available ? 'ok' : 'error');
+                    updateSystemHealth('beep', 'ok');
                 } else {
-                    updateSystemHealth('pdf', 'error');
-                    updateSystemHealth('sync', 'error');
+                    updateSystemHealth('audio', 'error');
                 }
                 
             } catch (error) {
-                console.error('Health check failed:', error);
-                updateSystemHealth('pdf', 'error');
-                updateSystemHealth('sync', 'error');
+                updateSystemHealth('audio', 'error');
             }
         }
 
@@ -1189,25 +1180,24 @@
             systemHealth[component] = status;
             
             const healthElements = {
-                sync: 'syncHealth',
-                reminder: 'reminderHealth',
-                duration: 'durationHealth',
-                pdf: 'pdfHealth'
+                audio: 'audioHealth',
+                speech: 'speechHealth',
+                beep: 'beepHealth'
             };
             
             const element = document.getElementById(healthElements[component]);
             if (element) {
                 element.className = `health-status ${status}`;
                 const statusText = {
-                    sync: status === 'ok' ? 'Synchronized' : 'Error',
-                    reminder: status === 'ok' ? '5-Second Cycle' : 'Error',
-                    duration: status === 'ok' ? 'Consistent' : 'Error',
-                    pdf: status === 'ok' ? 'Synchronized' : 'Error'
+                    audio: status === 'ok' ? 'Active' : 'Error',
+                    speech: status === 'ok' ? 'Enabled' : 'Error',
+                    beep: status === 'ok' ? 'Enabled' : 'Error'
                 };
                 element.textContent = statusText[component];
             }
         }
 
+        // Audio alert functions
         function playAlertSound(alertType = 'default') {
             if (!audioEnabled || !audioContext) return;
 
@@ -1231,50 +1221,47 @@
                 oscillator.type = 'sine';
                 
                 gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-                gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.1);
-                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+                gainNode.gain.linearRampToValueAtTime(volume * 0.8, audioContext.currentTime + 0.1);
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.6);
                 
                 oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.5);
+                oscillator.stop(audioContext.currentTime + 0.6);
+                
+                updateSystemHealth('beep', 'ok');
                 
             } catch (error) {
-                console.error('Audio playback error:', error);
+                updateSystemHealth('beep', 'error');
             }
         }
 
         function speakAlertMessage(message) {
-            if (!audioEnabled || !window.speechSynthesis) return;
+            if (!audioEnabled || !window.speechSynthesis) {
+                return;
+            }
 
             try {
+                window.speechSynthesis.cancel();
+                
                 const utterance = new SpeechSynthesisUtterance(message);
                 const volume = parseFloat(document.getElementById('alertVolume').value);
                 
-                utterance.volume = volume;
+                utterance.volume = Math.min(volume, 1.0);
                 utterance.rate = 1.0;
                 utterance.pitch = 1.0;
+                utterance.lang = 'en-US';
+                
+                utterance.onerror = function(event) {
+                    updateSystemHealth('speech', 'error');
+                };
+                
+                utterance.onend = function() {
+                    updateSystemHealth('speech', 'ok');
+                };
                 
                 window.speechSynthesis.speak(utterance);
-            } catch (error) {
-                console.error('Speech synthesis error:', error);
-            }
-        }
-
-        async function checkCameraSetup() {
-            try {
-                const response = await fetch('/check_camera');
-                const data = await response.json();
                 
-                if (!data.camera_available) {
-                    usingClientCamera = true;
-                    document.getElementById('connectionSubtitle').textContent = 'Using device camera with synchronized tracking';
-                    console.log('Using client-side camera with synchronized duration tracking');
-                }
-                updateSystemHealth('sync', 'ok');
             } catch (error) {
-                usingClientCamera = true;
-                document.getElementById('connectionSubtitle').textContent = 'Using device camera (fallback mode)';
-                console.log('Fallback to client-side camera');
-                updateSystemHealth('sync', 'error');
+                updateSystemHealth('speech', 'error');
             }
         }
 
@@ -1319,24 +1306,47 @@
         function toggleAudioAlert() {
             audioEnabled = !audioEnabled;
             const toggle = document.querySelector('.toggle-switch');
-            const statusText = document.getElementById('audioStatus');
             
             if (audioEnabled) {
                 toggle.classList.remove('off');
-                statusText.textContent = 'Reminder Alerts Enabled';
-                statusText.style.color = 'var(--success)';
             } else {
                 toggle.classList.add('off');
-                statusText.textContent = '2-Second Reminder Alerts Disabled';
+            }
+            
+            updateAudioStatusText();
+        }
+
+        function updateAudioStatusText() {
+            const statusText = document.getElementById('audioStatus');
+            if (audioEnabled) {
+                statusText.textContent = 'Audio alerts enabled';
+                statusText.style.color = 'var(--success)';
+            } else {
+                statusText.textContent = 'Audio alerts disabled';
                 statusText.style.color = 'var(--text-muted)';
+            }
+        }
+
+        async function checkCameraSetup() {
+            try {
+                const response = await fetch('/check_camera');
+                const data = await response.json();
+                
+                if (!data.camera_available) {
+                    usingClientCamera = true;
+                    document.getElementById('connectionSubtitle').textContent = 'Device camera ready';
+                }
+            } catch (error) {
+                usingClientCamera = true;
+                document.getElementById('connectionSubtitle').textContent = 'Device camera (fallback mode)';
             }
         }
 
         async function startMonitoring() {
             try {
-                // Reset all tracking variables with data consistency
+                // Reset tracking variables
                 clientAlerts = [];
-                personSynchronizedTimers = {};
+                personTimers = {};
                 personCurrentStates = {};
                 personStateStartTimes = {};
                 personLastAlertTimes = {};
@@ -1346,8 +1356,6 @@
                 fileRetryAttempts = {};
                 accumulatedDistractionTimes = { 'SLEEPING': 0, 'YAWNING': 0, 'NOT FOCUSED': 0 };
                 totalSessionSeconds = 0;
-
-                console.log('Starting monitoring with PDF data consistency:', sessionId);
 
                 const response = await fetch('/start_monitoring', { 
                     method: 'POST',
@@ -1360,8 +1368,6 @@
                     throw new Error(data.message);
                 }
 
-                console.log('Server confirmed synchronized session start:', data.session_id);
-
                 if (usingClientCamera) {
                     await initializeClientCamera();
                 } else {
@@ -1371,13 +1377,9 @@
                 updateUIForActiveMonitoring();
                 startDataUpdates();
                 startSessionSync();
-                showNotification('Monitoring started with PDF data consistency and 2-second alert reminders', 'success');
-                updateSystemHealth('sync', 'ok');
-                updateSystemHealth('duration', 'ok');
-                updateSystemHealth('reminder', 'ok');
+                showNotification('Monitoring started with audio alerts!', 'success');
             } catch (error) {
                 showNotification('Failed to start monitoring: ' + error.message, 'error');
-                updateSystemHealth('sync', 'error');
             }
         }
 
@@ -1402,12 +1404,10 @@
                 
                 const data = await response.json();
                 if (data.status === 'success') {
-                    console.log(`Synced ${data.synced_count} alerts with consistent durations`);
-                    updateSystemHealth('sync', 'ok');
+                    console.log(`Synced ${data.synced_count} alerts`);
                 }
             } catch (error) {
                 console.error('Alert sync failed:', error);
-                updateSystemHealth('sync', 'error');
             }
         }
 
@@ -1425,12 +1425,9 @@
                 clientVideo.style.display = 'none';
                 clientCanvas.style.display = 'block';
                 
-                // Optimized interval for consistent tracking
                 processingInterval = setInterval(processClientFrame, 1000);
-                updateSystemHealth('sync', 'ok');
                 
             } catch (error) {
-                updateSystemHealth('sync', 'error');
                 throw new Error('Failed to access device camera: ' + error.message);
             }
         }
@@ -1467,28 +1464,24 @@
                         img.src = data.processed_frame;
 
                         if (data.detections && data.detections.length > 0) {
-                            processDetectionAlertsSynchronized(data.detections);
+                            processDetectionAlerts(data.detections);
                         } else {
                             currentDetections = [];
-                            updateDetectionDisplaySynchronized();
+                            updateDetectionDisplay();
                         }
-                        
-                        updateSystemHealth('sync', 'ok');
                     }
                 })
                 .catch(error => {
                     console.error('Frame processing error:', error);
-                    updateSystemHealth('sync', 'error');
                 });
 
             } catch (error) {
                 console.error('Frame capture error:', error);
-                updateSystemHealth('sync', 'error');
             }
         }
 
-        // Detection processing with exact PDF data consistency
-        function processDetectionAlertsSynchronized(detections) {
+        // Detection processing with alerts
+        function processDetectionAlerts(detections) {
             const currentTime = Date.now();
             currentDetections = detections;
 
@@ -1497,8 +1490,8 @@
                 const currentState = detection.status;
 
                 // Initialize tracking for new person
-                if (!personSynchronizedTimers[personId]) {
-                    personSynchronizedTimers[personId] = {};
+                if (!personTimers[personId]) {
+                    personTimers[personId] = {};
                     personCurrentStates[personId] = null;
                     personStateStartTimes[personId] = currentTime;
                     personLastAlertTimes[personId] = {};
@@ -1507,15 +1500,12 @@
 
                 // Check for state change
                 if (personCurrentStates[personId] !== currentState) {
-                    console.log(`Person ${detection.id} state changed: ${personCurrentStates[personId]} -> ${currentState}`);
-                    
-                    // FIXED: Store accumulated time from previous state for PDF consistency
+                    // Store accumulated time from previous state
                     const previousState = personCurrentStates[personId];
                     if (previousState && alertThresholds[previousState] && personStateStartTimes[personId]) {
-                        const stateDuration = (currentTime - personStateStartTimes[personId]) / 1000; // Convert to seconds
+                        const stateDuration = (currentTime - personStateStartTimes[personId]) / 1000;
                         if (stateDuration > 0) {
                             accumulatedDistractionTimes[previousState] += stateDuration;
-                            console.log(`Accumulated ${stateDuration.toFixed(1)}s of ${previousState} for PDF consistency`);
                         }
                     }
                     
@@ -1523,34 +1513,32 @@
                     personCurrentStates[personId] = currentState;
                     personStateStartTimes[personId] = currentTime;
                     
-                    // Clear old timers
-                    personSynchronizedTimers[personId] = {};
+                    personTimers[personId] = {};
+                    personLastAlertTimes[personId] = {};
+                    personLastReminderTimes[personId] = {};
                     
-                    // Start timer for problematic states
                     if (alertThresholds[currentState]) {
-                        personSynchronizedTimers[personId][currentState] = currentTime;
-                        console.log(`Started timer for ${personId} in state ${currentState}`);
+                        personTimers[personId][currentState] = currentTime;
                     }
                 } else {
-                    // State unchanged, check for alerts and reminders
-                    if (alertThresholds[currentState] && personSynchronizedTimers[personId][currentState]) {
-                        const continuousDuration = currentTime - personSynchronizedTimers[personId][currentState];
+                    // State unchanged, check for alerts
+                    if (alertThresholds[currentState] && personTimers[personId][currentState]) {
+                        const duration = currentTime - personTimers[personId][currentState];
                         const thresholdMs = alertThresholds[currentState];
                         
-                        // Initial alert when threshold is reached
-                        if (continuousDuration >= thresholdMs) {
+                        if (duration >= thresholdMs) {
                             const lastAlertTime = personLastAlertTimes[personId][currentState] || 0;
                             
-                            // Initial alert (first time reaching threshold)
+                            // First alert
                             if (lastAlertTime === 0) {
-                                triggerClientAlertSynchronized(detection.id, currentState, Math.floor(continuousDuration / 1000), 'initial');
+                                triggerClientAlert(detection.id, currentState, Math.floor(duration / 1000), 'initial');
                                 personLastAlertTimes[personId][currentState] = currentTime;
                                 personLastReminderTimes[personId][currentState] = currentTime;
                             } else {
-                                // Reminder alerts every 2 seconds for continued distraction
+                                // Reminder alerts every 5 seconds
                                 const lastReminderTime = personLastReminderTimes[personId][currentState] || 0;
                                 if (currentTime - lastReminderTime >= alertCooldown) {
-                                    triggerClientAlertSynchronized(detection.id, currentState, Math.floor(continuousDuration / 1000), 'reminder');
+                                    triggerClientAlert(detection.id, currentState, Math.floor(duration / 1000), 'reminder');
                                     personLastReminderTimes[personId][currentState] = currentTime;
                                 }
                             }
@@ -1561,19 +1549,17 @@
 
             // Remove tracking for persons no longer detected
             const currentPersonIds = detections.map(d => `person_${d.id}`);
-            Object.keys(personSynchronizedTimers).forEach(personId => {
+            Object.keys(personTimers).forEach(personId => {
                 if (!currentPersonIds.includes(personId)) {
-                    // FIXED: Add final accumulated time before removing
                     const currentState = personCurrentStates[personId];
                     if (currentState && alertThresholds[currentState] && personStateStartTimes[personId]) {
                         const stateDuration = (currentTime - personStateStartTimes[personId]) / 1000;
                         if (stateDuration > 0) {
                             accumulatedDistractionTimes[currentState] += stateDuration;
-                            console.log(`Final accumulated ${stateDuration.toFixed(1)}s of ${currentState} for ${personId}`);
                         }
                     }
                     
-                    delete personSynchronizedTimers[personId];
+                    delete personTimers[personId];
                     delete personCurrentStates[personId];
                     delete personStateStartTimes[personId];
                     delete personLastAlertTimes[personId];
@@ -1582,12 +1568,10 @@
             });
 
             updateUIWithDetections(detections);
-            updateDetectionDisplaySynchronized();
-            updateSystemHealth('sync', 'ok');
-            updateSystemHealth('reminder', 'ok');
+            updateDetectionDisplay();
         }
 
-        function updateDetectionDisplaySynchronized() {
+        function updateDetectionDisplay() {
             const detectionInfo = document.getElementById('detectionInfo');
             const detectionBadge = document.getElementById('detectionBadge');
             
@@ -1609,17 +1593,17 @@
                 let progressPercent = 0;
                 let showAlert = false;
                 
-                if (alertThresholds[currentState] && personSynchronizedTimers[personId] && personSynchronizedTimers[personId][currentState]) {
-                    const startTime = personSynchronizedTimers[personId][currentState];
-                    const continuousDuration = Math.max(0, currentTime - startTime);
+                if (alertThresholds[currentState] && personTimers[personId] && personTimers[personId][currentState]) {
+                    const startTime = personTimers[personId][currentState];
+                    const duration = Math.max(0, currentTime - startTime);
                     const threshold = alertThresholds[currentState];
-                    const durationSeconds = Math.floor(continuousDuration / 1000);
+                    const durationSeconds = Math.floor(duration / 1000);
                     const thresholdSeconds = Math.floor(threshold / 1000);
                     
-                    progressPercent = Math.min(100, (continuousDuration / threshold) * 100);
+                    progressPercent = Math.min(100, (duration / threshold) * 100);
                     timerDisplay = `${durationSeconds}s / ${thresholdSeconds}s`;
                     
-                    if (continuousDuration >= threshold) {
+                    if (duration >= threshold) {
                         showAlert = true;
                         hasActiveAlert = true;
                     }
@@ -1649,7 +1633,7 @@
                                 <div class="detection-progress">
                                     <div class="detection-progress-bar ${stateClass}" style="width: ${progressPercent}%"></div>
                                 </div>
-                                <div class="threshold-text">Synchronized data</div>
+                                <div class="threshold-text">Tracking</div>
                             ` : ''}
                         </div>
                     </div>
@@ -1660,9 +1644,9 @@
             detectionBadge.style.display = hasActiveAlert ? 'inline-flex' : 'none';
         }
 
-        function triggerClientAlertSynchronized(personId, alertType, continuousDuration, alertCategory) {
+        function triggerClientAlert(personId, alertType, duration, alertCategory) {
             const alertTime = new Date().toLocaleTimeString();
-            const alertMessage = getAlertMessage(personId, alertType, alertCategory);
+            const alertMessage = getAlertMessage(personId, alertType);
             
             const alert = {
                 id: `${sessionId}_${personId}_${alertType}_${Date.now()}`,
@@ -1670,11 +1654,12 @@
                 person: `Person ${personId}`,
                 detection: alertType,
                 message: alertMessage,
-                continuous_duration: continuousDuration, // Exact continuous duration
+                duration: duration,
                 type: alertType === 'SLEEPING' ? 'error' : 'warning',
                 sessionId: sessionId,
                 timestamp: new Date().toISOString(),
-                category: alertCategory // 'initial' or 'reminder'
+                category: alertCategory,
+                is_reminder: alertCategory === 'reminder'
             };
 
             clientAlerts.unshift(alert);
@@ -1686,31 +1671,37 @@
             alertCount++;
             document.getElementById('alertCount').textContent = alertCount;
 
-            // Play sound for both initial and reminder alerts
-            playAlertSound(alertType);
-            
-            // Speech alerts for productivity enhancement
-            setTimeout(() => {
-                speakAlertMessage(alertMessage);
-            }, 500);
+            // Play audio alerts
+            if (audioEnabled) {
+                playAlertSound(alertType);
+                
+                setTimeout(() => {
+                    speakAlertMessage(getSpeechMessage(personId, alertType));
+                }, 300);
+            }
 
             updateClientAlertHistory();
-            showNotification(`${alertMessage} (${continuousDuration}s continuous) [${alertCategory}]`, alert.type);
-            
-            console.log('Alert triggered with PDF consistency:', alert);
-            updateSystemHealth('reminder', 'ok');
+            showNotification(alertMessage, alert.type);
         }
 
-        function getAlertMessage(personId, alertType, category) {
+        function getAlertMessage(personId, alertType) {
             const baseMessages = {
                 'SLEEPING': `Person ${personId} is sleeping - please wake up!`,
                 'YAWNING': `Person ${personId} is yawning - please take a rest!`,
                 'NOT FOCUSED': `Person ${personId} is not focused - please focus on screen!`
             };
             
-            const message = baseMessages[alertType] || `Person ${personId} attention alert`;
+            return baseMessages[alertType] || `Person ${personId} attention alert`;
+        }
+
+        function getSpeechMessage(personId, alertType) {
+            const speechMessages = {
+                'SLEEPING': `Person ${personId} is sleeping. Please wake up!`,
+                'YAWNING': `Person ${personId} is yawning. Please take a rest!`,
+                'NOT FOCUSED': `Person ${personId} is not focused. Please pay attention!`
+            };
             
-            return message;
+            return speechMessages[alertType] || `Person ${personId} attention alert`;
         }
 
         function updateUIWithDetections(detections) {
@@ -1743,19 +1734,17 @@
                 `<div class="alert-item" style="border-left-color: ${alert.type === 'error' ? 'var(--danger)' : 'var(--warning)'};">
                     <div style="flex: 1;">
                         <div style="font-weight: 500; margin-bottom: 4px;">${alert.message}</div>
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Continuous Duration: ${alert.continuous_duration}s ${alert.category === 'reminder' ? '(Reminder)' : '(Initial)'}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Duration: ${alert.duration}s</div>
                     </div>
                     <div class="alert-time">${alert.time}</div>
-                    <div class="alert-duration">${alert.continuous_duration}s</div>
+                    <div class="alert-duration">${alert.duration}s</div>
                 </div>`
             ).join('');
         }
 
         async function stopMonitoring() {
             try {
-                console.log('Stopping monitoring with PDF data consistency');
-                
-                // FIXED: Calculate final accumulated times for PDF consistency
+                // Calculate final accumulated times
                 const currentTime = Date.now();
                 Object.keys(personCurrentStates).forEach(personId => {
                     const currentState = personCurrentStates[personId];
@@ -1763,7 +1752,6 @@
                         const stateDuration = (currentTime - personStateStartTimes[personId]) / 1000;
                         if (stateDuration > 0) {
                             accumulatedDistractionTimes[currentState] += stateDuration;
-                            console.log(`Final ${stateDuration.toFixed(1)}s of ${currentState} for PDF`);
                         }
                     }
                 });
@@ -1775,7 +1763,7 @@
                 const stopData = {
                     sessionId: sessionId,
                     alerts: clientAlerts,
-                    personTimers: personSynchronizedTimers,
+                    personTimers: personTimers,
                     totalAlerts: alertCount,
                     sessionDuration: totalSessionSeconds,
                     accumulatedDistractionTimes: accumulatedDistractionTimes,
@@ -1785,21 +1773,12 @@
                     }
                 };
 
-                console.log('Sending PDF-consistent stop data:', {
-                    sessionId: sessionId,
-                    alertsCount: clientAlerts.length,
-                    totalAlerts: alertCount,
-                    accumulatedTimes: accumulatedDistractionTimes
-                });
-
                 const response = await fetch('/stop_monitoring', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(stopData)
                 });
                 const data = await response.json();
-
-                console.log('Server stop response with PDF-consistent data:', data);
 
                 updateUIForInactiveMonitoring();
                 stopDataUpdates();
@@ -1815,16 +1794,16 @@
                     processingInterval = null;
                 }
 
-                // Reset all tracking with confirmation
-                personSynchronizedTimers = {};
+                // Reset tracking
+                personTimers = {};
                 personCurrentStates = {};
                 personStateStartTimes = {};
                 personLastAlertTimes = {};
                 personLastReminderTimes = {};
                 currentDetections = [];
-                updateDetectionDisplaySynchronized();
+                updateDetectionDisplay();
 
-                showNotification(`Session complete! Generated ${alertCount} alerts with PDF-consistent duration tracking.`, 'success');
+                showNotification(`Session complete! Generated ${alertCount} alerts.`, 'success');
                 
                 setTimeout(() => {
                     attemptFileDownloadWithRetry(data);
@@ -1832,7 +1811,6 @@
                 
             } catch (error) {
                 showNotification('Failed to stop monitoring: ' + error.message, 'error');
-                updateSystemHealth('pdf', 'error');
             }
         }
 
@@ -1844,15 +1822,12 @@
         }
 
         async function attemptFileDownloadWithRetry(data, attempt = 1) {
-            console.log(`Attempting file download with PDF-consistent data, attempt ${attempt}`);
-            
             let pdfUrl = data.pdf_report;
             let videoUrl = data.video_file;
             
             if (!pdfUrl || !videoUrl) {
                 if (attempt < maxRetryAttempts) {
-                    console.log(`Files not ready, retrying in ${attempt * 5} seconds...`);
-                    showNotification(`Files are being generated with PDF-consistent data (attempt ${attempt}/${maxRetryAttempts}). Please wait...`, 'info');
+                    showNotification(`Files are being generated (attempt ${attempt}/${maxRetryAttempts}). Please wait...`, 'info');
                     
                     setTimeout(async () => {
                         try {
@@ -1896,27 +1871,22 @@
                             attemptFileDownloadWithRetry(newData, attempt + 1);
                             
                         } catch (error) {
-                            console.error('Health check failed during retry:', error);
                             attemptFileDownloadWithRetry(data, attempt + 1);
                         }
                     }, attempt * 5000);
                     
                     return;
                 } else {
-                    showNotification('Maximum retry attempts reached. Files with PDF-consistent data may be available later.', 'warning');
-                    updateSystemHealth('pdf', 'error');
+                    showNotification('Maximum retry attempts reached. Files may be available later.', 'warning');
                     return;
                 }
             }
             
             if (pdfUrl || videoUrl) {
                 showDownloads(pdfUrl, videoUrl);
-                updateSystemHealth('pdf', 'ok');
-                showNotification('Files generated successfully with PDF-consistent duration data!', 'success');
-                console.log('Files successfully available with PDF-consistent data:', { pdfUrl, videoUrl });
+                showNotification('Files generated successfully!', 'success');
             } else {
-                showNotification('File generation failed. Please check system logs.', 'error');
-                updateSystemHealth('pdf', 'error');
+                showNotification('File generation failed.', 'error');
             }
         }
 
@@ -1952,7 +1922,7 @@
             document.getElementById('focusedCount').textContent = '0';
             
             const detectionInfo = document.getElementById('detectionInfo');
-            detectionInfo.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-search" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Synchronized detection system ready</p></div>';
+            detectionInfo.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-search" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Detection system ready</p></div>';
             
             const detectionBadge = document.getElementById('detectionBadge');
             detectionBadge.style.display = 'none';
@@ -1972,7 +1942,7 @@
             
             liveIndicator.classList.add('active');
             liveDot.classList.add('active');
-            liveText.textContent = 'LIVE • SYNCHRONIZED';
+            liveText.textContent = 'LIVE';
             
             document.getElementById('videoPlaceholder').style.display = 'none';
             
@@ -1980,10 +1950,10 @@
             startSessionTimer();
             
             const alertHistory = document.getElementById('alertHistory');
-            alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>monitoring started - PDF-consistent tracking active...</p></div>';
+            alertHistory.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-clock" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring started...</p></div>';
             
             const detectionInfo = document.getElementById('detectionInfo');
-            detectionInfo.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-search" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>monitoring active - 5-second reminders enabled...</p></div>';
+            detectionInfo.innerHTML = '<div class="text-center" style="color: var(--text-secondary); padding: 20px;"><i class="fas fa-search" style="font-size: 2rem; margin-bottom: 12px; display: block;"></i><p>Monitoring active...</p></div>';
             
             lastAlertIds.clear();
         }
@@ -2001,7 +1971,6 @@
                         })
                         .catch(error => {
                             console.error('Failed to fetch monitoring data:', error);
-                            updateSystemHealth('sync', 'error');
                         });
                 }
             }, 3000);
@@ -2033,23 +2002,23 @@
             switch(status) {
                 case 'FOCUSED':
                     statusClass = 'status-focused';
-                    message = 'All persons focused - Synchronized tracking active';
+                    message = 'All persons focused';
                     break;
                 case 'NOT FOCUSED':
                     statusClass = 'status-unfocused';
-                    message = 'Attention drift detected - 5-second reminders enabled';
+                    message = 'Attention drift detected';
                     break;
                 case 'YAWNING':
                     statusClass = 'status-yawning';
-                    message = 'Fatigue signs detected - Productivity reminders active';
+                    message = 'Fatigue signs detected';
                     break;
                 case 'SLEEPING':
                     statusClass = 'status-sleeping';
-                    message = 'Sleep detected - Continuous reminder alerts active';
+                    message = 'Sleep detected';
                     break;
                 default:
                     statusClass = 'status-ready';
-                    message = 'monitoring ready - PDF data consistency enabled';
+                    message = 'Monitoring ready';
             }
             
             statusElement.classList.add(statusClass);
@@ -2108,8 +2077,8 @@
                             <i class="fas fa-file-pdf"></i>
                         </div>
                         <div>
-                            <div style="font-weight: 600;">SYNCHRONIZED Session Report</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with ${alertCount} synchronized alerts and consistent duration data</div>
+                            <div style="font-weight: 600;">Session Report</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">PDF with ${alertCount} alerts</div>
                         </div>
                     </div>
                     <a href="${pdfReport}" download class="btn btn-primary">
@@ -2128,8 +2097,8 @@
                             <i class="fas fa-video"></i>
                         </div>
                         <div>
-                            <div style="font-weight: 600;">SYNCHRONIZED Session Recording</div>
-                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Video with synchronized timing matching PDF report</div>
+                            <div style="font-weight: 600;">Session Recording</div>
+                            <div style="color: var(--text-secondary); font-size: 0.9rem;">Video with detection overlay</div>
                         </div>
                     </div>
                     <a href="${videoFile}" download class="btn btn-secondary">
@@ -2149,7 +2118,7 @@
                     link.download = `focus_screenshot_${sessionId}_${Date.now()}.png`;
                     link.href = clientCanvas.toDataURL();
                     link.click();
-                    showNotification('Screenshot captured with SYNCHRONIZED detection overlay', 'success');
+                    showNotification('Screenshot captured', 'success');
                 } catch (error) {
                     showNotification('Screenshot failed', 'error');
                 }
@@ -2224,7 +2193,7 @@
         `;
         document.head.appendChild(style);
 
-        // cleanup on page unload
+        // Cleanup on page unload
         window.addEventListener('beforeunload', function() {
             if (isMonitoring) {
                 fetch('/stop_monitoring', {
@@ -2252,13 +2221,11 @@
 
         document.addEventListener('visibilitychange', function() {
             if (document.hidden && isMonitoring) {
-                console.log('Page hidden, reducing processing frequency');
                 if (processingInterval) {
                     clearInterval(processingInterval);
                     processingInterval = setInterval(processClientFrame, 3000);
                 }
             } else if (!document.hidden && isMonitoring) {
-                console.log('Page visible, resuming normal processing');
                 if (processingInterval) {
                     clearInterval(processingInterval);
                     processingInterval = setInterval(processClientFrame, 1000);
@@ -2268,11 +2235,12 @@
 
         setInterval(() => {
             if (isMonitoring && clientAlerts.length > 50) {
-                console.log('Memory optimization - clearing old alerts');
                 clientAlerts = clientAlerts.slice(0, 50);
-                updateSystemHealth('sync', 'ok');
             }
         }, 60000);
+
+        // Initialize audio status text
+        updateAudioStatusText();
     </script>
 </body>
 </html>
